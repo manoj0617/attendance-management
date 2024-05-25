@@ -1,0 +1,39 @@
+<% layout("../layouts/facultyBoilerplate") -%>
+<body class="courses-body">
+              <div class="row">
+                <div class="col-md-12 faculty-details">
+                  <div class="student-details" style="margin: 0;">
+                    <h1><%=currUser.name%></h1>
+                    <h2><%=currUser.dept%> Department Faculty</h2>
+                  </div>
+                  </div>
+                <div class="col-md-12 course-details">
+                  <div class="course-details">
+                    <h2>
+                        Ongoing Courses:
+                    </h2>
+                    <div class="row">
+                    <%for(course of courses){%>
+                      <div class="card col-md-3 course-card">
+                        <div class="card-body">
+                          <h3><%= course.course %></h3>
+                          <h4 class="card-subtitle mb-2 text-body-primary">Branch <%=course.dept%>-<%=course.year%></h4>
+                          <div class="button-container">
+                            <a href="/faculty/courses/<%= course._id %>">
+                            <button class="btn btn-dark course-btn">
+                              Click here
+                            </button>
+                          </a>
+                          </div>
+                        </div>
+                      </div>
+                    <%}%>
+                    </div>
+                </div>
+                  </div>
+              </div>
+              
+              
+              <br>
+              
+</body>

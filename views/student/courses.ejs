@@ -1,0 +1,79 @@
+<% layout("../layouts/studentBoilerplate") -%>
+<body class="courses-body">
+  <div class="main row">
+    <div class="student-details">
+      <h1><%= currUser.name %>-<%=currUser.username%></h1>
+        <h2><%= currUser.dept %>-<%= currUser.year %></h>
+    </div>
+    <div class="course-details">
+      <h1>Ongoing Courses:</h1>
+      <div class="course-cards">
+        <% for (course of courses) { %>
+          <div class="card col-md-3 course-card">
+            <div class="card-body">
+              <h2><%= course.course %></h2>
+              <h4 class="card-subtitle mb-2 text-body-primary">Faculty - <%= course.faculty.name %></h4>
+              <div class="button-container">
+                <a href="/student/courses/<%= course._id %>">
+                <button class="btn btn-dark course-btn">
+                  Click here
+                </button>
+                </a>
+              </div>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+    <div class="attendance-details">
+    <div class="average-attendance">
+      <h2>Average Attendance Record</h2>
+      <div class="circle" id="circle">
+          <span id="percentage-text"><h1><%= percentage %>%</h1></span>
+      </div>
+    <div class="eligibility-status">
+      <%if(percentage>75){%>
+        <h3 class="eligible">Eligible(Eligibility cut-off 75%)</>
+        <%}else{%>
+          <h3 class="not-eligible">Not Eligible(Eligibility cut-off 75%)</h3>                            
+        <%}%>
+    </div>
+  </div>
+    </div>
+  </div>
+  <script>
+    // Set the attendance percentage dynamically from EJS data
+    function setAttendancePercentage(percentage) {
+    const circle = document.getElementById('circle');
+    const percentageText = document.getElementById('percentage-text');
+    
+    // Update the text inside the circle
+    percentageText.textContent = `${percentage}%`;
+    
+    // Update the conic-gradient to reflect the new percentage
+    circle.style.background = `conic-gradient(
+        green 0%,
+        green ${percentage}%,
+        red ${percentage}%,
+        red 100%
+    )`;
+}
+    setAttendancePercentage( percentage);
+  </script>
+
+  <!-- <div class="row">
+    <div class="col-md-12 faculty-details">
+      <div class="course-card">
+        
+      </div>
+    </div>
+
+    <div class="col-md-12 course-details">
+      
+      
+    </div>
+  </div>
+  <div class="attendance-record">
+    
+  </div> -->
+</body>

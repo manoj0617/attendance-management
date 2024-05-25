@@ -1,5 +1,7 @@
 [build]
   functions = "netlify/functions"
+  publish = "public"
+  command = "npm install"
 
 [[redirects]]
   from = "/*"

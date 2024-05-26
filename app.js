@@ -1,119 +1,146 @@
+// Load environment variables in development mode
 if(process.env.NODE_ENV != "production"){
   require('dotenv').config();
 }
-const express=require('express');
-const app=express();
-const path=require("path");
-const mongoose=require("mongoose");
-const engine =require('ejs-mate');
-const ExpressError=require("./utils/ExpressError.js");
-const session=require('express-session');
+
+// Required modules
+const express = require('express');
+const app = express();
+const path = require("path");
+const mongoose = require("mongoose");
+const engine = require('ejs-mate');
+const ExpressError = require("./utils/ExpressError.js");
+const session = require('express-session');
 const MongoStore = require('connect-mongo');
-const flash=require('connect-flash');
-const passport=require('passport');
-const LocalStrategy=require('passport-local');
-const Student=require('./models/student.js');
-const Faculty=require('./models/faculty.js');
+const flash = require('connect-flash');
+const passport = require('passport');
+const LocalStrategy = require('passport-local');
+const Student = require('./models/student.js');
+const Faculty = require('./models/faculty.js');
 const bodyParser = require('body-parser');
-const dbUrl=process.env.ATLASDB_URL;
 
-const studentRouter=require('./routes/student.js');
-const facultyRouter=require('./routes/faculty.js');
+// MongoDB connection URL
+const dbUrl = process.env.ATLASDB_URL;
 
-app.set("views",path.join(__dirname,"views"));
-app.set("view engine","ejs");
-app.use(express.static(path.join(__dirname,"public")));
-app.use(express.urlencoded({extended:true}));
-app.engine('ejs',engine);
+// Import routers
+const studentRouter = require('./routes/student.js');
+const facultyRouter = require('./routes/faculty.js');
+
+// Configure views and static files
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
+app.use(express.static(path.join(__dirname, "public")));
+
+// Middleware setup
+app.use(express.urlencoded({ extended: true }));
+app.engine('ejs', engine);
 app.use(bodyParser.json());
-const store=MongoStore.create({
-  mongoUrl:dbUrl,
-  crypto:{
-      secret:process.env.SECRET,
+
+// Create Mongo store for session management
+const store = MongoStore.create({
+  mongoUrl: dbUrl,
+  crypto: {
+    secret: process.env.SECRET,
   },
-  touchAfter:24*3600,
-})
-store.on("error",()=>{
-  console.log("ERROR IN MONGO STORE",err);
+  touchAfter: 24 * 3600,
 });
 
-const sessionOptions={
-    store:store,
-    secret:process.env.SECRET,
-    resave:false,
-    saveUninitialized:true,
-    cookie:{
-        expires:Date.now()+7*24*60*60*1000,
-        maxAge:7*24*60*60*1000,
-        httpOnly:true,
-    }
+// Handle store errors
+store.on("error", (err) => {
+  console.log("ERROR IN MONGO STORE", err);
+});
+
+// Session options
+const sessionOptions = {
+  store: store,
+  secret: process.env.SECRET,
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+  }
 };
+
+// Session middleware
 app.use(session(sessionOptions));
 app.use(flash());
 
+// Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Configure local strategy for faculty authentication
 passport.use('local-faculty', new LocalStrategy(Faculty.authenticate()));
 
-// Passport strategies for Student
+// Configure local strategy for student authentication
 passport.use('local-student', new LocalStrategy(Student.authenticate()));
+
+// Serialize and deserialize user for session management
 passport.serializeUser((user, done) => {
-    console.log('Serializing user:', user);
-    done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : 'student' });
-  });
-  
-  passport.deserializeUser(async (key, done) => {
-    try {
-      console.log('Deserializing user:', key);
-      if (key.type === 'faculty') {
-        const user = await Faculty.findOne({ username: key.username });
-        console.log('Found faculty:', user);
-        done(null, user);
-      } else if (key.type === 'student') {
-        const user = await Student.findOne({ username: key.username });
-        console.log('Found student:', user);
-        done(null, user);
-      } else {
-        done(new Error('Invalid user type'));
-      }
-    } catch (err) {
-      done(err);
+  console.log('Serializing user:', user);
+  done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : 'student' });
+});
+
+passport.deserializeUser(async (key, done) => {
+  try {
+    console.log('Deserializing user:', key);
+    if (key.type === 'faculty') {
+      const user = await Faculty.findOne({ username: key.username });
+      console.log('Found faculty:', user);
+      done(null, user);
+    } else if (key.type === 'student') {
+      const user = await Student.findOne({ username: key.username });
+      console.log('Found student:', user);
+      done(null, user);
+    } else {
+      done(new Error('Invalid user type'));
     }
-  });
-  
-
-
-app.use((req,res,next)=>{
-    res.locals.success=req.flash("success");
-    res.locals.error=req.flash("error");
-    res.locals.currUser=req.user;
-    return next();
+  } catch (err) {
+    done(err);
+  }
 });
 
-app.use("/student",studentRouter);
-app.use("/faculty",facultyRouter);
+// Middleware to set locals
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  res.locals.currUser = req.user;
+  return next();
+});
 
+// Routes
+app.use("/student", studentRouter);
+app.use("/faculty", facultyRouter);
+
+// Connect to MongoDB and start server
 async function main(){
-    await mongoose.connect(dbUrl);
+  await mongoose.connect(dbUrl);
 }
-main().then(()=>{
-    console.log("connection successful");
-}).catch((err)=>{
-    console.log(err);
+
+main().then(() => {
+  console.log("Connection successful");
+}).catch((err) => {
+  console.log(err);
 });
 
-app.get('/',(req,res)=>{
-    return res.render('home.ejs');
+// Home route
+app.get('/', (req, res) => {
+  return res.render('home.ejs');
 });
 
-app.all("*",(req,res,next)=>{
-    return next(new ExpressError(404,"page not found"));
+// Error handling middleware
+app.all("*", (req, res, next) => {
+  return next(new ExpressError(404, "Page not found"));
 });
-app.use((err,req,res,next)=>{
-    let {status=500,message="Internal server error"}=err;
-    return res.status(status).render("error.ejs",{message});
+
+app.use((err, req, res, next) => {
+  let { status = 500, message = "Internal server error" } = err;
+  return res.status(status).render("error.ejs", { message });
 });
-app.listen(2000,()=>{
-    console.log("listening to port 2000");
+
+// Start server
+app.listen(2000, () => {
+  console.log("Listening to port 2000");
 });

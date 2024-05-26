@@ -1,42 +1,51 @@
 <% layout("../layouts/studentBoilerplate") -%>
+
 <body class="courses-body">
-    <div class="row">    
-              <div class="container">
-                <div class="course-details">
-                    <h1><%=course.course%></h1>
-                </div>
+    <!-- Main Row -->
+    <div class="row">
+        <!-- Course Details Container -->
+        <div class="container">
+            <div class="course-details">
+                <h1><%= course.course %></h1>
             </div>
-              <div class="course-name">
-                    <div>
-                    <table class="table">
-                        <thead>
-                          <tr>
-                            <th class="col"scope="col">S.no</th>
-                            <th class="col"scope="col">name</th>
-                            <th class="col"scope="col">Roll no.</th>
-                            <th class="col"scope="col">date</th>
-                            <th class="col"scope="col">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+        </div>
+        
+        <!-- Attendance Table -->
+        <div class="course-name">
+            <div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="col" scope="col">S.no</th>
+                            <th class="col" scope="col">Name</th>
+                            <th class="col" scope="col">Roll No.</th>
+                            <th class="col" scope="col">Date</th>
+                            <th class="col" scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Check if there is attendance data -->
                         <% if (attendances && attendances.length > 0) { %>
-                          <%attendances.forEach(function(attendance) {%>
-                            <tr>
-                                <td class="col-0.5"><%=++x%></td>
-                                <td class="col-3"><%=attendance.name%></td>
-                                <td class="col-3"><%=attendance.roll%></td>
-                                <td class="col-3"><%=moment(attendance.date).format("DD-MM-YYYY")%></td>
-                                <td class="col-1"><%=attendance.status%></td>
-                              </tr>
-                              <%})%>
-                              <% } else { %>
+                            <!-- Loop through each attendance record -->
+                            <% attendances.forEach(function(attendance) { %>
                                 <tr>
-                                  <td colspan="5">No attendance data available.</td>
+                                    <td class="col-0.5"><%= ++x %></td>
+                                    <td class="col-3"><%= attendance.name %></td>
+                                    <td class="col-3"><%= attendance.roll %></td>
+                                    <td class="col-3"><%= moment(attendance.date).format("DD-MM-YYYY") %></td>
+                                    <td class="col-1"><%= attendance.status %></td>
                                 </tr>
-                              <% } %>
-                        </tbody>
-                      </table>
-                      </div>
-              </div>
-              <br>
+                            <% }) %>
+                        <% } else { %>
+                            <!-- Display message if no attendance data is available -->
+                            <tr>
+                                <td colspan="5">No attendance data available.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <br>
 </body>

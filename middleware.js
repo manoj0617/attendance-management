@@ -1,3 +1,5 @@
+const downloadSchema=require("./schema.js");
+const ExpressError=require("./utils/ExpressError");
 module.exports.isFacultyLoggedIn=((req,res,next)=>{
     console.log("Authenticated:", req.isAuthenticated());
     if(!req.isAuthenticated()){
@@ -22,4 +24,15 @@ module.exports.saveRedirectUrl=(req,res,next)=>{
         res.locals.redirectUrl=req.session.redirectUrl;
     };
     return next();
+};
+module.exports.validateDownload=(req,res,next)=>{
+    let {error}=downloadSchema.validate(req.body);
+    if(error){
+        let errMsg=error.details.map((el)=>el.message).join(",");
+        console.log(error);
+        throw new ExpressError("400",error);
+        next(err);
+    }else{
+        next();
+    }
 };

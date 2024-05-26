@@ -1,17 +1,22 @@
+/* Reset and general styles */
 * {
   font-family: "Roboto", sans-serif;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-body{
+
+/* Body styles */
+body {
   overflow-x: hidden;
 }
 
+/* Course body styles */
 body.courses-body {
   background-color: #eee;
 }
 
+/* Heading styles */
 .heading {
   display: flex;
   align-items: end;
@@ -29,6 +34,7 @@ body.courses-body {
   margin: 1rem 1rem 0 0;
 }
 
+/* Navigation button styles */
 .nav-btn {
   background-color: #333;
   color: #fff;
@@ -38,6 +44,7 @@ body.courses-body {
   border-radius: 4px;
 }
 
+/* Offcanvas styles */
 .offcanvas {
   background-color: #fff;
   padding: 1rem;
@@ -56,6 +63,7 @@ body.courses-body {
   background-color: #eee;
 }
 
+/* Course card styles */
 .course-card {
   width: 40rem;
   margin: 1rem;
@@ -87,6 +95,7 @@ body.courses-body {
   color: #666;
 }
 
+/* Course button styles */
 .course-btn {
   background-color: #007bff;
   color: white;
@@ -107,12 +116,14 @@ body.courses-body {
   color: white;
 }
 
+/* Button container styles */
 .button-container {
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
+/* Table styles */
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -129,12 +140,14 @@ body.courses-body {
   background-color: #eee;
 }
 
+/* Select styles */
 select {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
+/* Table container styles */
 .table-container {
   max-width: 100%;
   overflow-x: auto;
@@ -145,29 +158,34 @@ select {
   text-align: center;
 }
 
+/* Other details styles */
 .student-details, .course-details, .attendance-details {
   margin: 1rem;
 }
 
-.attendance-details{
+/* Attendance details styles */
+.attendance-details {
   text-align: center;
   background-color: #D9DAFC;
   margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 110%;
-    overflow-x: hidden; /* Prevent horizontal scrolling */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  padding: 0;
+  width: 100%;
+  height: 110%;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+
+/* Eligibility status styles */
 .eligibility-status .eligible {
   background-color: green;
   text-align: center;
   color: white;
   text-align: center;
+  width: 500px;
   position: relative;
-  left: 43rem;
+  right:4rem;
 }
 
 .eligibility-status .not-eligible {
@@ -175,39 +193,50 @@ select {
   color: white;
   background-color: red;
   width: 500px;
-  /* margin-left: 38rem; */
-  /* position: relative;
-  left: 38rem; */
+  margin-right: 18rem;
+  position: relative;
+  right:  4rem;
 }
-.eligibility-status{
+
+.eligibility-status {
   background-color: #D9DAFC;
 }
-.student-details h1{
-  margin-left:2rem;
+
+/* Student details styles */
+.student-details h1 {
+  margin-left: 2rem;
   margin-top: 0 !important;
 }
-.student-details h2{
-  margin-left:2rem;
+
+.student-details h2 {
+  margin-left: 2rem;
 }
-.student-details{
+
+.student-details {
   color: white;
   background-color:#0b52beb3;
   margin: 0;
 }
-.course-details h1{
-  margin-left:2rem;
-}.course-details h1{
-  margin-left:2rem;
-  margin-top:1rem;
+
+/* Course details styles */
+.course-details h1 {
+  margin-left: 2rem;
 }
-.course-cards{
-  display:flex;
-  margin:0.5rem;
+
+.course-details h1 {
+  margin-left: 2rem;
+  margin-top: 1rem;
 }
+
+.course-cards {
+  display: flex;
+  margin: 0.5rem;
+}
+
+/* Average attendance styles */
 .average-attendance {
   text-align: center;
   padding: 20px;
-  /* background-color: rgb(255, 255, 255); */
   border-radius: 10px;
   width: 200px;
   margin: auto;
@@ -218,12 +247,7 @@ select {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: conic-gradient(
-      green 0%,
-      green 67%, /* This is where the dynamic percentage will be set */
-      red 67%, /* Same percentage as above */
-      red 100%
-  );
+  background-color: #7c8288;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -234,7 +258,8 @@ select {
   font-size: 2em;
   color: #ffffff;
 }
-.average-attendance h2{
+
+.average-attendance h2 {
   display: flex;
   width: 100%;
   white-space: nowrap;
@@ -242,13 +267,25 @@ select {
   position:relative;
   right:2rem;
 }
-#none{
+
+/* Hidden element styles */
+#none {
   display: none;
 }
-.home-btns{
-  display:flex;
+
+/* Home button styles */
+.home-btns {
+  display: flex;
 }
-.home-body{
+
+/* Home body styles */
+.home-body {
   color: white;
   background-image: url(https://res.cloudinary.com/drqpxfysj/image/upload/v1716372935/ozvo98qhspbtzslfewyg.jpg);
 }
+
+.home-body h2 {
+  margin-left: 6rem !important;
+  margin-top: 1rem;
+}
+

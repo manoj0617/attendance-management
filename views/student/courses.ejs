@@ -1,13 +1,20 @@
 <% layout("../layouts/studentBoilerplate") -%>
+
 <body class="courses-body">
+  <!-- Main Container -->
   <div class="main row">
+    
+    <!-- Student Details Section -->
     <div class="student-details">
-      <h1><%= currUser.name %>-<%=currUser.username%></h1>
-        <h2><%= currUser.dept %>-<%= currUser.year %></h>
+      <h1><%= currUser.name %> - <%= currUser.username %></h1>
+      <h2><%= currUser.dept %> - <%= currUser.year %></h2>
     </div>
+    
+    <!-- Ongoing Courses Section -->
     <div class="course-details">
       <h1>Ongoing Courses:</h1>
       <div class="course-cards">
+        <!-- Loop through each course and display it -->
         <% for (course of courses) { %>
           <div class="card col-md-3 course-card">
             <div class="card-body">
@@ -15,9 +22,9 @@
               <h4 class="card-subtitle mb-2 text-body-primary">Faculty - <%= course.faculty.name %></h4>
               <div class="button-container">
                 <a href="/student/courses/<%= course._id %>">
-                <button class="btn btn-dark course-btn">
-                  Click here
-                </button>
+                  <button class="btn btn-dark course-btn">
+                    Click here
+                  </button>
                 </a>
               </div>
             </div>
@@ -25,55 +32,25 @@
         <% } %>
       </div>
     </div>
+    
+    <!-- Attendance Details Section -->
     <div class="attendance-details">
-    <div class="average-attendance">
-      <h2>Average Attendance Record</h2>
-      <div class="circle" id="circle">
-          <span id="percentage-text"><h1><%= percentage %>%</h1></span>
+      <!-- Average Attendance Record -->
+      <div class="average-attendance">
+        <h2>Average Attendance Record</h2>
+        <div class="circle" id="circle">
+          <span id="percentage-text"><h1><%= percentage %> %</h1></span>
+        </div>
       </div>
-    <div class="eligibility-status">
-      <%if(percentage>75){%>
-        <h3 class="eligible">Eligible(Eligibility cut-off 75%)</>
-        <%}else{%>
-          <h3 class="not-eligible">Not Eligible(Eligibility cut-off 75%)</h3>                            
-        <%}%>
-    </div>
-  </div>
-    </div>
-  </div>
-  <script>
-    // Set the attendance percentage dynamically from EJS data
-    function setAttendancePercentage(percentage) {
-    const circle = document.getElementById('circle');
-    const percentageText = document.getElementById('percentage-text');
-    
-    // Update the text inside the circle
-    percentageText.textContent = `${percentage}%`;
-    
-    // Update the conic-gradient to reflect the new percentage
-    circle.style.background = `conic-gradient(
-        green 0%,
-        green ${percentage}%,
-        red ${percentage}%,
-        red 100%
-    )`;
-}
-    setAttendancePercentage( percentage);
-  </script>
 
-  <!-- <div class="row">
-    <div class="col-md-12 faculty-details">
-      <div class="course-card">
-        
+      <!-- Eligibility Status -->
+      <div class="eligibility-status">
+        <% if (percentage > 75) { %>
+          <h3 class="eligible">Eligible (Eligibility cut-off 75%)</h3>
+        <% } else { %>
+          <h3 class="not-eligible">Not Eligible (Eligibility cut-off 75%)</h3>
+        <% } %>
       </div>
     </div>
-
-    <div class="col-md-12 course-details">
-      
-      
-    </div>
   </div>
-  <div class="attendance-record">
-    
-  </div> -->
 </body>

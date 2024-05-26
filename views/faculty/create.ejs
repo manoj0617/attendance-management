@@ -1,19 +1,29 @@
 <% layout("../layouts/facultyBoilerplate") -%>
+
 <body style="height: 100vh; width: 100%;">
-  <div class="container text-center" >
-  <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
-                <form method="post" action="/faculty/create" class="col needs-validation" novalidate>
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- Course Creation Form Container -->
+        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- Course Creation Form -->
+            <form method="post" action="/faculty/create" class="col needs-validation" novalidate>
                 <h2 class="col">Course Details</h2>
+                
+                <!-- Course Name Input -->
                 <div class="col mb-3">
                     <label for="course" class="form-label"></label>
-                    <input name="course" id="course"  class="form-control" placeholder="Course name" type="text" required>
-                    </div>
-                    <div class="col mb-3">
-                        <label for="year" class="form-label"></label>
-                        <input name="year" id="year"  class="form-control" placeholder="Branch year" type="number" required>
-                        </div>
-                        <button type="submit" class="btn btn-outline-dark mt-3">submit</button>
-                        </form> 
-  </div>
-  </div>                   
+                    <input name="course" id="course" class="form-control" placeholder="Course name" type="text" required>
+                </div>
+                
+                <!-- Branch Year Input -->
+                <div class="col mb-3">
+                    <label for="year" class="form-label"></label>
+                    <input name="year" id="year" class="form-control" placeholder="Branch year" type="number" required>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-outline-dark mt-3">Submit</button>
+            </form> 
+        </div>
+    </div>                   
 </body>

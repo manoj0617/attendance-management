@@ -1,37 +1,54 @@
 <% layout("../layouts/facultyBoilerplate") -%>
+
 <body style="height: 100vh; width: 100%;">
-  <div class="container text-center" >
-  <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
-                <form method="post" action="/faculty/download" class="col needs-validation" novalidate>
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- Attendance Download Form Container -->
+        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- Attendance Download Form -->
+            <form method="post" action="/faculty/download" class="col needs-validation" novalidate>
                 <h2 class="col">Download Attendance</h2>
+                
+                <!-- Date Range Inputs -->
                 <div class="row col mb-3">
-                  <div class="col">
-                  <label for="date"><h5>from</h5></label>
-                  <input type="date" id="date" name="from" required>  
-                  <div class="invalid-feedback">
-                    Please choose a date.
-                  </div>
-                </div>
-                  <div class="col">
-                  <label for="date"><h5>to</h5></label>
+                    <!-- From Date Input -->
+                    <div class="col">
+                        <label for="date">
+                            <h5>From</h5>
+                        </label>
+                        <input type="date" id="date" name="from" required>
+                        <div class="invalid-feedback">
+                            Please choose a date.
+                        </div>
+                    </div>
+                    
+                    <!-- To Date Input -->
+                    <div class="col">
+                        <label for="date">
+                            <h5>To</h5>
+                        </label>
                         <input type="date" id="date" name="to" required>
                         <div class="invalid-feedback">
-                          Please choose a date.
+                            Please choose a date.
                         </div>
-                        </div>                         
-                    </div>     
-                    <div class="row mb-3">
-                      <label for="course">Course:</label>
-                      <select id="myDropdown" name="course">
-                          <%for(course of courses){%>
-                          <option value="<%=course.course%>"><%=course.course%></option>
-                          <%}%>
-                        </select>
-                    </div>               
-                    <div class="button-container">
-                      <button class="btn btn-outline-dark">Submit</button>
                     </div>
-                        </form> 
-  </div>
-  </div>                   
+                </div>
+                
+                <!-- Course Selection Dropdown -->
+                <div class="row mb-3">
+                    <label for="course">Course:</label>
+                    <select id="myDropdown" name="course">
+                        <% for (course of courses) { %>
+                            <option value="<%= course.course %>"><%= course.course %></option>
+                        <% } %>
+                    </select>
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="button-container">
+                    <button class="btn btn-outline-dark">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>                   
 </body>

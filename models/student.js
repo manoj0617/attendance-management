@@ -1,3 +1,4 @@
+const { required } = require("joi");
 const mongoose=require("mongoose");
 const {Schema}=mongoose;
 const passportLocalMongoose = require('passport-local-mongoose');
@@ -18,7 +19,13 @@ const studentSchema=mongoose.Schema({
     year:{
         type:String,
         required:true,
-    }
+    },
+    gender:{
+        type:String,
+        required:true,
+        enum:['M','F'],
+    },
+    section: { type: Schema.Types.ObjectId, ref: 'Section' },
 });
 
 studentSchema.plugin(passportLocalMongoose);

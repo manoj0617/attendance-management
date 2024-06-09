@@ -1,0 +1,77 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Add Students to Section</h1>
+
+        <!-- Flash message for student addition -->
+        <% if (locals.success && locals.success.length) { %>
+            <div class="alert alert-success" role="alert">
+                <%= locals.success %>
+            </div>
+        <% } %>
+        
+
+        <!-- Search form -->
+        <form id="searchForm" method="get" action="/admin/section/<%= section._id %>/search-students" class="mb-4">
+            <div class="form-group">
+                <label for="searchQuery">Search Students by Username:</label>
+                <input type="text" name="searchQuery" class="form-control" id="searchQuery" placeholder="Enter student username">
+            </div>
+        </form>
+
+        <!-- List of students already in the section -->
+        <div class="mt-5">
+            <h2>Students in this Section:</h2>
+            <ul class="list-group">
+                <% section.students.forEach(function(student) { %>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><%= student.username %> - <%= student.name %></span>
+                        <form><button class="btn btn-danger btn-sm" >Remove</button></form>
+                    </li>
+                <% }); %>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Include jQuery and jQuery UI Autocomplete libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script>
+        $(function() {
+            $("#searchQuery").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: `/admin/section/<%= section._id %>/search-students`,
+                        method: "GET",
+                        dataType: "json",
+                        data: {
+                            term: request.term
+                        },
+                        success: function(data) {
+                            response(data.slice(0, 5).map(student => ({
+                                label: student.username + " - " + student.name,
+                                value: student._id
+                            })));
+                        }
+                    });
+                },
+                minLength: 2,
+                select: function(event, ui) {
+                    $.ajax({
+                        url: `/admin/section/<%= section._id %>/add-student`,
+                        method: "POST",
+                        data: {
+                            studentId: ui.item.value
+                        },
+                        success: function(data) {
+                            window.location.reload();
+                        }
+                    });
+                    $("#searchQuery").val('');
+                    return false;
+                }
+            });
+        });
+    </script>
+</body>

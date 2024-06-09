@@ -1,0 +1,34 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body style="height: 100vh; width: 100%;">
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- admin Login Form Container -->
+        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- admin Login Form -->
+            <form method="post" action="/admin/section/new" class="col needs-validation" novalidate>
+                <h2 class="col">New Section</h2>                
+                <div class="mb-3">
+                    <label for="branch" class="form-label"></label>
+                    <select name="branch" id="branch" class="form-control" required>
+                        <option value="" disabled selected>Select Branch</option>
+                        <option value="cse">cse</option>
+                        <option value="cse-ds">cse-ds</option>
+                        <option value="cse-cs">cse-cs</option>
+                        <option value="cse-aiml">cse-aiml</option>
+                    </select>
+                </div>
+                
+                <!-- Password Input -->
+                <div class="mb-3 col">
+                    <label for="name" class="form-label"></label>
+                    <input id="name" name="name" class="form-control" placeholder="section name" type="text" required>
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="button-container">
+                    <button type="submit" class="btn btn-dark btn-add mt-3">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>                  
+</body>

@@ -289,3 +289,84 @@ select {
   margin-top: 1rem;
 }
 
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button.btn-danger {
+  color: #fff;
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+button.btn-danger:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+/* Autocomplete styles */
+.ui-autocomplete {
+  max-height: 150px; /* Limit to approximately 5 results */
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.ui-menu-item {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.ui-menu-item:hover {
+  background-color: #f1f1f1;
+}
+
+.ui-helper-hidden-accessible {
+  display: none;
+}
+
+/* Styling for the list of students in the section */
+.list-group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  padding: 0.75rem 1.25rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+/* CSS to adjust the width of the search results dropdown */
+.ui-autocomplete {
+  max-height: 200px; /* Set a maximum height for the dropdown */
+  overflow-y: auto; /* Enable vertical scrolling if needed */
+  width: calc(80% - 2px); /* Adjust the width to match the input box */
+  border: 1px solid #ccc; /* Add a border for visual separation */
+  position: absolute; /* Position the dropdown absolutely */
+  background-color: #fff; /* Set background color */
+  z-index: 1000; /* Set a higher z-index to ensure it appears above other elements */
+}

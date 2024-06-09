@@ -1,0 +1,78 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body style="height: 100vh; width: 100%;">
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- Course Create Form Container -->
+        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- Signup Form -->
+            <form method="post" action="/student/signup" class="needs-validation" novalidate>
+                <h2>Student details</h2>
+                
+                <!-- Name Input -->
+                <div class="mb-3">
+                    <label for="name" class="form-label"></label>
+                    <input name="name" id="name"  class="form-control" placeholder="name" type="text" required>
+                    <div class="invalid-feedback">
+                        Please enter correct name
+                    </div>
+                </div>
+                
+                <!-- Email Input -->
+                <div class="mb-3">
+                    <label for="email" class="form-label"></label>
+                    <input name="email" id="email"  class="form-control" placeholder="email" type="email" required>
+                    <div class="invalid-feedback">
+                        Please enter correct email
+                    </div>
+                </div>
+                
+                <!-- Username (Roll No.) Input -->
+                <div class="mb-3">
+                    <label for="username" class="form-label"></label>
+                    <input id="username"  name="username" class="form-control" placeholder="Roll No." type="text" required>
+                </div>
+                
+                <!-- Password Input -->
+                <div class="mb-3">
+                    <label for="password" class="form-label"></label>
+                    <input id="password"  name="password" class="form-control" placeholder="password" type="password" required>
+                </div>
+                
+                <!-- Year of Joining Input -->
+                <div class="mb-3">
+                    <label for="year" class="form-label"></label>
+                    <input name="year" id="year"  class="form-control" placeholder="year of joining" type="number" required>
+                    <div class="invalid-feedback">
+                        Please enter correct year
+                    </div>
+                </div>
+                
+                <!-- Department Selection -->
+                <div class="mb-3">
+                    <label for="dept" class="form-label"></label>
+                    <select name="dept" id="dept" class="form-control" required>
+                        <option value="" disabled selected>Select your Branch</option>
+                        <option value="cse">cse</option>
+                        <option value="cse-ds">cse-ds</option>
+                        <option value="cse-cs">cse-cs</option>
+                        <option value="cse-aiml">cse-aiml</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="gender" class="form-label"></label>
+                    <select name="gender" id="gender" class="form-control" required>
+                        <option value="" disabled selected>Select your gender</option>
+                        <option value="M">Male</option>
+                        <option value="F">Female</option>
+                    </select>
+                    <div class="invalid-feedback">
+                        Please select your gender
+                    </div>
+                </div>
+                
+                <!-- Signup Button -->
+                <button type="submit" class="btn btn-dark btn-add mt-3">Add</button>
+            </form>
+        </div>
+    </div>
+</body>

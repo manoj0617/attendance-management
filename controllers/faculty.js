@@ -2,6 +2,7 @@ const Course = require('../models/course.js');
 const Student = require('../models/student.js');
 const Attendance = require("../models/attendance.js");
 const Faculty = require('../models/faculty');
+const { Parser } = require('json2csv');
 
 // Render login form
 module.exports.renderLoginForm = (req, res) => {

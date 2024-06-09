@@ -1,0 +1,111 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Manage Students</h1>
+
+        <!-- Search and Filter Section -->
+        <div class="mb-4">
+            <form id="searchForm" method="get" action="/admin/student/search">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="text" name="username" class="form-control" placeholder="Username">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="year" id="year" class="form-control">
+                            <option value="" disabled selected>Select Year</option>
+                            <option value="2020">2020-24</option>
+                            <option value="2021">2021-25</option>
+                            <option value="2022">2022-26</option>
+                            <option value="2023">2023-27</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="dept" id="dept" class="form-control" disabled>
+                            <option value="" disabled selected>Select Department</option>
+                            <option value="cse">CSE</option>
+                            <option value="cse-ds">CSE-DS</option>
+                            <option value="cse-cs">CSE-CS</option>
+                            <option value="cse-aiml">CSE-AIML</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="section" id="section" class="form-control" disabled>
+                            <option value="" disabled selected>Select Section</option>
+                            <% sections.forEach(function(section) { %>
+                                <option value="<%= section._id %>"><%= section.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+        </div>
+
+        <!-- Add New Student Button -->
+        <form method="get" action="/admin/student/new">
+            <button class="btn btn-success mb-3">Add New Student</button>
+        </form>
+
+        <!-- Student Table -->
+        <% if (students && students.length > 0) { %>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th scope="col">S.no</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Roll No.</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Year</th>
+                        <th scope="col">Gender</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% students.forEach(function(student, index) { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= student.name %></td>
+                            <td><%= student.username %></td>
+                            <td><%= student.email %></td>
+                            <td><%= student.dept %></td>
+                            <td><%= student.year %></td>
+                            <td><%= student.gender %></td>
+                            <td>
+                                <form method="get" action="/admin/student/<%= student._id %>">
+                                    <button type="submit" class="btn btn-info btn-sm">View</button>
+                                </form>
+                                <form method="get" action="/admin/student/<%= student._id %>/edit">
+                                    <button type="submit" class="btn btn-warning btn-sm">Edit</button>
+                                </form>
+                                <form method="post" action="/admin/student/<%= student._id %>?_method=DELETE" onsubmit="return confirmDeletion(event)">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p>No student data available. Please use the search form above to find students.</p>
+        <% } %>
+    </div>
+
+    <script>
+        // Enable/disable department and section based on the selected year
+        document.getElementById('year').addEventListener('change', function() {
+            document.getElementById('dept').disabled = !this.value;
+            document.getElementById('section').disabled = true;
+        });
+
+        document.getElementById('dept').addEventListener('change', function() {
+            document.getElementById('section').disabled = !this.value;
+        });
+
+        function confirmDeletion(event) {
+            if (!confirm('Are you sure you want to delete this student?')) {
+                event.preventDefault();
+            }
+        }
+    </script>
+</body>

@@ -18,6 +18,8 @@ const LocalStrategy = require('passport-local');
 const Student = require('./models/student.js');
 const Faculty = require('./models/faculty.js');
 const bodyParser = require('body-parser');
+const Admin = require('./models/admin.js');
+var methodOverride = require('method-override')
 
 // MongoDB connection URL
 const dbUrl = process.env.ATLASDB_URL;
@@ -25,6 +27,7 @@ const dbUrl = process.env.ATLASDB_URL;
 // Import routers
 const studentRouter = require('./routes/student.js');
 const facultyRouter = require('./routes/faculty.js');
+const adminRouter = require('./routes/admin.js');
 
 // Configure views and static files
 app.set("views", path.join(__dirname, "views"));
@@ -35,6 +38,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.engine('ejs', engine);
 app.use(bodyParser.json());
+// override with the X-HTTP-Method-Override header in the request
+app.use(methodOverride('_method'));
 
 // Create Mongo store for session management
 const store = MongoStore.create({
@@ -77,10 +82,13 @@ passport.use('local-faculty', new LocalStrategy(Faculty.authenticate()));
 // Configure local strategy for student authentication
 passport.use('local-student', new LocalStrategy(Student.authenticate()));
 
+// Configure local strategy for admin authentication
+passport.use('local-admin', new LocalStrategy(Admin.authenticate()));
+
 // Serialize and deserialize user for session management
 passport.serializeUser((user, done) => {
   console.log('Serializing user:', user);
-  done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : 'student' });
+  done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : user instanceof Student ? 'student' : 'admin' });
 });
 
 passport.deserializeUser(async (key, done) => {
@@ -94,6 +102,10 @@ passport.deserializeUser(async (key, done) => {
       const user = await Student.findOne({ username: key.username });
       console.log('Found student:', user);
       done(null, user);
+    } else if (key.type === 'admin') {
+      const user = await Admin.findOne({ username: key.username });
+      console.log('Found admin:', user);
+      done(null, user);
     } else {
       done(new Error('Invalid user type'));
     }
@@ -101,6 +113,31 @@ passport.deserializeUser(async (key, done) => {
     done(err);
   }
 });
+
+// // Serialize and deserialize user for session management
+// passport.serializeUser((user, done) => {
+//   console.log('Serializing user:', user);
+//   done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : 'student' });
+// });
+
+// passport.deserializeUser(async (key, done) => {
+//   try {
+//     console.log('Deserializing user:', key);
+//     if (key.type === 'faculty') {
+//       const user = await Faculty.findOne({ username: key.username });
+//       console.log('Found faculty:', user);
+//       done(null, user);
+//     } else if (key.type === 'student') {
+//       const user = await Student.findOne({ username: key.username });
+//       console.log('Found student:', user);
+//       done(null, user);
+//     } else {
+//       done(new Error('Invalid user type'));
+//     }
+//   } catch (err) {
+//     done(err);
+//   }
+// });
 
 // Middleware to set locals
 app.use((req, res, next) => {
@@ -113,6 +150,7 @@ app.use((req, res, next) => {
 // Routes
 app.use("/student", studentRouter);
 app.use("/faculty", facultyRouter);
+app.use("/admin",adminRouter);
 
 // Connect to MongoDB and start server
 async function main(){

@@ -1,0 +1,31 @@
+<% layout("../layouts/boilerplate") -%>
+
+<body style="height: 100vh; width: 100%;">
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- admin Login Form Container -->
+        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- admin Login Form -->
+            <form method="post" action="/admin/login" class="col needs-validation" novalidate>
+                <h2 class="col">admin Login</h2>
+                
+                <!-- Username Input -->
+                <div class="mb-3 col">
+                    <label for="username" class="form-label"></label>
+                    <input id="username" name="username" class="form-control" placeholder="username" type="text" required>
+                </div>
+                
+                <!-- Password Input -->
+                <div class="mb-3 col">
+                    <label for="password" class="form-label"></label>
+                    <input id="password" name="password" class="form-control" placeholder="password" type="password" required>
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="button-container">
+                    <button type="submit" class="btn btn-dark btn-add mt-3">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>                  
+</body>

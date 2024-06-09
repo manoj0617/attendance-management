@@ -1,0 +1,135 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Attendance Management</h1>
+
+        <!-- Overview Dashboard -->
+        <div class="dashboard mb-5">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Total Classes</h5>
+                            <p><%= totalClasses %></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Total Students</h5>
+                            <p><%= totalStudents %></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Average Attendance Rate</h5>
+                            <p><%= averageAttendanceRate %> %</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Recent Attendance</h5>
+                            <p><%= recentAttendanceSummary %></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Records -->
+        <div class="records mb-5">
+            <h2>Attendance Records</h2>
+            <form id="filterForm" method="get" action="/admin/attendance">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="date" name="startDate" class="form-control" placeholder="Start Date">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" name="endDate" class="form-control" placeholder="End Date">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="section" class="form-control">
+                            <option value="" disabled selected>Select Section</option>
+                            <% sections.forEach(function(section) { %>
+                                <option value="<%= section._id %>"><%= section.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+
+            <% if (attendanceRecords && attendanceRecords.length > 0) { %>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Class</th>
+                            <th>Section</th>
+                            <th>Student</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% attendanceRecords.forEach(function(record) { %>
+                            <tr>
+                                <td><%= record.date %></td>
+                                <td><%= record.class %></td>
+                                <td><%= record.section %></td>
+                                <td><%= record.studentName %></td>
+                                <td><%= record.status %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            <% } else { %>
+                <p>No attendance records available. Please adjust the filters or add new records.</p>
+            <% } %>
+        </div>
+
+        <!-- Mark Attendance -->
+        <div class="mark-attendance mb-5">
+            <h2>Mark Attendance</h2>
+            <form method="post" action="/admin/attendance/mark">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="date" name="date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="class" class="form-control" required>
+                            <option value="" disabled selected>Select Class</option>
+                            <% classes.forEach(function(classItem) { %>
+                                <option value="<%= classItem._id %>"><%= classItem.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="section" class="form-control" required>
+                            <option value="" disabled selected>Select Section</option>
+                            <% sections.forEach(function(section) { %>
+                                <option value="<%= section._id %>"><%= section.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-success">Mark Attendance</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Attendance Analytics -->
+        <div class="analytics mb-5">
+            <h2>Attendance Analytics</h2>
+            <!-- Include charts and graphs here using a library like Chart.js or D3.js -->
+        </div>
+    </div>
+</body>
+</html>

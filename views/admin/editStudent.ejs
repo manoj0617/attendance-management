@@ -1,0 +1,39 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Edit Student Details</h1>
+        <form method="POST" action="/admin/section/<%= sectionId %>/edit-student/<%= student._id %>?_method=PUT">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" name="name" class="form-control" id="name" value="<%= student.name %>" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" name="email" class="form-control" id="email" value="<%= student.email %>" required>
+            </div>
+            <div class="form-group">
+                <label for="username">Roll No.</label>
+                <input type="text" name="username" class="form-control" id="username" value="<%= student.username %>" required>
+            </div>
+            <div class="form-group">
+                <label for="dept">Branch</label>
+                <select name="dept" id="dept" class="form-control" required>
+                    <option value="" disabled>Select your Branch</option>
+                    <option value="cse" <%= student.dept === "cse" ? "selected" : "" %>>CSE</option>
+                    <option value="cse-ds" <%= student.dept === "cse-ds" ? "selected" : "" %>>CSE-DS</option>
+                    <option value="cse-cs" <%= student.dept === "cse-cs" ? "selected" : "" %>>CSE-CS</option>
+                    <option value="cse-aiml" <%= student.dept === "cse-aiml" ? "selected" : "" %>>CSE-AIML</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select name="gender" class="form-control" id="gender" required>
+                    <option value="M" <%= student.gender === "Male" ? "selected" : "" %>>Male</option>
+                    <option value="F" <%= student.gender === "Female" ? "selected" : "" %>>Female</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Update Student</button>
+        </form>
+    </div>
+</body>
+</html>

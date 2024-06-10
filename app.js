@@ -114,31 +114,6 @@ passport.deserializeUser(async (key, done) => {
   }
 });
 
-// // Serialize and deserialize user for session management
-// passport.serializeUser((user, done) => {
-//   console.log('Serializing user:', user);
-//   done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : 'student' });
-// });
-
-// passport.deserializeUser(async (key, done) => {
-//   try {
-//     console.log('Deserializing user:', key);
-//     if (key.type === 'faculty') {
-//       const user = await Faculty.findOne({ username: key.username });
-//       console.log('Found faculty:', user);
-//       done(null, user);
-//     } else if (key.type === 'student') {
-//       const user = await Student.findOne({ username: key.username });
-//       console.log('Found student:', user);
-//       done(null, user);
-//     } else {
-//       done(new Error('Invalid user type'));
-//     }
-//   } catch (err) {
-//     done(err);
-//   }
-// });
-
 // Middleware to set locals
 app.use((req, res, next) => {
   res.locals.success = req.flash("success");

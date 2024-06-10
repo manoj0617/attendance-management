@@ -1,0 +1,15 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Edit Branch</h1>
+<form action="/admin/branches/<%= branch._id %>?_method=PUT" method="POST">
+  <label for="name">Branch Name:</label>
+  <input type="text" name="name" id="name" value="<%= branch.name %>" required>
+  <label for="academicYear">Academic Year:</label>
+  <select name="academicYear" id="academicYear">
+    <% academicYears.forEach(year => { %>
+      <option value="<%= year._id %>" <%= branch.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
+    <% }) %>
+  </select>
+  <button type="submit">Update Branch</button>
+</form>
+</body>

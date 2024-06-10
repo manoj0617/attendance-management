@@ -1,0 +1,9 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Edit Academic Year</h1>
+<form action="/admin/academic-years/<%= academicYear._id %>?_method=PUT" method="POST">
+  <label for="name">Academic Year Name:</label>
+  <input type="text" name="name" id="name" value="<%= academicYear.name %>" required>
+  <button type="submit">Update Academic Year</button>
+</form>
+</body>

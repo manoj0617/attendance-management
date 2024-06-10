@@ -1,0 +1,16 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Branches</h1>
+<a href="/admin/branches/new">Create New Branch</a>
+<ul>
+  <% branches.forEach(branch => { %>
+    <li>
+      <%= branch.name %> (<%= branch.academicYear.name %>)
+      <a href="/admin/branches/<%= branch._id %>/edit">Edit</a>
+      <form action="/admin/branches/<%= branch._id %>?_method=DELETE" method="POST">
+        <button type="submit">Delete</button>
+      </form>
+    </li>
+  <% }) %>
+</ul>
+</body>

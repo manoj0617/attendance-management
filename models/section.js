@@ -8,8 +8,9 @@ const sectionSchema=new mongoose.Schema({
         required:true,
     },
     branch:{
-        type:String,
-        required:true,
+        type: Schema.Types.ObjectId,
+        ref: 'Branch',
+        required: true
     },
     students:
         [

@@ -1,0 +1,9 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Create New Semester</h1>
+<form action="/admin/semesters" method="POST">
+  <label for="name">Semester Name:</label>
+  <input type="text" name="name" id="name" required>
+  <button type="submit">Create Semester</button>
+</form>
+</body>

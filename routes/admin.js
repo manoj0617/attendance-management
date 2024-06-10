@@ -6,6 +6,12 @@ const router = express.Router();
 const Student=require('../models/student');
 const Faculty=require('../models/faculty');
 const Section=require("../models/section");
+const Timetable = require('../models/timetable');
+const Period=require("../models/period");
+const Branch = require('../models/branch');
+const Semester = require('../models/semester');
+const AcademicYear = require('../models/academicYear');
+const Subject = require('../models/subject');
 
 router.get('/login', (req, res) => {
   res.render('admin/login');
@@ -26,25 +32,279 @@ router.get('/logout', (req, res, next) => {
       res.redirect('/');
   });
 });
+// Branch Management
+router.get('/branches', isAdminLoggedIn, async (req, res) => {
+  const branches = await Branch.find({}).populate('academicYear');
+  res.render('admin/branches/index', { branches });
+});
+
+router.get('/branches/new', isAdminLoggedIn, async (req, res) => {
+  const academicYears = await AcademicYear.find({});
+  res.render('admin/branches/new', { academicYears });
+});
+
+router.post('/branches', isAdminLoggedIn, async (req, res) => {
+  const { name, academicYear } = req.body;
+  const branch = new Branch({ name, academicYear });
+  await branch.save();
+  req.flash('success', 'Branch created successfully');
+  res.redirect('/admin/branches');
+});
+
+router.get('/branches/:id/edit', isAdminLoggedIn, async (req, res) => {
+  const branch = await Branch.findById(req.params.id).populate('academicYear');
+  const academicYears = await AcademicYear.find({});
+  res.render('admin/branches/edit', { branch, academicYears });
+});
+
+router.put('/branches/:id', isAdminLoggedIn, async (req, res) => {
+  const { name, academicYear } = req.body;
+  await Branch.findByIdAndUpdate(req.params.id, { name, academicYear });
+  req.flash('success', 'Branch updated successfully');
+  res.redirect('/admin/branches');
+});
+
+router.delete('/branches/:id', isAdminLoggedIn, async (req, res) => {
+  await Branch.findByIdAndDelete(req.params.id);
+  req.flash('success', 'Branch deleted successfully');
+  res.redirect('/admin/branches');
+});
+
+// Semester Management
+router.get('/semesters', isAdminLoggedIn, async (req, res) => {
+  const semesters = await Semester.find({});
+  res.render('admin/semesters/index', { semesters });
+});
+
+router.get('/semesters/new', isAdminLoggedIn, (req, res) => {
+  res.render('admin/semesters/new');
+});
+
+router.post('/semesters', isAdminLoggedIn, async (req, res) => {
+  const { name } = req.body;
+  const semester = new Semester({ name });
+  await semester.save();
+  req.flash('success', 'Semester created successfully');
+  res.redirect('/admin/semesters');
+});
+
+router.get('/semesters/:id/edit', isAdminLoggedIn, async (req, res) => {
+  const semester = await Semester.findById(req.params.id);
+  res.render('admin/semesters/edit', { semester });
+});
+
+router.put('/semesters/:id', isAdminLoggedIn, async (req, res) => {
+  const { name } = req.body;
+  await Semester.findByIdAndUpdate(req.params.id, { name });
+  req.flash('success', 'Semester updated successfully');
+  res.redirect('/admin/semesters');
+});
+
+router.delete('/semesters/:id', isAdminLoggedIn, async (req, res) => {
+  await Semester.findByIdAndDelete(req.params.id);
+  req.flash('success', 'Semester deleted successfully');
+  res.redirect('/admin/semesters');
+});
+
+// Academic Year Management
+router.get('/academic-years', isAdminLoggedIn, async (req, res) => {
+  const academicYears = await AcademicYear.find({});
+  res.render('admin/academicYears/index', { academicYears });
+});
+
+router.get('/academic-years/new', isAdminLoggedIn, (req, res) => {
+  res.render('admin/academicYears/new');
+});
+
+router.post('/academic-years', isAdminLoggedIn, async (req, res) => {
+  const { name } = req.body;
+  const academicYear = new AcademicYear({ name });
+  await academicYear.save();
+  req.flash('success', 'Academic Year created successfully');
+  res.redirect('/admin/academic-years');
+});
+
+router.get('/academic-years/:id/edit', isAdminLoggedIn, async (req, res) => {
+  const academicYear = await AcademicYear.findById(req.params.id);
+  res.render('admin/academicYears/edit', { academicYear });
+});
+
+router.put('/academic-years/:id', isAdminLoggedIn, async (req, res) => {
+  const { name } = req.body;
+  await AcademicYear.findByIdAndUpdate(req.params.id, { name });
+  req.flash('success', 'Academic Year updated successfully');
+  res.redirect('/admin/academic-years');
+});
+
+router.delete('/academic-years/:id', isAdminLoggedIn, async (req, res) => {
+  await AcademicYear.findByIdAndDelete(req.params.id);
+  req.flash('success', 'Academic Year deleted successfully');
+  res.redirect('/admin/academic-years');
+});
+
+// Subject Management
+router.get('/subjects', isAdminLoggedIn, async (req, res) => {
+  const subjects = await Subject.find({}).populate('academicYear').populate('semester');
+  res.render('admin/subjects/index', { subjects });
+});
+
+router.get('/subjects/new', isAdminLoggedIn, async (req, res) => {
+  const academicYears = await AcademicYear.find({});
+  const semesters = await Semester.find({});
+  res.render('admin/subjects/new', { academicYears, semesters });
+});
+
+router.post('/subjects', isAdminLoggedIn, async (req, res) => {
+  const { name, academicYear, semester } = req.body;
+  const subject = new Subject({ name, academicYear, semester });
+  await subject.save();
+  req.flash('success', 'Subject created successfully');
+  res.redirect('/admin/subjects');
+});
+
+router.get('/subjects/:id/edit', isAdminLoggedIn, async (req, res) => {
+  const subject = await Subject.findById(req.params.id).populate('academicYear').populate('semester');
+  const academicYears = await AcademicYear.find({});
+  const semesters = await Semester.find({});
+  res.render('admin/subjects/edit', { subject, academicYears, semesters });
+});
+
+router.put('/subjects/:id', isAdminLoggedIn, async (req, res) => {
+  const { name, academicYear, semester } = req.body;
+  await Subject.findByIdAndUpdate(req.params.id, { name, academicYear, semester });
+  req.flash('success', 'Subject updated successfully');
+  res.redirect('/admin/subjects');
+});
+
+router.delete('/subjects/:id', isAdminLoggedIn, async (req, res) => {
+  await Subject.findByIdAndDelete(req.params.id);
+  req.flash('success', 'Subject deleted successfully');
+  res.redirect('/admin/subjects');
+});
 router.get('/dashboard',isAdminLoggedIn,(req,res)=>{
   res.render('admin/dashboard');
 });
+// Fetch Academic Years
+router.get('/academic-year', async (req, res) => {
+  try {
+      const academicYears = await AcademicYear.find({});
+      res.json(academicYears);
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
+});
+
+// Fetch Branches by Academic Year
+router.get('/branch', async (req, res) => {
+  try {
+      const { year } = req.query;
+      const branches = await Branch.find({ academicYear: year });
+      res.json(branches);
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
+});
+
+// Fetch Sections by Branch
+router.get('/sections', async (req, res) => {
+  try {
+      const { branch } = req.query;
+      const sections = await Section.find({ branch });
+      res.json(sections);
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
+});
+router.get('/subjects', async(req, res) => {
+  const { branch, semester } = req.query;
+  const subjects = await Subject.find({branch,semester});
+  res.json(subjects);
+});
+
+router.get('/faculties', async(req, res) => {
+  const { branch } = req.query;
+  const faculties = await Faculty.find({branch:branch});
+  res.json(faculties);
+});
+// Route to get the timetable creation and viewing page
+router.get('/timetable', isAdminLoggedIn, async (req, res) => {
+  try {
+    const sections = await Section.find({});
+    const { year, branch, section } = req.query;
+    let periods = [];
+    if (year && branch && section) {
+      periods = await Period.find({ year, branch, section });
+    }
+    res.render('admin/timetable', { periods, sections, year, branch, section, message: req.flash('message') });
+  } catch (error) {
+    console.error(error);
+    res.redirect('/error');
+  }
+});
+
+// Route to add a new period
+router.post('/timetable', isAdminLoggedIn, async (req, res) => {
+  const { hour, day, branch, year, section, subject } = req.body;
+
+  try {
+    const newPeriod = new Period({ hour, day, branch, year, section, subject });
+    await newPeriod.save();
+    req.flash('success', 'Period added successfully');
+    res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+  } catch (error) {
+    console.error(error);
+    req.flash('error', 'Error adding period');
+    res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+  }
+});
+
+// Route to delete a period
+router.delete('/timetable/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    const period = await Period.findById(req.params.id);
+    await period.remove();
+    req.flash('success', 'Period deleted successfully');
+    res.redirect(`/admin/timetable?year=${period.year}&branch=${period.branch}&section=${period.section}`);
+  } catch (error) {
+    console.error(error);
+    req.flash('error', 'Error deleting period');
+    res.redirect('/admin/timetable');
+  }
+});
+router.get('/timetable/new', (req, res) => {
+  const numPeriods = req.query.numPeriods;
+  const numDays = req.query.numDays;
+  const section = req.query.section;
+  const branch = req.query.branch;
+  const semester = req.query.semester;
+  res.render('admin/newTimetable', { numPeriods, numDays, section, branch, semester });
+});
 // Route to display the student management page with search functionality
-router.get('/student', isAdminLoggedIn, async (req, res) => {
-  const students = [];
-  const sections = await Section.find({});
-  res.render('admin/student', { students, sections });
+// Fetch students and other required data
+router.get('/student', async (req, res) => {
+  try {
+      const students = await Student.find({})
+          .populate('branch')
+          .populate('year');
+      const academicYears = await AcademicYear.find({});
+      const branches = await Branch.find({});
+      const sections = await Section.find({});
+    console.log(students, academicYears, branches, sections);
+      res.render('admin/student', { students, academicYears: academicYears, branches, sections });
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
 });
 // Route to handle the search query and return filtered students
 router.get('/student/search', isAdminLoggedIn, async (req, res) => {
-  const { username, dept, year, section } = req.query;
+  const { username, branch, year, section } = req.query;
   let filter = {};
 
   if (username) {
       filter.username = { $regex: username, $options: 'i' };
   }
-  if (dept) {
-      filter.dept = dept;
+  if (branch) {
+      filter.branch = branch;
   }
   if (year) {
       filter.year = year;
@@ -55,65 +315,129 @@ router.get('/student/search', isAdminLoggedIn, async (req, res) => {
 
   const students = await Student.find(filter).populate('section');
   const sections = await Section.find({});
+  const academicYears=await AcademicYear.find({name:year});
 
-  res.render('admin/student', { students, sections });
+  res.render('admin/student', { students, sections,academicYears:academicYears });
 });
-router.get('/student/new',(req,res)=>{
-  res.render('admin/createStudent.ejs');
-});
-// Route to view detailed information of a student
-router.get('/student/:id', isAdminLoggedIn, async (req, res) => {
+// Render the signup form with academic years and branches
+router.get('/student/new', async (req, res) => {
   try {
-      const student = await Student.findById(req.params.id).populate('section');
-      if (!student) {
-          req.flash('error', 'Student not found');
-          return res.redirect('/admin/student');
-      }
-      res.render('admin/viewStudent', { student });
+      const academicYears = await AcademicYear.find({});
+      const branches = await Branch.find({});
+      res.render('admin/createStudent', { academicYears, branches });
   } catch (err) {
-      console.log(err);
-      req.flash('error', 'An error occurred');
+      res.status(500).send('Server Error');
+  }
+});
+// Load branches based on academic year
+router.get('/branch/:yearId', isAdminLoggedIn, async (req, res) => {
+  const branches = await Branch.find({ academicYear: req.params.yearId });
+  res.json({ branches });
+});
+
+// Load sections based on branch
+router.get('/section/:branchId', isAdminLoggedIn, async (req, res) => {
+  const sections = await Section.find({ branch: req.params.branchId });
+  res.json({ sections });
+});
+// Handle student signup form submission
+router.post('/student/new', async (req, res) => {
+  try {
+      const { name, email, username, password, year, branch, gender } = req.body;
+      const newStudent = new Student({ name, email, username, password, year, branch, gender });
+      await newStudent.save();
       res.redirect('/admin/student');
-  }
-});
-router.post('/student/new',async (req, res) => {
-  try {
-      let { name, email, username, password, dept, year,gender } = req.body;
-      console.log(req.body);
-      let newStudent = new Student({ name, email, username, dept, year , gender });
-      let registeredStudent = await Student.register(newStudent, password);
-      console.log(registeredStudent);
-      res.redirect("/admin/student/new");
   } catch (err) {
-      console.log(err);
-      req.flash("error", err.message);
-      return res.redirect('/student/signup');
+      res.status(500).send('Server Error');
   }
 });
+// GET /admin/student/:id
+router.get('/student/:id', async (req, res) => {
+  try {
+      const studentId = req.params.id;
+      const student = await Student.findById(studentId)
+          .populate('branch')
+          .populate('year')
+          .populate('section')
+          .exec();
+
+      if (!student) {
+          return res.status(404).send('Student not found');
+      }
+
+      res.render('admin/viewStudent', { student: student });
+  } catch (error) {
+      console.error('Error fetching student:', error);
+      res.status(500).send('Error fetching student');
+  }
+});
+
 router.get('/faculty', isAdminLoggedIn, async (req, res) => {
   const faculty = await Faculty.find({});
   res.render('admin/faculty.ejs', { faculty });
 });
-router.get('/section', isAdminLoggedIn, async (req, res) => {
-  const sections = await Section.find({});
-  res.render('admin/section.ejs', { sections });
+// Fetch all sections along with their branches and academic years
+router.get('/section', async (req, res) => {
+  try {
+      const sections = await Section.find({})
+          .populate({
+              path: 'branch',
+              populate: {
+                  path: 'academicYear',
+                  model: 'AcademicYear'
+              }
+          });
+          console.log(sections);
+      res.render('admin/section', { sections });
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
 });
+// Display attendance form
 router.get('/attendance', isAdminLoggedIn, async (req, res) => {
-  // Logic to get and display attendance records
-  res.render('admin/attendance.ejs');
+  try {
+    const students = await Student.find();
+    res.render('admin/attendance', { students });
+  } catch (err) {
+    req.flash('error', 'Unable to load students');
+    res.redirect('/admin');
+  }
+});
+
+// Handle attendance submission
+router.post('/attendance', isAdminLoggedIn, async (req, res) => {
+  const { attendance } = req.body; // attendance should be an array of { studentId, status }
+  try {
+    for (let entry of attendance) {
+      await Attendance.create({
+        student: entry.studentId,
+        status: entry.status
+      });
+    }
+    req.flash('success', 'Attendance recorded successfully');
+    res.redirect('/admin/attendance');
+  } catch (err) {
+    req.flash('error', 'Error recording attendance');
+    res.redirect('/admin/attendance');
+  }
 });
 router.get("/section/new",(req,res)=>{
   res.render("admin/createSection.ejs");
 });
-router.post("/section/new",async(req,res)=>{
-  let {name,branch}=req.body;
-  console.log(req.body);
-  let newSection= new Section({
-    name,branch
-  });
-  let data=await newSection.save();
-  console.log(data);
-  res.redirect("/admin/section");
+// Create New Section
+router.post('/section/new', async (req, res) => {
+  try {
+      const { branch, name } = req.body;
+      const existingSection = await Section.findOne({ branch, name });
+      if (existingSection) {
+          return res.status(400).send('Section name must be unique within the branch');
+      }
+      const newSection = new Section({ branch, name });
+      await newSection.save();
+      res.redirect('/admin/section');
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
 });
 router.get("/section/:id", async (req, res) => {
   let { id } = req.params;

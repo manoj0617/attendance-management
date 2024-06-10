@@ -1,0 +1,16 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Semesters</h1>
+<a href="/admin/semesters/new">Create New Semester</a>
+<ul>
+  <% semesters.forEach(semester => { %>
+    <li>
+      <%= semester.name %>
+      <a href="/admin/semesters/<%= semester._id %>/edit">Edit</a>
+      <form action="/admin/semesters/<%= semester._id %>?_method=DELETE" method="POST">
+        <button type="submit">Delete</button>
+      </form>
+    </li>
+  <% }) %>
+</ul>
+</body>

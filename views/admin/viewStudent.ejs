@@ -7,9 +7,9 @@
                 <h5 class="card-title"><%= student.name %></h5>
                 <p class="card-text"><strong>Roll No:</strong> <%= student.username %></p>
                 <p class="card-text"><strong>Email:</strong> <%= student.email %></p>
-                <p class="card-text"><strong>Department:</strong> <%= student.dept %></p>
-                <p class="card-text"><strong>Year:</strong> <%= student.year %></p>
-                <p class="card-text"><strong>Gender:</strong> <%= student.gender %></p>
+                <p class="card-text"><strong>Department:</strong> <%= student.branch.name %></p>
+                <p class="card-text"><strong>Year:</strong> <%= student.year.name %></p>
+                <p class="card-text"><strong>Gender:</strong> <%= student.gender === 'M' ? 'Male' : 'Female' %></p>
                 <p class="card-text"><strong>Section:</strong> <%= student.section ? student.section.name : 'Not assigned' %></p>
             </div>
             <div class="card-footer">

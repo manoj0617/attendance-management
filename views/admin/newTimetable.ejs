@@ -1,0 +1,155 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Create New Timetable</h1>
+
+        <!-- Table for creating new timetable -->
+        <div id="timetableContainer">
+            <h2>Class Timetable</h2>
+            <table class="table table-bordered mt-5">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <% for (let i = 1; i <= numPeriods; i++) { %>
+                            <th>Period <%= i %></th>
+                        <% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; %>
+                    <% for (let i = 0; i < numDays; i++) { %>
+                        <tr>
+                            <td><%= days[i % 7] %></td>
+                            <% for (let j = 0; j < numPeriods; j++) { %>
+                                <td id="cell_<%= i %>_<%= j %>">
+                                    <button onclick=`createPeriodForm(<%= i %>, <%= j %>)` class="btn btn-primary btn-sm">+</button>
+                                </td>
+                            <% } %>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Modal for creating/editing period -->
+        <div class="modal fade" id="periodModal" tabindex="-1" aria-labelledby="periodModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="periodModalLabel">Add/Edit Period</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="periodForm">
+                            <input type="hidden" id="dayInput" name="day">
+                            <input type="hidden" id="hourInput" name="hour">
+                            <input type="hidden" id="sectionInput" name="section" value="<%= section %>">
+                            <input type="hidden" id="branchInput" name="branch" value="<%= branch %>">
+                            <input type="hidden" id="semesterInput" name="semester" value="<%= semester %>">
+
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">Subject</label>
+                                <select id="subject" name="subject" class="form-control" required>
+                                    <option value="" disabled selected>Select Subject</option>
+                                    <!-- Options will be populated dynamically based on branch and semester -->
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="faculty" class="form-label">Faculty</label>
+                                <select id="faculty" name="faculty" class="form-control" required>
+                                    <option value="" disabled selected>Select Faculty</option>
+                                    <!-- Options will be populated dynamically based on branch and semester -->
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to display the period creation form
+        function createPeriodForm(day, period) {
+            document.getElementById('dayInput').value = day + 1; // Display day starting from 1
+            document.getElementById('hourInput').value = period + 1; // Display period starting from 1
+
+            const section = document.getElementById('sectionInput').value;
+            const branch = document.getElementById('branchInput').value;
+            const semester = document.getElementById('semesterInput').value;
+
+            fetch(`/admin/subjects?branch=${branch}&semester=${semester}`)
+                .then(response => response.json())
+                .then(subjects => {
+                    const subjectSelect = document.getElementById('subject');
+                    subjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+                    subjects.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject._id;
+                        option.textContent = subject.name;
+                        subjectSelect.appendChild(option);
+                    });
+                });
+
+            fetch(`/admin/faculties?branch=${branch}`)
+                .then(response => response.json())
+                .then(faculties => {
+                    const facultySelect = document.getElementById('faculty');
+                    facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
+                    faculties.forEach(faculty => {
+                        const option = document.createElement('option');
+                        option.value = faculty._id;
+                        option.textContent = faculty.name;
+                        facultySelect.appendChild(option);
+                    });
+                });
+
+            const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+            periodModal.show();
+        }
+
+        // Form submission handler
+        document.getElementById('periodForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            fetch('/admin/timetable', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Period saved successfully');
+                    const periodModal = bootstrap.Modal.getInstance(document.getElementById('periodModal'));
+                    periodModal.hide();
+
+                    // Update the table cell content
+                    const day = formData.get('day') - 1;
+                    const period = formData.get('hour') - 1;
+                    const cell = document.getElementById(`cell_${day}_${period}`);
+                    cell.innerHTML = `
+                        ${formData.get('subject')}<br>
+                        ${formData.get('faculty')}<br>
+                        <button onclick="editPeriodForm(${day}, ${period}, '${formData.get('subject')}', '${formData.get('faculty')}')" class="btn btn-sm btn-warning">Edit</button>
+                    `;
+                } else {
+                    alert('Error saving period');
+                }
+            });
+        });
+
+        // Function to display the period edit form with pre-filled values
+        function editPeriodForm(day, period, subject, faculty) {
+            document.getElementById('dayInput').value = day + 1;
+            document.getElementById('hourInput').value = period + 1;
+            document.getElementById('subject').value = subject;
+            document.getElementById('faculty').value = faculty;
+
+            const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+            periodModal.show();
+        }
+    </script>
+</body>
+</html>

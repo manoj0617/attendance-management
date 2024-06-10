@@ -1,0 +1,21 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Create New Subject</h1>
+<form action="/admin/subjects" method="POST">
+  <label for="name">Subject Name:</label>
+  <input type="text" name="name" id="name" required>
+  <label for="academicYear">Academic Year:</label>
+  <select name="academicYear" id="academicYear">
+    <% academicYears.forEach(year => { %>
+      <option value="<%= year._id %>"><%= year.name %></option>
+    <% }) %>
+  </select>
+  <label for="semester">Semester:</label>
+  <select name="semester" id="semester">
+    <% semesters.forEach(sem => { %>
+      <option value="<%= sem._id %>"><%= sem.name %></option>
+    <% }) %>
+  </select>
+  <button type="submit">Create Subject</button>
+</form>
+</body>

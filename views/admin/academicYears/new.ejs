@@ -1,0 +1,9 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Create New Academic Year</h1>
+<form action="/admin/academic-years" method="POST">
+  <label for="name">Academic Year Name:</label>
+  <input type="text" name="name" id="name" required>
+  <button type="submit">Create Academic Year</button>
+</form>
+</body>

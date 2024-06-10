@@ -13,27 +13,19 @@
                     <div class="col-md-3">
                         <select name="year" id="year" class="form-control">
                             <option value="" disabled selected>Select Year</option>
-                            <option value="2020">2020-24</option>
-                            <option value="2021">2021-25</option>
-                            <option value="2022">2022-26</option>
-                            <option value="2023">2023-27</option>
+                            <% academicYears.forEach(function(year) { %>
+                                <option value="<%= year._id %>"><%= year.name %></option>
+                            <% }) %>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <select name="dept" id="dept" class="form-control" disabled>
-                            <option value="" disabled selected>Select Department</option>
-                            <option value="cse">CSE</option>
-                            <option value="cse-ds">CSE-DS</option>
-                            <option value="cse-cs">CSE-CS</option>
-                            <option value="cse-aiml">CSE-AIML</option>
+                        <select name="branch" id="branch" class="form-control" disabled>
+                            <option value="" disabled selected>Select Branch</option>
                         </select>
                     </div>
                     <div class="col-md-3">
                         <select name="section" id="section" class="form-control" disabled>
                             <option value="" disabled selected>Select Section</option>
-                            <% sections.forEach(function(section) { %>
-                                <option value="<%= section._id %>"><%= section.name %></option>
-                            <% }) %>
                         </select>
                     </div>
                 </div>
@@ -68,9 +60,9 @@
                             <td><%= student.name %></td>
                             <td><%= student.username %></td>
                             <td><%= student.email %></td>
-                            <td><%= student.dept %></td>
-                            <td><%= student.year %></td>
-                            <td><%= student.gender %></td>
+                            <td><%= student.branch.name %></td>
+                            <td><%= student.year.name %></td>
+                            <td><%= student.gender === 'M' ? 'Male' : 'Female' %></td>
                             <td>
                                 <form method="get" action="/admin/student/<%= student._id %>">
                                     <button type="submit" class="btn btn-info btn-sm">View</button>
@@ -92,14 +84,55 @@
     </div>
 
     <script>
-        // Enable/disable department and section based on the selected year
         document.getElementById('year').addEventListener('change', function() {
-            document.getElementById('dept').disabled = !this.value;
-            document.getElementById('section').disabled = true;
+            const yearId = this.value;
+            const branchSelect = document.getElementById('branch');
+            const sectionSelect = document.getElementById('section');
+
+            if (yearId) {
+                fetch(`/admin/branch/${yearId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+                        data.branches.forEach(branch => {
+                            const option = document.createElement('option');
+                            option.value = branch._id;
+                            option.textContent = branch.name;
+                            branchSelect.appendChild(option);
+                        });
+                        branchSelect.disabled = false;
+                        sectionSelect.disabled = true;
+                    })
+                    .catch(error => console.error('Error fetching branches:', error));
+            } else {
+                branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+                branchSelect.disabled = true;
+                sectionSelect.disabled = true;
+            }
         });
 
-        document.getElementById('dept').addEventListener('change', function() {
-            document.getElementById('section').disabled = !this.value;
+        document.getElementById('branch').addEventListener('change', function() {
+            const branchId = this.value;
+            const sectionSelect = document.getElementById('section');
+
+            if (branchId) {
+                fetch(`/admin/section/${branchId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+                        data.sections.forEach(section => {
+                            const option = document.createElement('option');
+                            option.value = section._id;
+                            option.textContent = section.name;
+                            sectionSelect.appendChild(option);
+                        });
+                        sectionSelect.disabled = false;
+                    })
+                    .catch(error => console.error('Error fetching sections:', error));
+            } else {
+                sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+                sectionSelect.disabled = true;
+            }
         });
 
         function confirmDeletion(event) {

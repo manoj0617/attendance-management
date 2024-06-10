@@ -1,0 +1,15 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Create New Branch</h1>
+<form action="/admin/branches" method="POST">
+  <label for="name">Branch Name:</label>
+  <input type="text" name="name" id="name" required>
+  <label for="academicYear">Academic Year:</label>
+  <select name="academicYear" id="academicYear">
+    <% academicYears.forEach(year => { %>
+      <option value="<%= year._id %>"><%= year.name %></option>
+    <% }) %>
+  </select>
+  <button type="submit">Create Branch</button>
+</form>
+</body>

@@ -12,13 +12,15 @@ const studentSchema=mongoose.Schema({
         type:String,
         required:true,
     },
-    dept:{
-        type:String,
-        required:true,
+    branch: {
+        type: Schema.Types.ObjectId,
+        ref: 'Branch',
+        required: true
     },
     year:{
-        type:String,
-        required:true,
+        type: Schema.Types.ObjectId,
+        ref: 'AcademicYear',
+        required: true
     },
     gender:{
         type:String,

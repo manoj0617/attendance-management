@@ -1,0 +1,21 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+<h1>Edit Subject</h1>
+<form action="/admin/subjects/<%= subject._id %>?_method=PUT" method="POST">
+  <label for="name">Subject Name:</label>
+  <input type="text" name="name" id="name" value="<%= subject.name %>" required>
+  <label for="academicYear">Academic Year:</label>
+  <select name="academicYear" id="academicYear">
+    <% academicYears.forEach(year => { %>
+      <option value="<%= year._id %>" <%= subject.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
+    <% }) %>
+  </select>
+  <label for="semester">Semester:</label>
+  <select name="semester" id="semester">
+    <% semesters.forEach(sem => { %>
+      <option value="<%= sem._id %>" <%= subject.semester._id.equals(sem._id) ? 'selected' : '' %>><%= sem.name %></option>
+    <% }) %>
+  </select>
+  <button type="submit">Update Subject</button>
+</form>
+</body>

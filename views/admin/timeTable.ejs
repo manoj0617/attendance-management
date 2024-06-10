@@ -1,0 +1,310 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Timetable Management</h1>
+
+        <!-- Flash messages for success or error -->
+        <% if (success && success.length) { %>
+            <div class="alert alert-success"><%= success %></div>
+        <% } %>
+        <% if (error && error.length) { %>
+            <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <!-- Form to select Year, Branch, and Section -->
+        <div class="selection-form mb-5">
+            <h2>Select Timetable</h2>
+            <form id="timetableForm">
+                <div class="form-group">
+                    <label for="year">Year</label>
+                    <select id="year" name="year" class="form-control" required>
+                        <option value="" disabled selected>Select Year</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="branch">Branch</label>
+                    <select id="branch" name="branch" class="form-control" required disabled>
+                        <option value="" disabled selected>Select Branch</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="section">Section</label>
+                    <select id="section" name="section" class="form-control" required disabled>
+                        <option value="" disabled selected>Select Section</option>
+                    </select>
+                </div>
+                <button type="button" id="viewTimetable" class="btn btn-primary mt-3" disabled>View Timetable</button>
+                <button type="button" id="createTimetable" class="btn btn-success mt-3" disabled>Create New Timetable</button>
+            </form>
+        </div>
+
+        <!-- Timetable display and period creation -->
+        <div id="timetableContainer" style="display:none;">
+            <h2>Class Timetable</h2>
+            <table class="table table-bordered mt-5">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Start Time - End Time</th>
+                        <% for (let i = 1; i <= 7; i++) { %>
+                            <th>Period <%= i %></th>
+                        <% } %>
+                    </tr>
+                </thead>
+                <tbody id="timetableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Modal for creating new period -->
+        <div class="modal fade" id="createPeriodModal" tabindex="-1" aria-labelledby="createPeriodModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="createPeriodModalLabel">Create New Period</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="createPeriodForm">
+                            <div class="mb-3">
+                                <label for="day" class="form-label">Day</label>
+                                <select id="day" name="day" class="form-control" required>
+                                    <option value="" disabled selected>Select Day</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                    <option value="Sunday">Sunday</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="hour" class="form-label">Hour</label>
+                                <input type="number" id="hour" name="hour" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">Subject</label>
+                                <input type="text" id="subject" name="subject" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="startTime" class="form-label">Start Time</label>
+                                <input type="text" id="startTime" name="startTime" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="endTime" class="form-label">End Time</label>
+                                <input type="text" id="endTime" name="endTime" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Create Period</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch academic years and populate the year dropdown
+        fetch('/admin/academic-year')
+            .then(response => response.json())
+            .then(academicYears => {
+                const yearSelect = document.getElementById('year');
+                academicYears.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year._id;
+                    option.textContent = year.name;
+                    yearSelect.appendChild(option);
+                });
+            });
+
+        document.getElementById('year').addEventListener('change', function() {
+            const year = this.value;
+            fetch(`/admin/branch?year=${year}`)
+                .then(response => response.json())
+                .then(branches => {
+                    const branchSelect = document.getElementById('branch');
+                    branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+                    branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch._id;
+                        option.textContent = branch.name;
+                        branchSelect.appendChild(option);
+                    });
+                    branchSelect.disabled = false;
+                });
+        });
+
+        document.getElementById('branch').addEventListener('change', function() {
+            const branch = this.value;
+            fetch(`/admin/sections?branch=${branch}`)
+                .then(response => response.json())
+                .then(sections => {
+                    const sectionSelect = document.getElementById('section');
+                    sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+                    sections.forEach(section => {
+                        const option = document.createElement('option');
+                        option.value = section._id;
+                        option.textContent = section.name;
+                        sectionSelect.appendChild(option);
+                    });
+                    sectionSelect.disabled = false;
+                });
+        });
+
+        document.getElementById('section').addEventListener('change', function() {
+            document.getElementById('viewTimetable').disabled = false;
+            document.getElementById('createTimetable').disabled = false;
+        });
+
+        document.getElementById('viewTimetable').addEventListener('click', function() {
+            const section = document.getElementById('section').value;
+            fetch(`/admin/timetable?section=${section}`)
+                .then(response => response.json())
+                .then(data => {
+                    const timetableContainer = document.getElementById('timetableContainer');
+                    const timetableBody = document.getElementById('timetableBody');
+                    timetableBody.innerHTML = '';
+
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                    days.forEach(day => {
+                        const row = document.createElement('tr');
+                        const dayCell = document.createElement('td');
+                        dayCell.textContent = day;
+                        row.appendChild(dayCell);
+
+                        const timeCell = document.createElement('td');
+                        timeCell.textContent = '08:00 - 08:50'; // Example, should be dynamic
+                        row.appendChild(timeCell);
+
+                        for (let i = 1; i <= 7; i++) {
+                            const periodCell = document.createElement('td');
+                            const period = data.periods.find(p => p.day === day && p.hour === i);
+
+                            if (period) {
+                                periodCell.innerHTML = `
+                                    ${period.subject}
+                                    <form method="post" action="/admin/timetable/${period._id}?_method=DELETE" onsubmit="return confirm('Are you sure you want to delete this period?');">
+                                        <button type="submit" class="btn btn-danger btn-sm mt-1">Delete</button>
+                                    </form>
+                                `;
+                            } else {
+                                periodCell.innerHTML = `
+                                    <form method="post" action="/admin/timetable">
+                                        <input type="hidden" name="day" value="${day}">
+                                        <input type="hidden" name="hour" value="${i}">
+                                        <input type="hidden" name="branch" value="${data.branch}">
+                                        <input type="hidden" name="semester" value="${data.semester}">
+                                        <input type="hidden" name="section" value="${data.section}">
+                                        <input type="text" name="subject" placeholder="Add Subject" required>
+                                        <input type="text" name="startTime" placeholder="Start Time" required>
+                                        <input type="text" name="endTime" placeholder="End Time" required>
+                                        <button type="submit" class="btn btn-primary btn-sm mt-1">Add</button>
+                                    </form>
+                                `;
+                            }
+
+                            row.appendChild(periodCell);
+                        }
+
+                        timetableBody.appendChild(row);
+                    });
+
+                    timetableContainer.style.display = 'block';
+                });
+        });
+
+        
+    document.getElementById('createTimetable').addEventListener('click', function() {
+        // Prompt the user to enter the number of periods and days
+        const numPeriods = parseInt(prompt('Enter the number of periods:'));
+
+        // Check if both inputs are valid
+        if (!isNaN(numPeriods)) {
+            // Redirect to the new timetable page with query parameters
+            window.location.href = `/admin/timetable/new?numPeriods=${numPeriods}`;
+        } else {
+            alert('Invalid input. Please enter a valid number.');
+        }
+    });
+
+        document.getElementById('createPeriodForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(this);
+            fetch('/admin/timetable', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Period created successfully');
+                    const createPeriodModal = bootstrap.Modal.getInstance(document.getElementById('createPeriodModal'));
+                    createPeriodModal.hide();
+                } else {
+                    alert('Error creating period');
+                }
+            });
+        });
+        // Function to dynamically create the timetable interface
+    function createTimetableInterface(numPeriods, numDays) {
+        const timetableContainer = document.getElementById('timetableContainer');
+        timetableContainer.innerHTML = '';
+
+        const table = document.createElement('table');
+        table.className = 'table table-bordered mt-5';
+        const tbody = document.createElement('tbody');
+
+        // Create table header row for days and periods
+        const headerRow = document.createElement('tr');
+        headerRow.innerHTML = `<th>Day</th>`;
+        for (let i = 1; i <= numPeriods; i++) {
+            headerRow.innerHTML += `<th>Period ${i}</th>`;
+        }
+        tbody.appendChild(headerRow);
+
+        // Create rows for each day
+        for (let i = 0; i < numDays; i++) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>Day ${i + 1}</td>`;
+            for (let j = 0; j < numPeriods; j++) {
+                row.innerHTML += `<td id="cell_${i}_${j}"><button onclick="createPeriod(${i}, ${j})" class="btn btn-primary btn-sm">+</button></td>`;
+            }
+            tbody.appendChild(row);
+        }
+
+        table.appendChild(tbody);
+        timetableContainer.appendChild(table);
+    }
+
+    // Function to create a period
+    function createPeriod(day, period) {
+        const formHTML = `
+            <form id="createPeriodForm_${day}_${period}">
+                <div class="mb-3">
+                    <label for="faculty">Faculty</label>
+                    <input type="text" id="faculty_${day}_${period}" name="faculty" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject_${day}_${period}" name="subject" class="form-control" required>
+                </div>
+                <button type="button" onclick="submitPeriod(${day}, ${period})" class="btn btn-primary">Submit</button>
+            </form>
+        `;
+
+        const cell = document.getElementById(`cell_${day}_${period}`);
+        cell.innerHTML = formHTML;
+    }
+
+    // Function to submit a period
+    function submitPeriod(day, period) {
+        const faculty = document.getElementById(`faculty_${day}_${period}`).value;
+        const subject = document.getElementById(`subject_${day}_${period}`).value;
+
+        // You can send this data to the server to create the period
+        console.log(`Day: ${day}, Period: ${period}, Faculty: ${faculty}, Subject: ${subject}`);
+
+        // You can also handle any further actions after creating the period, such as updating the UI
+    }
+    </script>
+</body>

@@ -16,7 +16,7 @@ const PeriodSchema = new mongoose.Schema({
     required: true,
   },
   semester: {
-    type: Number,
+    type: String,
     required: true,
   },
   section: {

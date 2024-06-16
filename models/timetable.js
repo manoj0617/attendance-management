@@ -7,7 +7,12 @@ const TimetableSchema = new Schema({
   day: { type: String, required: true },
   startTime: { type: String, required: true },
   endTime: { type: String, required: true },
-  faculty: { type: Schema.Types.ObjectId, ref: 'Faculty', required: true }
+  faculty: { type: Schema.Types.ObjectId, ref: 'Faculty', required: true },
+  semester: {
+    type: Schema.Types.ObjectId,
+    ref: 'Semester',
+    required: true
+  }
 });
 
 module.exports = mongoose.model('Timetable', TimetableSchema);

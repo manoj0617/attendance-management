@@ -12,12 +12,13 @@ const facultySchema=mongoose.Schema({
         type:String,
         required:true,
     },
-    dept:{
-        type:String,
-        required:true,
+    branch:{type: Schema.Types.ObjectId,
+        ref: 'Branch',
+        required: true
     },
     id:{
         type:String,
+        unique:true,
         required:true,
     },
     mobile:{
@@ -36,6 +37,13 @@ const facultySchema=mongoose.Schema({
     fatherName:{
         type:String,
     },
+    subjects:
+        [
+        {
+            type: Schema.Types.ObjectId,
+            ref: 'Subject',
+        }
+        ]    
 });
 facultySchema.plugin(passportLocalMongoose);
 

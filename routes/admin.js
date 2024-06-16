@@ -12,6 +12,15 @@ const Branch = require('../models/branch');
 const Semester = require('../models/semester');
 const AcademicYear = require('../models/academicYear');
 const Subject = require('../models/subject');
+const multer = require('multer');
+const upload = multer();
+
+
+router.use(express.json()); // For parsing application/json
+router.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
+
+// Use multer middleware for multipart/form-data
+router.use(upload.none());
 
 router.get('/login', (req, res) => {
   res.render('admin/login');
@@ -69,7 +78,10 @@ router.delete('/branches/:id', isAdminLoggedIn, async (req, res) => {
   req.flash('success', 'Branch deleted successfully');
   res.redirect('/admin/branches');
 });
-
+router.get("/semester",async(req,res)=>{
+  let semesters=await Semester.find({});
+  res.json(semesters);
+});
 // Semester Management
 router.get('/semesters', isAdminLoggedIn, async (req, res) => {
   const semesters = await Semester.find({});
@@ -215,9 +227,9 @@ router.get('/sections', async (req, res) => {
       res.status(500).send('Server Error');
   }
 });
-router.get('/subjects', async(req, res) => {
-  const { branch, semester } = req.query;
-  const subjects = await Subject.find({branch,semester});
+router.get('/subject', async(req, res) => {
+  const { semester } = req.query;
+  const subjects = await Subject.find({semester});
   res.json(subjects);
 });
 
@@ -244,15 +256,35 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
 
 // Route to add a new period
 router.post('/timetable', isAdminLoggedIn, async (req, res) => {
-  const { hour, day, branch, year, section, subject } = req.body;
+  let { hour, day, branch, year, section, subject, semester } = req.body;
+
+  // Convert day number to day name
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  day = dayNames[day - 1];
 
   try {
-    const newPeriod = new Period({ hour, day, branch, year, section, subject });
+    // Find the semester document by ID
+    const semesterDoc = await Semester.findById(semester);
+    
+    if (!semesterDoc) {
+      req.flash('error', 'Invalid semester');
+      return res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+    }
+
+    // Extract the name of the semester
+    const sem = semesterDoc.name;
+    console.log("Semester ID:", semester);
+    console.log("Semester Document:", semesterDoc);
+    console.log("Semester Name:", sem);
+
+    // Create a new period
+    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester: sem });
     await newPeriod.save();
+
     req.flash('success', 'Period added successfully');
     res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
   } catch (error) {
-    console.error(error);
+    console.error('Error adding period:', error);
     req.flash('error', 'Error adding period');
     res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
   }
@@ -273,10 +305,11 @@ router.delete('/timetable/:id', isAdminLoggedIn, async (req, res) => {
 });
 router.get('/timetable/new', (req, res) => {
   const numPeriods = req.query.numPeriods;
-  const numDays = req.query.numDays;
+  const numDays = 7;
   const section = req.query.section;
   const branch = req.query.branch;
   const semester = req.query.semester;
+  const year=req.query.year;
   res.render('admin/newTimetable', { numPeriods, numDays, section, branch, semester });
 });
 // Route to display the student management page with search functionality
@@ -336,7 +369,7 @@ router.get('/branch/:yearId', isAdminLoggedIn, async (req, res) => {
 });
 
 // Load sections based on branch
-router.get('/section/:branchId', isAdminLoggedIn, async (req, res) => {
+router.get('/sections/:branchId', isAdminLoggedIn, async (req, res) => {
   const sections = await Section.find({ branch: req.params.branchId });
   res.json({ sections });
 });
@@ -344,8 +377,9 @@ router.get('/section/:branchId', isAdminLoggedIn, async (req, res) => {
 router.post('/student/new', async (req, res) => {
   try {
       const { name, email, username, password, year, branch, gender } = req.body;
-      const newStudent = new Student({ name, email, username, password, year, branch, gender });
-      await newStudent.save();
+      const newStudent = new Student({ name, email, username, year, branch, gender });
+      let registeredStudent = await Student.register(newStudent, password);
+      console.log(registeredStudent);
       res.redirect('/admin/student');
   } catch (err) {
       res.status(500).send('Server Error');
@@ -371,11 +405,116 @@ router.get('/student/:id', async (req, res) => {
       res.status(500).send('Error fetching student');
   }
 });
-
-router.get('/faculty', isAdminLoggedIn, async (req, res) => {
-  const faculty = await Faculty.find({});
-  res.render('admin/faculty.ejs', { faculty });
+// Search subjects
+router.get('/subjects/search', async (req, res) => {
+  const { q } = req.query;
+  const subjects = await Subject.find({ name: new RegExp(q, 'i') });
+  res.json(subjects);
 });
+// Render the faculty management page
+router.get('/faculty', async (req, res) => {
+  const branches = await Branch.find({});
+  res.render('admin/faculty', { branches });
+});
+
+// Render the new faculty creation page
+router.get('/faculty/new', async (req, res) => {
+  const branches = await Branch.find({});
+  res.render('admin/newFaculty', { branches });
+});
+
+// Handle faculty creation
+router.post('/faculty/new', async (req, res) => {
+  try {
+      const { email, name, branch, id, password, username, mobile, subjects } = req.body;
+      console.log(username,req.body);
+      // Create new faculty instance
+      const faculty = new Faculty({
+          email,
+          name,
+          branch,
+          id,
+          username,
+          mobile,
+          subjects: Array.isArray(subjects) ? subjects : [subjects] // Ensure subjects is an array
+      });
+
+      // Set password using passport-local-mongoose
+      const registeredFaculty=Faculty.register(faculty, password, (err, faculty) => {
+          if (err) {
+              console.error('Error registering faculty:', err);
+              return res.json({ success: false, message: 'Error registering faculty' });
+          }
+          res.json({ success: true });
+      });
+  } catch (error) {
+      console.error('Error saving faculty:', error);
+      res.json({ success: false, message: 'Error saving faculty' });
+  }
+});
+
+// Search subjects
+router.get('/subjects/search', async (req, res) => {
+  const { q } = req.query;
+  const subjects = await Subject.find({ name: new RegExp(q, 'i') });
+  res.json(subjects);
+});
+
+// Fetch subjects based on branch, semester, and academic year
+router.get('/subjects', async (req, res) => {
+  const { branch, semester, academicYear } = req.query;
+  const subjects = await Subject.find({ branch, semester, academicYear });
+  res.json(subjects);
+});
+
+const mongoose = require('mongoose');
+
+// Fetch faculties based on subject
+router.get('/faculties', async (req, res) => {
+  const { subject } = req.query;
+
+  console.log('Received subject:', subject);
+
+  // Check if subject ID is provided and valid
+  if (!subject || !mongoose.Types.ObjectId.isValid(subject)) {
+    console.error('Invalid or missing subject ID');
+    return res.status(400).json({ message: 'Invalid or missing subject ID' });
+  }
+
+  try {
+    // Find faculties that have the subject in their subjects array
+    const faculties = await Faculty.find({ subjects: { $in: [subject] } }).populate('branch subjects');
+
+    console.log('Faculties found:', faculties.length);
+    console.log('Faculties details:', faculties);
+
+    res.json(faculties);
+  } catch (error) {
+    console.error('Error fetching faculties:', error);
+    res.status(500).json({ message: 'Error fetching faculties' });
+  }
+});
+
+
+
+// Fetch faculty data for editing
+router.get('/faculty/:id', async (req, res) => {
+  const faculty = await Faculty.findById(req.params.id).populate('branch subjects');
+  res.json(faculty);
+});
+
+// Update faculty data
+router.put('/faculty/:id', async (req, res) => {
+  const faculty = await Faculty.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json({ success: true });
+});
+
+// Delete a faculty
+router.delete('/faculty/:id', async (req, res) => {
+  await Faculty.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
 // Fetch all sections along with their branches and academic years
 router.get('/section', async (req, res) => {
   try {

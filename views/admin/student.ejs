@@ -116,7 +116,7 @@
             const sectionSelect = document.getElementById('section');
 
             if (branchId) {
-                fetch(`/admin/section/${branchId}`)
+                fetch(`/admin/sections/${branchId}`)
                     .then(response => response.json())
                     .then(data => {
                         sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';

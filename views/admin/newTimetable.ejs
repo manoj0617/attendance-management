@@ -22,7 +22,7 @@
                             <td><%= days[i % 7] %></td>
                             <% for (let j = 0; j < numPeriods; j++) { %>
                                 <td id="cell_<%= i %>_<%= j %>">
-                                    <button onclick=`createPeriodForm(<%= i %>, <%= j %>)` class="btn btn-primary btn-sm">+</button>
+                                    <button onclick="createPeriodForm(<%= i %>, <%= j %>)" class="btn btn-primary btn-sm">+</button>
                                 </td>
                             <% } %>
                         </tr>
@@ -79,7 +79,7 @@
             const branch = document.getElementById('branchInput').value;
             const semester = document.getElementById('semesterInput').value;
 
-            fetch(`/admin/subjects?branch=${branch}&semester=${semester}`)
+            fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
                 .then(response => response.json())
                 .then(subjects => {
                     const subjectSelect = document.getElementById('subject');

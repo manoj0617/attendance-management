@@ -55,7 +55,7 @@
                 <!-- Department Selection -->
                 <div class="mb-3">
                     <label for="branch" class="form-label"></label>
-                    <select name="branch" id="branch" class="form-control" required>
+                    <select name="branch" id="branch" class="form-control" required disabled>
                         <option value="" disabled selected>Select Your Branch</option>
                     </select>
                 </div>
@@ -83,9 +83,9 @@
         document.getElementById('year').addEventListener('change', function() {
             const yearId = this.value;
             const branchSelect = document.getElementById('branch');
-
+            console.log(yearId);
             if (yearId) {
-                fetch(`/admin/branch/${yearId}`)
+                fetch(`/admin/branch/?year=${yearId}`)
                     .then(response => response.json())
                     .then(data => {
                         branchSelect.innerHTML = '<option value="" disabled selected>Select Your Branch</option>';

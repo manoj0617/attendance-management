@@ -1,60 +1,93 @@
-<% layout("../layouts/facultyBoilerplate") -%>
-
-<body class="courses-body">
-    <div class="row">    
-        <!-- Course Name Section -->
-        <div class="course-name">
-            <h2 style="margin-left: 2rem;">
-                <%= course.course %><br>
-            </h2>
-            <!-- Form to select date and mark attendance -->
-            <form action="/faculty/courses/<%= course._id %>" method="post" novalidate class="needs-validation">
-                <!-- Date Selection -->
-                <div class="date" style="margin-left: 2rem;">
-                    <label for="date">Select a date:</label>
-                    <input type="date" id="date" name="date" required>                  
+<%- layout("../layouts/facultyBoilerplate") -%>
+<head>
+    <link rel="stylesheet" href="/styles/attendance.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Daily Attendance</h2>
+        <form id="attendanceForm" action="/faculty/attendance" method="post">
+            <div class="row">
+                <div class="col">
+                    <label for="acYear">Academic Year:</label>
+                    <select id="acYear" name="acYear" class="form-control" required>
+                        <option value="2023 - 2024">2023 - 2024</option>
+                        <!-- Add more options as needed -->
+                    </select>
                 </div>
-                
-                <!-- Attendance Table -->
-                <div>
-                    <table class="table">
+                <div class="col">
+                    <label for="date">Date:</label>
+                    <input type="date" id="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" class="form-control" required>
+                </div>
+                <div class="col">
+                    <label for="program">Program:</label>
+                    <select id="program" name="program" class="form-control" required>
+                        <option value="B.TECH">B.TECH</option>
+                        <!-- Add more options as needed -->
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="branch">Branch:</label>
+                    <select id="branch" name="branch" class="form-control" required>
+                        <option value="CSE">CSE</option>
+                        <!-- Add more options as needed -->
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="sem">Semester:</label>
+                    <select id="sem" name="sem" class="form-control" required>
+                        <option value="I-II SEM">I-II SEM</option>
+                        <!-- Add more options as needed -->
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="section">Section:</label>
+                    <select id="section" name="section" class="form-control" required>
+                        <option value="C">C</option>
+                        <!-- Add more options as needed -->
+                    </select>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <button type="submit" class="btn btn-primary">Show Students</button>
+            </div>
+        </form>
+        <div id="studentsList" class="mt-4">
+            <% if (students && students.length > 0) { %>
+                <form action="/faculty/attendance/mark" method="post">
+                    <table class="table table-bordered">
                         <thead>
                             <tr>
-                                <th class="col" scope="col">S.no</th>
-                                <th class="col" scope="col">Roll no.</th>
-                                <th class="col" scope="col">Name</th>
-                                <th class="col" scope="col">Status</th>
+                                <th>S.no</th>
+                                <th>Roll no.</th>
+                                <th>Name</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <% for (student of students) { %>
+                            <% students.forEach((student, index) => { %>
                                 <tr>
-                                    <td class="col-0.5"><%= ++x %></td>
-                                    <td class="col-3">
-                                        <%= student.username %>
-                                        <select id="none" name="student">
-                                            <option value="<%= student.username %>"></option>
-                                        </select>
-                                    </td>
-                                    <td class="col-3"><%= student.name %></td>
-                                    <td class="col-3">
-                                        <select id="myDropdown" name="status">
-                                            <option value="present">Present</option>
-                                            <option value="absent">Absent</option>
-                                        </select>
+                                    <td><%= index + 1 %></td>
+                                    <td><%= student.username %></td>
+                                    <td><%= student.name %></td>
+                                    <td>
+                                        <input type="hidden" name="students[<%= index %>][username]" value="<%= student.username %>">
+                                        <input type="hidden" name="students[<%= index %>][name]" value="<%= student.name %>">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="status-<%= index %>" name="students[<%= index %>][status]" value="present" checked>
+                                            <label class="form-check-label" for="status-<%= index %>">Present</label>
+                                        </div>
                                     </td>
                                 </tr>
-                            <% } %>
+                            <% }); %>
                         </tbody>
                     </table>
-                </div>
-                
-                <!-- Submit Button -->
-                <div class="button-container">
-                    <button class="btn btn-primary">Submit</button>
-                </div>
-            </form>
+                    <div class="row mt-4">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            <% } else { %>
+                <p>No students found for the selected criteria.</p>
+            <% } %>
         </div>
-        <br>
     </div>
 </body>

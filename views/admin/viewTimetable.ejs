@@ -1,0 +1,233 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body>
+  <div class="container mt-5">
+    <h1>View and Edit Timetable</h1>
+
+    <!-- Table for viewing and editing timetable -->
+    <div id="timetableContainer">
+      <h2>Class Timetable</h2>
+      <table class="table table-bordered mt-5">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <% for (let i = 1; i <= timetable.numPeriods; i++) { %>
+              <th>
+                Period <%= i %><br>
+                <input type="time" id="startTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i) ? timetable.periods.find(p => p.hour === i).startTime : '' %>">
+                <input type="time" id="endTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i) ? timetable.periods.find(p => p.hour === i).endTime : '' %>">
+              </th>
+            <% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; %>
+          <% for (let i = 0; i < 7; i++) { %>
+            <tr>
+              <td><%= days[i % 7] %></td>
+              <% for (let j = 0; j < timetable.numPeriods; j++) { %>
+                <% const period = timetable.periods.find(p => p.day === days[i % 7] && p.hour === j + 1); %>
+                <td id="cell_<%= i %>_<%= j %>">
+                  <% if (period) { %>
+                    <div>
+                      <%= period.subject.name %><br>
+                      <%= period.faculty.name %><br>
+                      <%= period.startTime %> - <%= period.endTime %><br>
+                      <button onclick="editPeriodForm(<%= i %>, <%= j %>, '<%= period.subject._id %>', '<%= period.faculty._id %>', '<%= period.startTime %>', '<%= period.endTime %>')" class="btn btn-sm btn-warning">Edit</button>
+                      <button onclick="deletePeriod('<%= period._id %>')" class="btn btn-sm btn-danger">Delete</button>
+                    </div>
+                  <% } else { %>
+                    <button onclick="createPeriodForm(<%= i %>, <%= j %>)" class="btn btn-primary btn-sm">+</button>
+                  <% } %>
+                </td>
+              <% } %>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modal for creating/editing period -->
+    <div class="modal fade" id="periodModal" tabindex="-1" aria-labelledby="periodModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="periodModalLabel">Add/Edit Period</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="periodForm">
+              <input type="hidden" id="dayInput" name="day">
+              <input type="hidden" id="hourInput" name="hour">
+              <input type="hidden" id="sectionInput" name="section" value="<%= timetable.section._id %>">
+              <input type="hidden" id="yearInput" name="year" value="<%= timetable.year._id %>">
+              <input type="hidden" id="branchInput" name="branch" value="<%= timetable.branch._id %>">
+              <input type="hidden" id="semesterInput" name="semester" value="<%= timetable.semester._id %>">
+
+              <div class="mb-3">
+                <label for="subject" class="form-label">Subject</label>
+                <select id="subject" name="subject" class="form-control" required>
+                  <option value="" disabled selected>Select Subject</option>
+                  <!-- Options will be populated dynamically based on branch and semester -->
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="faculty" class="form-label">Faculty</label>
+                <select id="faculty" name="faculty" class="form-control" required>
+                  <option value="" disabled selected>Select Faculty</option>
+                  <!-- Options will be populated dynamically based on branch and semester -->
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="startTime" class="form-label">Start Time</label>
+                <input type="time" id="startTime" name="startTime" class="form-control" required readonly>
+              </div>
+              <div class="mb-3">
+                <label for="endTime" class="form-label">End Time</label>
+                <input type="time" id="endTime" name="endTime" class="form-control" required readonly>
+              </div>
+              <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Function to display the period creation form
+    function createPeriodForm(day, period) {
+      document.getElementById('dayInput').value = day + 1; // Display day starting from 1
+      document.getElementById('hourInput').value = period + 1; // Display period starting from 1
+
+      const startTime = document.getElementById(`startTime_${period + 1}`).value;
+      const endTime = document.getElementById(`endTime_${period + 1}`).value;
+
+      document.getElementById('startTime').value = startTime;
+      document.getElementById('endTime').value = endTime;
+
+      const section = document.getElementById('sectionInput').value;
+      const year = document.getElementById('yearInput').value;
+      const branch = document.getElementById('branchInput').value;
+      const semester = document.getElementById('semesterInput').value;
+
+      fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
+        .then(response => response.json())
+        .then(subjects => {
+          const subjectSelect = document.getElementById('subject');
+          subjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+          subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject._id;
+            option.textContent = subject.name;
+            subjectSelect.appendChild(option);
+          });
+        });
+
+      fetch(`/admin/faculties?branch=${branch}`)
+        .then(response => response.json())
+        .then(faculties => {
+          const facultySelect = document.getElementById('faculty');
+          facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
+          faculties.forEach(faculty => {
+            const option = document.createElement('option');
+            option.value = faculty._id;
+            option.textContent = faculty.name;
+            facultySelect.appendChild(option);
+          });
+        });
+
+      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+      periodModal.show();
+    }
+
+    // Form submission handler
+    document.getElementById('periodForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const formData = new FormData(this);
+      fetch('/admin/timetable/period', {
+        method: 'POST',
+        body: formData,
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Period saved successfully');
+          const periodModal = bootstrap.Modal.getInstance(document.getElementById('periodModal'));
+          periodModal.hide();
+
+          // Update the table cell content
+          const day = formData.get('day') - 1;
+          const period = formData.get('hour') - 1;
+          const cell = document.getElementById(`cell_${day}_${period}`);
+          cell.innerHTML = `
+            ${data.period.subject.name}<br>
+            ${data.period.faculty.name}<br>
+            ${data.period.startTime} - ${data.period.endTime}<br>
+            <button onclick="editPeriodForm(${day}, ${period}, '${data.period.subject._id}', '${data.period.faculty._id}', '${data.period.startTime}', '${data.period.endTime}')" class="btn btn-sm btn-warning">Edit</button>
+            <button onclick="deletePeriod('${data.period._id}')" class="btn btn-sm btn-danger">Delete</button>
+          `;
+        } else {
+          alert('Error saving period');
+        }
+      });
+    });
+
+    // Function to display the period edit form with pre-filled values
+    function editPeriodForm(day, period, subject, faculty, startTime, endTime) {
+      document.getElementById('dayInput').value = day + 1;
+      document.getElementById('hourInput').value = period + 1;
+      document.getElementById('subject').value = subject;
+      document.getElementById('faculty').value = faculty;
+      document.getElementById('startTime').value = startTime;
+      document.getElementById('endTime').value = endTime;
+
+      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+      periodModal.show();
+    }
+
+    // Function to update period time
+    function updatePeriodTime(periodIndex, timeType) {
+      const timeValue = document.getElementById(`${timeType}_${periodIndex}`).value;
+      // Send the updated time to the backend or update the state here
+      fetch(`/admin/timetable/update-time`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          periodIndex,
+          timeType,
+          timeValue
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Time updated successfully');
+        } else {
+          alert('Error updating time');
+        }
+      });
+    }
+
+    // Function to delete a period
+    function deletePeriod(periodId) {
+      if (confirm('Are you sure you want to delete this period?')) {
+        fetch(`/admin/timetable/period/${periodId}`, {
+          method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Period deleted successfully');
+            location.reload(); // Reload the page to reflect changes
+          } else {
+            alert('Error deleting period');
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>

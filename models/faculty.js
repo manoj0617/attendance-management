@@ -16,11 +16,6 @@ const facultySchema=mongoose.Schema({
         ref: 'Branch',
         required: true
     },
-    id:{
-        type:String,
-        unique:true,
-        required:true,
-    },
     mobile:{
         type:Number,
         required:true,

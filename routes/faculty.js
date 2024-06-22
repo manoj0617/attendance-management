@@ -17,23 +17,18 @@ router.route('/signup')
   .get(facultyController.renderSignupForm) // Render signup form
   .post(facultyController.signup); // Process signup
 
-// Faculty index route
-router.get("/courses", isFacultyLoggedIn, wrapAsync(facultyController.facultyIndex));
-
-// Routes for creating a new course
-router.route("/create")
-  .get(isFacultyLoggedIn, wrapAsync(facultyController.renderNewForm)) // Render new course form
-  .post(isFacultyLoggedIn, wrapAsync(facultyController.newCourse)); // Process creation of new course
+// Faculty dashboard route
+router.get("/dashboard", isFacultyLoggedIn, wrapAsync(facultyController.facultyDashboard));
 
 // Routes for marking attendance
-router.route("/courses/:id")
+router.route("/attendance")
   .get(isFacultyLoggedIn, wrapAsync(facultyController.renderAttendanceForm)) // Render attendance form
   .post(isFacultyLoggedIn, wrapAsync(facultyController.markAttendance)); // Process marking attendance
 
 // Routes for downloading attendance
 router.route("/download")
   .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm)) // Render download form
-  .post(isFacultyLoggedIn,validateDownload, wrapAsync(facultyController.download)); // Process downloading attendance
+  .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download)); // Process downloading attendance
 
 // Logout route
 router.get('/logout', facultyController.logout);

@@ -114,7 +114,7 @@
             event.preventDefault();
 
             const formData = new FormData(this);
-            fetch('/admin/timetable', {
+            fetch('/admin/timetable/period', {
                 method: 'POST',
                 body: formData,
             })
@@ -152,4 +152,4 @@
         }
     </script>
 </body>
-</html>
+</html> 

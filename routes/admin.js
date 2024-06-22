@@ -12,6 +12,7 @@ const Branch = require('../models/branch');
 const Semester = require('../models/semester');
 const AcademicYear = require('../models/academicYear');
 const Subject = require('../models/subject');
+const Attendance = require('../models/attendance');
 const multer = require('multer');
 const upload = multer();
 
@@ -253,65 +254,106 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
     res.redirect('/error');
   }
 });
-
-// Route to add a new period
-router.post('/timetable', isAdminLoggedIn, async (req, res) => {
-  let { hour, day, branch, year, section, subject, semester } = req.body;
+router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
+  let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
+  const { startTime, endTime } = req.body;
 
   // Convert day number to day name
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   day = dayNames[day - 1];
 
   try {
     // Find the semester document by ID
     const semesterDoc = await Semester.findById(semester);
-    
+
     if (!semesterDoc) {
       req.flash('error', 'Invalid semester');
-      return res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+      return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
     }
 
     // Extract the name of the semester
     const sem = semesterDoc.name;
-    console.log("Semester ID:", semester);
-    console.log("Semester Document:", semesterDoc);
-    console.log("Semester Name:", sem);
 
     // Create a new period
-    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester: sem });
-    await newPeriod.save();
+    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester: sem, startTime, endTime, faculty });
+    let period = await newPeriod.save();
+
+    // Populate subject and faculty in the period
+    period = await period.populate('subject faculty');
+
+    // Find the timetable
+    let timetable = await Timetable.findOne({ year, branch, section, semester });
+
+    // Check if timetable exists
+    if (!timetable) {
+      // If not, create a new timetable
+      timetable = new Timetable({ year, branch, section, semester, periods: [] });
+    }
+
+    // Add the period to the timetable
+    timetable.periods.push(newPeriod._id);
+    await timetable.save();
 
     req.flash('success', 'Period added successfully');
-    res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+    res.json({ success: true, period: period });
   } catch (error) {
     console.error('Error adding period:', error);
     req.flash('error', 'Error adding period');
-    res.redirect(`/admin/timetable?year=${year}&branch=${branch}&section=${section}`);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+router.get('/timetables', async (req, res) => {
+  const { section, year, branch, semester } = req.query;
+  const timetable = await Timetable.findOne({ section, year, branch, semester });
+  res.json(timetable);
+});
+router.get('/timetable/new', async (req, res) => {
+  let { numPeriods, numDays = 7, section, branch, semester, year } = req.query;
+  let periods = [];
+  let newTimetable = new Timetable({ section, semester, year, branch, periods,numPeriods});
+  let timetable = await newTimetable.save();
+  res.redirect(`/admin/timetable/${timetable._id}`);
+});
+
+router.get('/timetable/:id', async (req, res) => {
+  let { id } = req.params;
+  
+  try {
+    let timetable = await Timetable.findById(id)
+      .populate({
+        path: 'periods',
+        populate: {
+          path: 'subject faculty',
+          select: 'name'
+        }
+      })
+      .populate('branch section year semester')
+      .exec();
+
+    res.render('admin/viewTimetable', { timetable });
+  } catch (error) {
+    console.error('Error fetching timetable:', error);
+    req.flash('error', 'Error fetching timetable');
+    res.redirect('/admin/timetable');
   }
 });
 
 // Route to delete a period
-router.delete('/timetable/:id', isAdminLoggedIn, async (req, res) => {
+router.delete('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
   try {
-    const period = await Period.findById(req.params.id);
-    await period.remove();
-    req.flash('success', 'Period deleted successfully');
-    res.redirect(`/admin/timetable?year=${period.year}&branch=${period.branch}&section=${period.section}`);
+    const period = await Period.findByIdAndDelete(req.params.id);
+    if (period) {
+      res.json({ success: true, message: 'Period deleted successfully' });
+    } else {
+      res.json({ success: false, message: 'Period not found' });
+    }
   } catch (error) {
     console.error(error);
-    req.flash('error', 'Error deleting period');
-    res.redirect('/admin/timetable');
+    res.json({ success: false, message: 'Error deleting period' });
   }
 });
-router.get('/timetable/new', (req, res) => {
-  const numPeriods = req.query.numPeriods;
-  const numDays = 7;
-  const section = req.query.section;
-  const branch = req.query.branch;
-  const semester = req.query.semester;
-  const year=req.query.year;
-  res.render('admin/newTimetable', { numPeriods, numDays, section, branch, semester });
-});
+
 // Route to display the student management page with search functionality
 // Fetch students and other required data
 router.get('/student', async (req, res) => {
@@ -426,14 +468,17 @@ router.get('/faculty/new', async (req, res) => {
 // Handle faculty creation
 router.post('/faculty/new', async (req, res) => {
   try {
-      const { email, name, branch, id, password, username, mobile, subjects } = req.body;
+      const { email, name, branch, password, username, mobile, subjects } = req.body;
       console.log(username,req.body);
+      if (!name || !email || !branch || !password || !username || !mobile) {
+        req.flash('error', 'All fields are required');
+        return res.redirect('/admin/register-faculty');
+      }
       // Create new faculty instance
       const faculty = new Faculty({
           email,
           name,
           branch,
-          id,
           username,
           mobile,
           subjects: Array.isArray(subjects) ? subjects : [subjects] // Ensure subjects is an array
@@ -448,7 +493,17 @@ router.post('/faculty/new', async (req, res) => {
           res.json({ success: true });
       });
   } catch (error) {
-      console.error('Error saving faculty:', error);
+    console.error('Error registering faculty:', error);
+
+    if (error.code === 11000) {
+      if (error.keyPattern.email) {
+        req.flash('error', 'Email already exists');
+      } else if (error.keyPattern.username) {
+        req.flash('error', 'Username already exists');
+      }
+    } else {
+      req.flash('error', 'Error registering faculty');
+    }
       res.json({ success: false, message: 'Error saving faculty' });
   }
 });
@@ -532,17 +587,30 @@ router.get('/section', async (req, res) => {
       res.status(500).send('Server Error');
   }
 });
-// Display attendance form
-router.get('/attendance', isAdminLoggedIn, async (req, res) => {
+router.get('/attendance', async (req, res) => {
+  const { student, subject, date, status, period, branch, section, semester, year } = req.query;
+
+  let filter = {};
+  if (student) filter.student = student;
+  if (subject) filter.subject = subject;
+  if (date) filter.date = new Date(date);
+  if (status !== undefined) filter.status = status.toLowerCase() === 'present';
+  if (period) filter.period = period;
+  if (branch) filter.branch = branch;
+  if (section) filter.section = section;
+  if (semester) filter.semester = semester;
+  if (year) filter.year = year;
+
   try {
-    const students = await Student.find();
-    res.render('admin/attendance', { students });
-  } catch (err) {
-    req.flash('error', 'Unable to load students');
+    const attendances = await Attendance.find(filter)
+      .populate('student subject branch section semester year');
+    res.render('admin/attendance', { attendances });
+  } catch (error) {
+    console.error('Error fetching attendances:', error);
+    req.flash('error', 'Error fetching attendances');
     res.redirect('/admin');
   }
 });
-
 // Handle attendance submission
 router.post('/attendance', isAdminLoggedIn, async (req, res) => {
   const { attendance } = req.body; // attendance should be an array of { studentId, status }

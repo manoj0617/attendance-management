@@ -1,34 +1,50 @@
-const mongoose=require("mongoose");
-const {Schema}=mongoose;
-const moment=require('moment');
+const mongoose = require('mongoose');
 
-const attendanceSchema=mongoose.Schema({
-    roll:{
-        type:String,
-        required:true,
-    },
-    course:{
-        type:String,
-        required:String,
-    },
-    year:{
-        type:String,
-        required:true,
-    },
-    name:{
-        type:String,
-        required:true,
-    },
-    date:{
-        type:Date,
-        // get:()=>{
-        //     return moment.utc(this.getDataValue("date")).format("YYYY-MM-DD");
-        // },
-    },
-    status:{
-        type:String,
-        required:true,
-    },
+const attendanceSchema = new mongoose.Schema({
+  student: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    required: true
+  },
+  subject: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subject',
+    required: true
+  },
+  date: {
+    type: Date,
+    required: true
+  },
+  status: {
+    type: Boolean, // true for Present (P), false for Absent (A)
+    required: true
+  },
+  period: {
+    type: Number,
+    required: true
+  },
+  branch: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    required: true
+  },
+  section: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Section',
+    required: true
+  },
+  semester: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Semester',
+    required: true
+  },
+  year: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Year',
+    required: true
+  },
 });
-Attendance=mongoose.model('Attendance',attendanceSchema);
-module.exports=Attendance;
+
+const Attendance = mongoose.model('Attendance', attendanceSchema);
+
+module.exports = Attendance;

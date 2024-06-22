@@ -370,3 +370,117 @@ button.btn-danger:hover {
   background-color: #fff; /* Set background color */
   z-index: 1000; /* Set a higher z-index to ensure it appears above other elements */
 }
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  width: 80%;
+  margin: auto;
+  overflow: hidden;
+}
+
+h1, h2 {
+  color: #333;
+  text-align: center;
+}
+
+section {
+  background: #fff;
+  margin: 20px 0;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.timetable, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+  padding: 10px;
+  text-align: center;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}
+
+.attendance-entered {
+  background-color: #4CAF50 !important;
+  color: white;
+}
+
+.attendance-not-entered {
+  background-color: blue !important;
+  color: white;
+}
+
+.attendance-mismatch {
+  background-color: red !important;
+  color: white;
+}
+
+.class-cancelled {
+  background-color: orange !important;
+  color: white;
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.legend div {
+  margin: 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.legend-box {
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  display: inline-block;
+  border: 1px solid #000;
+}
+
+.attendance-not-entered .legend-box {
+  background-color: blue;
+}
+
+.attendance-entered .legend-box {
+  background-color: #4CAF50;
+}
+
+.attendance-mismatch .legend-box {
+  background-color: red;
+}
+
+.class-cancelled .legend-box {
+  background-color: orange;
+}
+
+p {
+  margin: 0;
+  padding: 5px 0;
+  color: #555;
+}

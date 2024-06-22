@@ -1,0 +1,60 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+<head>
+    <link rel="stylesheet" href="/styles/facultyDashboard.css">
+</head>
+<body>
+    <div class="container">
+        <h1><%= faculty.name %></h1>
+        <section>
+            <h2>Faculty Information</h2>
+            <p><strong>Email:</strong> <%= faculty.email %></p>
+            <p><strong>Department:</strong> <%= faculty.branch.name %></p>
+        </section>
+        <section>
+            <h2>Today's Timetable</h2>
+            <% if (periods.length > 0) { %>
+                <table class="timetable table">
+                    <thead>
+                        <tr>
+                            <th>DayName</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><%= today %></td>
+                            <% for (let i = 1; i <= 7; i++) { %>
+                                <% let period = periods.find(p => p.hour === i); %>
+                                <% if (period) { %>
+                                    <td class="attendance-entered">
+                                        <div><%= period.subject.name %></div>
+                                        <div><%= period.branch.name %></div>
+                                        <div><%= period.year.name %> SEM</div>
+                                        <div>Sec: <%= period.section.name %></div>
+                                        <div><%= period.startTime %> - <%= period.endTime %></div>
+                                    </td>
+                                <% } else { %>
+                                    <td></td>
+                                <% } %>
+                            <% } %>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="legend">
+                    <div><span class="legend-box attendance-not-entered"></span> Attendance not Entered</div>
+                    <div><span class="legend-box attendance-entered"></span> Attendance Entered</div>
+                    <div><span class="legend-box attendance-mismatch"></span> Entered attendance not matching with the timetable</div>
+                    <div><span class="legend-box class-cancelled"></span> Class cancelled</div>
+                </div>
+            <% } else { %>
+                <p>No periods scheduled for today.</p>
+            <% } %>
+        </section>
+    </div>
+</body>

@@ -2,6 +2,7 @@ const Course = require('../models/course.js');
 const Student = require('../models/student.js');
 const Attendance = require("../models/attendance.js");
 const Faculty = require('../models/faculty');
+const Period = require('../models/period');
 const { Parser } = require('json2csv');
 
 // Render login form
@@ -13,7 +14,7 @@ module.exports.renderLoginForm = (req, res) => {
 module.exports.login = (req, res) => {
     req.flash("success", "Welcome back!");
     console.log(res.locals.currUser);
-    let redirectUrl = res.locals.redirectUrl || '/faculty/courses';
+    let redirectUrl = res.locals.redirectUrl || '/faculty/dashboard';
     return res.redirect(redirectUrl);
 };
 
@@ -33,7 +34,7 @@ module.exports.signup = async (req, res) => {
                 req.flash("success", "You are registered successfully!");
                 return next(err);
             }
-            res.redirect('/faculty/courses');
+            res.redirect('/faculty/dashboard');
         });
     } catch (err) {
         console.log(err);
@@ -42,61 +43,26 @@ module.exports.signup = async (req, res) => {
     }
 };
 
-// Render faculty index (courses)
-module.exports.facultyIndex = async (req, res) => {
-    let courses = await Course.find({ faculty: req.user._id });
-    return res.render("faculty/courses.ejs", { courses });
-};
-
-// Render form for creating a new course
-module.exports.renderNewForm = (req, res) => {
-    return res.render("faculty/create.ejs");
-};
-
-// Handle creation of a new course
-module.exports.newCourse = async (req, res) => {
-    let { course, year } = req.body;
-    let { dept, name, _id } = req.user;
-    let newCourse = new Course({
-        dept: dept,
-        course: course,
-        faculty: _id,
-        year: year,
-    });
-    await newCourse.save();
-    return res.redirect('/faculty/courses');
-};
-
-// Render attendance form for a specific course
-module.exports.renderAttendanceForm = async (req, res) => {
-    let { id } = req.params;
-    let course = await Course.findById(id);
-    let x = 0;
-    let students = await Student.find({ dept: course.dept, year: course.year });
-    res.render("faculty/attendance.ejs", { course, students, x });
-};
-
-// Handle marking attendance for students in a course
-module.exports.markAttendance = async (req, res) => {
-    let { status, date, student } = req.body;
-    let { id } = req.params;
-    let course = await Course.findById(id);
-    for (let i = 0; i < student.length; i++) {
-        let newStudent = await Student.find({ username: student[i] });
-        console.log(newStudent);
-        let newAttendance = new Attendance({
-            roll: newStudent[0].username,
-            name: newStudent[0].name,
-            year: newStudent[0].year,
-            date: date,
-            status: status[0],
-            course: course.course,
-        });
-        let res = await newAttendance.save();
-        console.log(res);
+// Render faculty dashboard
+module.exports.facultyDashboard = async (req, res) => {
+    try {
+        let faculty = await Faculty.findById(req.user._id).populate('branch');
+        let today = new Date().toLocaleString('en-US', { weekday: 'long' });
+        console.log(today);
+        let periods = await Period.find({ faculty: req.user._id, day: today })
+            .populate('subject')
+            .populate('year')
+            .populate('branch')
+            .populate('section');
+        console.log(periods);
+        return res.render("faculty/dashboard.ejs", { faculty, periods,today });
+    } catch (err) {
+        console.log(err);
+        req.flash("error", "Cannot load the dashboard.");
+        return res.redirect('/');
     }
-    res.redirect("/faculty/courses");
 };
+
 
 // Render form for downloading attendance records
 module.exports.renderDownloadForm = async (req, res) => {
@@ -150,3 +116,25 @@ module.exports.logout = (req, res, next) => {
         res.redirect('/');
     });
 };
+module.exports.renderAttendanceForm = async (req, res) => {
+    const faculty = await Faculty.findById(req.user._id).populate('branch');
+    const students = await Student.find({ branch: faculty.branch._id });
+    res.render("faculty/attendance", { faculty, students });
+};
+
+module.exports.markAttendance = async (req, res) => {
+    const { students, date } = req.body;
+    students.forEach(async studentData => {
+        const attendance = new Attendance({
+            roll: studentData.username,
+            name: studentData.name,
+            year: studentData.year,
+            date: date,
+            status: studentData.status === 'present' ? 'Present' : 'Absent',
+        });
+        await attendance.save();
+    });
+    req.flash("success", "Attendance marked successfully!");
+    res.redirect('/faculty/dashboard');
+};
+

@@ -1,33 +1,46 @@
+const { required } = require('joi');
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const PeriodSchema = new mongoose.Schema({
-  hour: {
-    type: Number,
-    required: true,
-  },
-  day: {
-    type: String,
-    required: true,
-    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-  },
-  branch: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Branch',
-    required: true,
-  },
-  semester: {
-    type: String,
-    required: true,
-  },
-  section: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Section',
-    required: true,
-  },
-  subject: {
-    type: String,
-    required: true,
-  },
+const PeriodSchema = new Schema({
+    hour:{
+        type:Number,
+        required:true,
+    },
+    faculty: {
+        type: Schema.Types.ObjectId,
+        ref: 'Faculty'
+    },
+    subject: {
+        type: Schema.Types.ObjectId,
+        ref: 'Subject'
+    },
+    year: {
+        type: Schema.Types.ObjectId,
+        ref: 'AcademicYear'
+    },
+    branch: {
+        type: Schema.Types.ObjectId,
+        ref: 'Branch'
+    },
+    semester: {
+        type: String,
+    required: true
+    },
+    section: {
+        type: Schema.Types.ObjectId,
+        ref: 'Section'
+    },
+    startTime: {
+        type: String
+    },
+    endTime: {
+        type: String
+    },
+    day: {
+        type: String, // This will store the day of the week as a string (e.g., 'Monday')
+        enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    }
 });
 
 module.exports = mongoose.model('Period', PeriodSchema);

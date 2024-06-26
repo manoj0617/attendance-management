@@ -1,0 +1,86 @@
+<% layout("../layouts/facultyBoilerplate") -%>
+<body>
+  <div class="container mt-5">
+    <h2>Mark Attendance</h2>
+    <form id="attendanceForm" action="/attendance/submit" method="post">
+      <div class="form-group">
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label for="period">Period:</label>
+        <select id="period" name="period" class="form-control" required>
+          <% for(let i = 1; i <= 8; i++) { %>
+            <option value="<%= i %>">Period <%= i %></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="subject">Subject:</label>
+        <select id="subject" name="subject" class="form-control" required>
+          <% subjects.forEach(subject => { %>
+            <option value="<%= subject._id %>"><%= subject.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="branch">Branch:</label>
+        <select id="branch" name="branch" class="form-control" required>
+          <% branches.forEach(branch => { %>
+            <option value="<%= branch._id %>"><%= branch.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="section">Section:</label>
+        <select id="section" name="section" class="form-control" required>
+          <% sections.forEach(section => { %>
+            <option value="<%= section._id %>"><%= section.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="semester">Semester:</label>
+        <select id="semester" name="semester" class="form-control" required>
+          <% semesters.forEach(semester => { %>
+            <option value="<%= semester._id %>"><%= semester.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="year">Year:</label>
+        <select id="year" name="year" class="form-control" required>
+          <% years.forEach(year => { %>
+            <option value="<%= year._id %>"><%= year.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <h3>Student Attendance</h3>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>HT No</th>
+            <th>Student Name</th>
+            <th>Section/Batch</th>
+            <th>Present</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% students.forEach((student, index) => { %>
+            <tr>
+              <td><%= index + 1 %></td>
+              <td><%= student.htNo %></td>
+              <td><%= student.name %></td>
+              <td><%= student.sectionBatch %></td>
+              <td>
+                <input type="checkbox" name="attendance[<%= student._id %>]" value="true">
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+  </div>
+</body>

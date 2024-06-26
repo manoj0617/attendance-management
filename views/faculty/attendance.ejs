@@ -1,17 +1,25 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
 <head>
     <link rel="stylesheet" href="/styles/attendance.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h2>Daily Attendance</h2>
-        <form id="attendanceForm" action="/faculty/attendance" method="post">
+        <div class="top-buttons">
+            <button id="newRecord" class="btn btn-success">New</button>
+            <button id="modifyRecord" class="btn btn-warning">Modify</button>
+            <button id="showRecord" class="btn btn-info">Show</button>
+        </div>
+        <form id="attendanceForm" action="/faculty/attendance" method="post" style="display: none;">
             <div class="row">
                 <div class="col">
                     <label for="acYear">Academic Year:</label>
                     <select id="acYear" name="acYear" class="form-control" required>
-                        <option value="2023 - 2024">2023 - 2024</option>
-                        <!-- Add more options as needed -->
+                        <option value="">Select Academic Year</option>
+                        <% academicYears.forEach(year => { %>
+                            <option value="<%= year._id %>"><%= year.name %></option>
+                        <% }); %>
                     </select>
                 </div>
                 <div class="col">
@@ -27,67 +35,111 @@
                 </div>
                 <div class="col">
                     <label for="branch">Branch:</label>
-                    <select id="branch" name="branch" class="form-control" required>
-                        <option value="CSE">CSE</option>
-                        <!-- Add more options as needed -->
+                    <select id="branch" name="branch" class="form-control" required disabled>
+                        <option value="">Select Branch</option>
                     </select>
                 </div>
                 <div class="col">
                     <label for="sem">Semester:</label>
-                    <select id="sem" name="sem" class="form-control" required>
-                        <option value="I-II SEM">I-II SEM</option>
-                        <!-- Add more options as needed -->
+                    <select id="sem" name="sem" class="form-control" required disabled>
+                        <option value="">Select Semester</option>
                     </select>
                 </div>
                 <div class="col">
                     <label for="section">Section:</label>
-                    <select id="section" name="section" class="form-control" required>
-                        <option value="C">C</option>
-                        <!-- Add more options as needed -->
+                    <select id="section" name="section" class="form-control" required disabled>
+                        <option value="">Select Section</option>
                     </select>
                 </div>
             </div>
-            <div class="row mt-4">
-                <button type="submit" class="btn btn-primary">Show Students</button>
-            </div>
-        </form>
-        <div id="studentsList" class="mt-4">
-            <% if (students && students.length > 0) { %>
-                <form action="/faculty/attendance/mark" method="post">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>S.no</th>
-                                <th>Roll no.</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% students.forEach((student, index) => { %>
-                                <tr>
-                                    <td><%= index + 1 %></td>
-                                    <td><%= student.username %></td>
-                                    <td><%= student.name %></td>
-                                    <td>
-                                        <input type="hidden" name="students[<%= index %>][username]" value="<%= student.username %>">
-                                        <input type="hidden" name="students[<%= index %>][name]" value="<%= student.name %>">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="status-<%= index %>" name="students[<%= index %>][status]" value="present" checked>
-                                            <label class="form-check-label" for="status-<%= index %>">Present</label>
-                                        </div>
+        <section id="timetableSection" style="display: none;">
+            <h2>Today's Timetable</h2>
+            <% if (periods.length > 0) { %>
+                <table class="timetable table">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>1 <input type="checkbox" name="periods" value="<%= 1 %>"></th>
+                            <th>2 <input type="checkbox" name="periods" value="<%= 2 %>"></th>
+                            <th>3 <input type="checkbox" name="periods" value="<%= 3 %>"></th>
+                            <th>4 <input type="checkbox" name="periods" value="<%= 4 %>"></th>
+                            <th>5 <input type="checkbox" name="periods" value="<%= 5 %>"></th>
+                            <th>6 <input type="checkbox" name="periods" value="<%= 6 %>"></th>
+                            <th>7 <input type="checkbox" name="periods" value="<%= 7 %>"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><%= today %></td>
+                            <% for (let i = 1; i <= 7; i++) { %>                                
+                                <% let period = periods.find(p => p.hour === i); %>
+                                <% if (period) { %>
+                                    <td class="attendance-entered">                                        
+                                        <div><%= period.subject.name %></div>
+                                        <div><%= period.branch.name %></div>
+                                        <div><%= period.year.name %> SEM</div>
+                                        <div>Sec: <%= period.section.name %></div>
+                                        <div><%= period.startTime %> - <%= period.endTime %></div>
                                     </td>
-                                </tr>
-                            <% }); %>
-                        </tbody>
-                    </table>
-                    <div class="row mt-4">
-                        <button type="submit" class="btn btn-primary">Submit</button>
-                    </div>
-                </form>
+                                <% } else { %>
+                                    <td></td>
+                                <% } %>
+                            <% } %>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="legend">
+                    <div><span class="legend-box attendance-not-entered"></span> Attendance not Entered</div>
+                    <div><span class="legend-box attendance-entered"></span> Attendance Entered</div>
+                    <div><span class="legend-box attendance-mismatch"></span> Entered attendance not matching with the timetable</div>
+                    <div><span class="legend-box class-cancelled"></span> Class cancelled</div>
+                </div>
             <% } else { %>
-                <p>No students found for the selected criteria.</p>
+                <p>No periods scheduled for today.</p>
             <% } %>
+        </section>        
+        <div class="row mt-4">
+            <button type="submit" class="btn btn-primary">Submit</button>
         </div>
+        </form>
     </div>
+    <script>
+        $(document).ready(function() {
+            $('#newRecord, #modifyRecord, #showRecord').click(function() {
+                $('#attendanceForm').show();
+                $('#timetableSection').show();
+            });
+
+            $('#acYear').change(function() {
+                var acYear = $(this).val();
+                if (acYear) {
+                    $.ajax({
+                        url: '/faculty/semester',
+                        type: 'GET',
+                        data: { year: acYear },
+                        success: function(data) {
+                            $('#sem').removeAttr('disabled').html(data.semesters.map(sem => `<option value="${sem._id}">${sem.name}</option>`));
+                            $('#branch').removeAttr('disabled').html(data.branches.map(branch => `<option value="${branch._id}">${branch.name}</option>`));
+                            $('#section').attr('disabled', 'disabled').html('<option value="">Select Section</option>');
+                        }
+                    });
+                }
+            });
+
+            $('#branch').change(function() {
+                var branch = $(this).val();
+                var sem = $('#sem').val();
+                if (branch && sem) {
+                    $.ajax({
+                        url: '/faculty/sections',
+                        type: 'GET',
+                        data: { branch: branch, sem: sem },
+                        success: function(data) {
+                            $('#section').removeAttr('disabled').html(data.map(section => `<option value="${section._id}">${section.name}</option>`));
+                        }
+                    });
+                }
+            });
+        });
+    </script>
 </body>

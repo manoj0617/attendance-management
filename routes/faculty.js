@@ -1,36 +1,76 @@
 const express = require('express');
 const passport = require('passport');
-const router = express.Router({ mergeParams: true }); // Using mergeParams for nested routes
-const { isFacultyLoggedIn, saveRedirectUrl, validateDownload } = require('../middleware.js'); // Importing middleware
-const wrapAsync = require('../utils/wrapAsync.js'); // Util for error handling
-const createCsvWriter = require('csv-writer').createObjectCsvWriter; // CSV writer module
-const { Parser } = require('json2csv'); // JSON to CSV parser
-const json2csvParser = new Parser(); // Creating a JSON to CSV parser object
-const facultyController = require("../controllers/faculty.js"); // Importing faculty controller
+const router = express.Router({ mergeParams: true });
+const { isFacultyLoggedIn, saveRedirectUrl, validateDownload } = require('../middleware.js');
+const wrapAsync = require('../utils/wrapAsync.js');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const { Parser } = require('json2csv');
+const json2csvParser = new Parser();
+const facultyController = require("../controllers/faculty.js");
+const Student = require('../models/student');
+const Faculty = require('../models/faculty');
+const Section = require("../models/section");
+const Timetable = require('../models/timetable');
+const Period = require("../models/period");
+const Branch = require('../models/branch');
+const Semester = require('../models/semester');
+const AcademicYear = require('../models/academicYear');
+const Subject = require('../models/subject');
+const Attendance = require('../models/attendance');
 
 // Routes for faculty authentication
 router.route('/login')
-  .get(facultyController.renderLoginForm) // Render login form
-  .post(saveRedirectUrl, passport.authenticate('local-faculty', { failureRedirect: '/faculty/login', failureFlash: true }), wrapAsync(facultyController.login)); // Authenticate login
+    .get(facultyController.renderLoginForm)
+    .post(saveRedirectUrl, passport.authenticate('local-faculty', { failureRedirect: '/faculty/login', failureFlash: true }), wrapAsync(facultyController.login));
 
 router.route('/signup')
-  .get(facultyController.renderSignupForm) // Render signup form
-  .post(facultyController.signup); // Process signup
+    .get(facultyController.renderSignupForm)
+    .post(facultyController.signup);
 
-// Faculty dashboard route
 router.get("/dashboard", isFacultyLoggedIn, wrapAsync(facultyController.facultyDashboard));
 
-// Routes for marking attendance
 router.route("/attendance")
-  .get(isFacultyLoggedIn, wrapAsync(facultyController.renderAttendanceForm)) // Render attendance form
-  .post(isFacultyLoggedIn, wrapAsync(facultyController.markAttendance)); // Process marking attendance
+    .get(isFacultyLoggedIn, wrapAsync(facultyController.renderAttendanceForm))
+    .post(isFacultyLoggedIn, wrapAsync(facultyController.markAttendance));
 
-// Routes for downloading attendance
 router.route("/download")
-  .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm)) // Render download form
-  .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download)); // Process downloading attendance
+    .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm))
+    .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download));
 
-// Logout route
+// Fetch Semesters by Academic Year
+router.get('/semester', async (req, res) => {
+    try {
+        let semesters = await Semester.find({});
+        const { year } = req.query;
+        const branches = await Branch.find({ academicYear: year });
+        res.json({semesters,branches});
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// Fetch Branches by Academic Year
+router.get('/branch', async (req, res) => {
+  try {
+      const { year } = req.query;
+      const branches = await Branch.find({ academicYear: year });
+      res.json(branches);
+  } catch (err) {
+      res.status(500).send('Server Error');
+  }
+});
+
+// Fetch Sections by Branch
+router.get('/sections', async (req, res) => {
+    try {
+        const { branch } = req.query;
+        const sections = await Section.find({ branch });
+        res.json(sections);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
 router.get('/logout', facultyController.logout);
 
-module.exports = router; // Exporting the router configuration
+module.exports = router;

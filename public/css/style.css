@@ -385,16 +385,7 @@ body {
 
 h1, h2 {
   color: #333;
-  text-align: center;
 }
-
-section {
-  background: #fff;
-  margin: 20px 0;
-  padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
 .timetable {
   width: 100%;
   border-collapse: collapse;

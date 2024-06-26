@@ -4,6 +4,7 @@ const Attendance = require("../models/attendance.js");
 const Faculty = require('../models/faculty');
 const Period = require('../models/period');
 const { Parser } = require('json2csv');
+const AcademicYear = require('../models/academicYear');
 
 // Render login form
 module.exports.renderLoginForm = (req, res) => {
@@ -117,9 +118,14 @@ module.exports.logout = (req, res, next) => {
     });
 };
 module.exports.renderAttendanceForm = async (req, res) => {
-    const faculty = await Faculty.findById(req.user._id).populate('branch');
-    const students = await Student.find({ branch: faculty.branch._id });
-    res.render("faculty/attendance", { faculty, students });
+    const academicYears = await AcademicYear.find({}); // Assuming you have an AcademicYear model
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    let periods = await Period.find({ faculty: req.user._id, day: today })
+    .populate('subject')
+    .populate('year')
+    .populate('branch')
+    .populate('section');
+    res.render('faculty/attendance', { academicYears, today, periods });
 };
 
 module.exports.markAttendance = async (req, res) => {

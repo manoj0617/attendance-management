@@ -4,18 +4,9 @@
 </head>
 <body>
     <div class="container">
-        <h2>Mark Attendance for <%= new Date(date).toLocaleDateString() %></h2>
-        <form id="markAttendanceForm" action="/faculty/submitAttendance" method="post">
+        <h2>Modify Attendance for <%= new Date(date).toLocaleDateString() %></h2>
+        <form id="modifyAttendanceForm" action="/faculty/modifyAttendance/<%= attendanceRecord._id %>" method="post">
             <input type="hidden" name="date" value="<%= date %>">
-            <input type="hidden" name="section" value="<%= section %>">
-            <input type="hidden" name="acYear" value="<%= acYear %>">
-            <input type="hidden" name="program" value="<%= program %>">
-            <input type="hidden" name="branch" value="<%= branch %>">
-            <input type="hidden" name="sem" value="<%= sem %>">
-            <input type="hidden" name="subject" value="<%= subject %>">
-            <% periods.forEach(period => { %>
-                <input type="hidden" name="periods[]" value="<%= period %>">
-            <% }); %>
             <h3>Student Attendance</h3>
             <table class="table table-striped">
                 <thead>
@@ -35,7 +26,7 @@
                             <td><%= student.name %></td>
                             <td><%= student.section.name %></td>
                             <td>
-                                <input type="checkbox" name="attendance[<%= student._id %>]" value="true" checked>
+                                <input type="checkbox" name="attendance[<%= student._id %>]" value="true" <%= attendanceRecord.students.find(att => att.student.toString() === student._id.toString())?.status ? 'checked' : '' %>>
                             </td>
                         </tr>
                     <% }); %>

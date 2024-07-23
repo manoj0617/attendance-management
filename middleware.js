@@ -1,5 +1,6 @@
 const downloadSchema=require("./schema.js");
 const ExpressError=require("./utils/ExpressError");
+const Attendance = require('./models/attendance.js');
 module.exports.isFacultyLoggedIn=((req,res,next)=>{
     console.log("Authenticated:", req.isAuthenticated());
     if(!req.isAuthenticated()){
@@ -45,3 +46,18 @@ module.exports.validateDownload=(req,res,next)=>{
         next();
     }
 };
+module.exports.canModifyAttendance = async (req, res, next) => {
+    try {
+      const attendance = await Attendance.findById(req.params.id);
+      if (!attendance) {
+        return res.status(404).send('Attendance record not found');
+      }
+      if (attendance.created_by.toString() !== req.user._id.toString()) {
+        return res.status(403).send('You do not have permission to modify this attendance record');
+      }
+      next();
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Server Error');
+    }
+  };

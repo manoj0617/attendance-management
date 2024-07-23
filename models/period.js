@@ -24,8 +24,8 @@ const PeriodSchema = new Schema({
         ref: 'Branch'
     },
     semester: {
-        type: String,
-    required: true
+        type: Schema.Types.ObjectId,
+        ref: 'Semester'
     },
     section: {
         type: Schema.Types.ObjectId,
@@ -38,7 +38,7 @@ const PeriodSchema = new Schema({
         type: String
     },
     day: {
-        type: String, // This will store the day of the week as a string (e.g., 'Monday')
+        type: String,
         enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     }
 });

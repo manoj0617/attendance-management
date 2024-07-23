@@ -15,7 +15,8 @@ const Subject = require('../models/subject');
 const Attendance = require('../models/attendance');
 const multer = require('multer');
 const upload = multer();
-
+const mongoose = require('mongoose');
+const  {ObjectId}  = mongoose.Types;
 
 router.use(express.json()); // For parsing application/json
 router.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
@@ -254,6 +255,7 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
     res.redirect('/error');
   }
 });
+
 router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
   let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
   const { startTime, endTime } = req.body;
@@ -275,7 +277,7 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
     const sem = semesterDoc.name;
 
     // Create a new period
-    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester: sem, startTime, endTime, faculty });
+    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester, startTime, endTime, faculty });
     let period = await newPeriod.save();
 
     // Populate subject and faculty in the period
@@ -300,6 +302,57 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
     console.error('Error adding period:', error);
     req.flash('error', 'Error adding period');
     res.json({ success: false, error: error.message });
+  }
+});
+
+
+router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
+  let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
+  const { startTime, endTime } = req.body;
+  const periodId = req.params.id;
+
+  // Convert day number to day name
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  day = dayNames[day - 1];
+
+  try {
+    // Find the semester document by ID
+    const semesterDoc = await Semester.findById(semester);
+
+    if (!semesterDoc) {
+      req.flash('error', 'Invalid semester');
+      return res.redirect(`/admin/timetable/edit/${periodId}?year=${year}&branch=${branch}&section=${section}`);
+    }
+
+    // Extract the name of the semester
+    const sem = semesterDoc.name;
+
+    // Update the period
+    let updatedPeriod = await Period.findByIdAndUpdate(periodId, {
+      hour, day, branch, year, section, subject, semester, startTime, endTime, faculty
+    }, { new: true });
+
+    // Populate subject and faculty in the period
+    updatedPeriod = await updatedPeriod.populate('subject faculty');
+
+    req.flash('success', 'Period updated successfully');
+    res.json({ success: true, period: updatedPeriod });
+  } catch (error) {
+    console.error('Error updating period:', error);
+    req.flash('error', 'Error updating period');
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// Route to delete a period
+router.delete('/timetable/period/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Period.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Period deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting period:', error);
+    res.status(500).json({ success: false, message: 'Error deleting period' });
   }
 });
 
@@ -521,8 +574,6 @@ router.get('/subjects', async (req, res) => {
   const subjects = await Subject.find({ branch, semester, academicYear });
   res.json(subjects);
 });
-
-const mongoose = require('mongoose');
 
 // Fetch faculties based on subject
 router.get('/faculties', async (req, res) => {

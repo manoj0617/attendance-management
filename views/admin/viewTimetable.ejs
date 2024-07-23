@@ -32,7 +32,7 @@
                       <%= period.subject.name %><br>
                       <%= period.faculty.name %><br>
                       <%= period.startTime %> - <%= period.endTime %><br>
-                      <button onclick="editPeriodForm(<%= i %>, <%= j %>, '<%= period.subject._id %>', '<%= period.faculty._id %>', '<%= period.startTime %>', '<%= period.endTime %>')" class="btn btn-sm btn-warning">Edit</button>
+                      <button onclick="editPeriodForm('<%= period._id %>', <%= i %>, <%= j %>, '<%= period.subject._id %>', '<%= period.faculty._id %>', '<%= period.startTime %>', '<%= period.endTime %>')" class="btn btn-sm btn-warning">Edit</button>
                       <button onclick="deletePeriod('<%= period._id %>')" class="btn btn-sm btn-danger">Delete</button>
                     </div>
                   <% } else { %>
@@ -56,6 +56,7 @@
           </div>
           <div class="modal-body">
             <form id="periodForm">
+              <input type="hidden" id="periodIdInput" name="periodId">
               <input type="hidden" id="dayInput" name="day">
               <input type="hidden" id="hourInput" name="hour">
               <input type="hidden" id="sectionInput" name="section" value="<%= timetable.section._id %>">
@@ -96,6 +97,7 @@
   <script>
     // Function to display the period creation form
     function createPeriodForm(day, period) {
+      document.getElementById('periodIdInput').value = ''; // Clear the period ID for a new period
       document.getElementById('dayInput').value = day + 1; // Display day starting from 1
       document.getElementById('hourInput').value = period + 1; // Display period starting from 1
 
@@ -110,6 +112,58 @@
       const branch = document.getElementById('branchInput').value;
       const semester = document.getElementById('semesterInput').value;
 
+      populateDropdowns(branch, semester);
+
+      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+      periodModal.show();
+    }
+
+    // Function to display the period edit form with pre-filled values
+    function editPeriodForm(periodId, day, period, subject, faculty, startTime, endTime) {
+      document.getElementById('periodIdInput').value = periodId;
+      document.getElementById('dayInput').value = day + 1;
+      document.getElementById('hourInput').value = period + 1;
+      document.getElementById('startTime').value = startTime;
+      document.getElementById('endTime').value = endTime;
+
+      const branch = document.getElementById('branchInput').value;
+      const semester = document.getElementById('semesterInput').value;
+
+      populateDropdowns(branch, semester, subject, faculty);
+
+      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+      periodModal.show();
+    }
+
+    // Form submission handler
+    document.getElementById('periodForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const formData = new FormData(this);
+      const periodId = formData.get('periodId');
+      const method = periodId ? 'PUT' : 'POST';
+      const url = periodId ? `/admin/timetable/period/${periodId}` : '/admin/timetable/period';
+      console.log(`URL: ${url}`); // Log the URL
+      console.log(`Method: ${method}`);
+      fetch(url, {
+        method: method,
+        body: formData,
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Period saved successfully');
+          const periodModal = bootstrap.Modal.getInstance(document.getElementById('periodModal'));
+          periodModal.hide();
+          location.reload(); // Reload the page to reflect changes
+        } else {
+          alert('Error saving period');
+        }
+      });
+    });
+
+    // Function to populate the subject and faculty dropdowns
+    function populateDropdowns(branch, semester, selectedSubject = '', selectedFaculty = '') {
       fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
         .then(response => response.json())
         .then(subjects => {
@@ -119,6 +173,9 @@
             const option = document.createElement('option');
             option.value = subject._id;
             option.textContent = subject.name;
+            if (subject._id === selectedSubject) {
+              option.selected = true;
+            }
             subjectSelect.appendChild(option);
           });
         });
@@ -132,90 +189,19 @@
             const option = document.createElement('option');
             option.value = faculty._id;
             option.textContent = faculty.name;
+            if (faculty._id === selectedFaculty) {
+              option.selected = true;
+            }
             facultySelect.appendChild(option);
           });
         });
-
-      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
-      periodModal.show();
-    }
-
-    // Form submission handler
-    document.getElementById('periodForm').addEventListener('submit', function(event) {
-      event.preventDefault();
-
-      const formData = new FormData(this);
-      fetch('/admin/timetable/period', {
-        method: 'POST',
-        body: formData,
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Period saved successfully');
-          const periodModal = bootstrap.Modal.getInstance(document.getElementById('periodModal'));
-          periodModal.hide();
-
-          // Update the table cell content
-          const day = formData.get('day') - 1;
-          const period = formData.get('hour') - 1;
-          const cell = document.getElementById(`cell_${day}_${period}`);
-          cell.innerHTML = `
-            ${data.period.subject.name}<br>
-            ${data.period.faculty.name}<br>
-            ${data.period.startTime} - ${data.period.endTime}<br>
-            <button onclick="editPeriodForm(${day}, ${period}, '${data.period.subject._id}', '${data.period.faculty._id}', '${data.period.startTime}', '${data.period.endTime}')" class="btn btn-sm btn-warning">Edit</button>
-            <button onclick="deletePeriod('${data.period._id}')" class="btn btn-sm btn-danger">Delete</button>
-          `;
-        } else {
-          alert('Error saving period');
-        }
-      });
-    });
-
-    // Function to display the period edit form with pre-filled values
-    function editPeriodForm(day, period, subject, faculty, startTime, endTime) {
-      document.getElementById('dayInput').value = day + 1;
-      document.getElementById('hourInput').value = period + 1;
-      document.getElementById('subject').value = subject;
-      document.getElementById('faculty').value = faculty;
-      document.getElementById('startTime').value = startTime;
-      document.getElementById('endTime').value = endTime;
-
-      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
-      periodModal.show();
-    }
-
-    // Function to update period time
-    function updatePeriodTime(periodIndex, timeType) {
-      const timeValue = document.getElementById(`${timeType}_${periodIndex}`).value;
-      // Send the updated time to the backend or update the state here
-      fetch(`/admin/timetable/update-time`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          periodIndex,
-          timeType,
-          timeValue
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Time updated successfully');
-        } else {
-          alert('Error updating time');
-        }
-      });
     }
 
     // Function to delete a period
     function deletePeriod(periodId) {
       if (confirm('Are you sure you want to delete this period?')) {
         fetch(`/admin/timetable/period/${periodId}`, {
-          method: 'DELETE',
+          method: 'DELETE'
         })
         .then(response => response.json())
         .then(data => {
@@ -230,4 +216,3 @@
     }
   </script>
 </body>
-</html>

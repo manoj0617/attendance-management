@@ -87,24 +87,19 @@ passport.use('local-admin', new LocalStrategy(Admin.authenticate()));
 
 // Serialize and deserialize user for session management
 passport.serializeUser((user, done) => {
-  console.log('Serializing user:', user);
   done(null, { username: user.username, type: user instanceof Faculty ? 'faculty' : user instanceof Student ? 'student' : 'admin' });
 });
 
 passport.deserializeUser(async (key, done) => {
   try {
-    console.log('Deserializing user:', key);
     if (key.type === 'faculty') {
       const user = await Faculty.findOne({ username: key.username });
-      console.log('Found faculty:', user);
       done(null, user);
     } else if (key.type === 'student') {
       const user = await Student.findOne({ username: key.username });
-      console.log('Found student:', user);
       done(null, user);
     } else if (key.type === 'admin') {
       const user = await Admin.findOne({ username: key.username });
-      console.log('Found admin:', user);
       done(null, user);
     } else {
       done(new Error('Invalid user type'));

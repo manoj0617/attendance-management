@@ -5,6 +5,7 @@ const Faculty = require('../models/faculty');
 const Period = require('../models/period');
 const { Parser } = require('json2csv');
 const AcademicYear = require('../models/academicYear');
+const mongoose=require("mongoose");
 
 // Render login form
 module.exports.renderLoginForm = (req, res) => {
@@ -129,18 +130,28 @@ module.exports.renderAttendanceForm = async (req, res) => {
 };
 
 module.exports.markAttendance = async (req, res) => {
-    const { students, date } = req.body;
-    students.forEach(async studentData => {
-        const attendance = new Attendance({
-            roll: studentData.username,
-            name: studentData.name,
-            year: studentData.year,
-            date: date,
-            status: studentData.status === 'present' ? 'Present' : 'Absent',
+    try {
+        const { date, section, acYear, program, branch, sem, periods, subject, period } = req.body;
+        if (!section) {
+            return res.status(400).send('Section is required');
+        }
+        const students = await Student.find({ section: new mongoose.Types.ObjectId(section) }).populate('section');
+        console.log(req.body);
+        res.render('faculty/markAttendance', {
+            date,
+            section,
+            acYear,
+            program,
+            branch,
+            sem,
+            periods: Array.isArray(periods) ? periods : (periods ?periods.split(',') : []),
+            students,
+            subject,
+            period
         });
-        await attendance.save();
-    });
-    req.flash("success", "Attendance marked successfully!");
-    res.redirect('/faculty/dashboard');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
 };
 

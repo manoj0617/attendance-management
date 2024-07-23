@@ -2,16 +2,16 @@ const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
   students: [{
-    student:{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Student',
-    required: true
-  },
-  status:{
-    type: Boolean, // true for Present (P), false for Absent (A)
-    required: true
-  }
-}],
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      required: true
+    },
+    status: {
+      type: Boolean, // true for Present (P), false for Absent (A)
+      required: true
+    }
+  }],
   subject: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subject',
@@ -46,6 +46,11 @@ const attendanceSchema = new mongoose.Schema({
     ref: 'Year',
     required: true
   },
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Faculty',
+    required: true
+  },
   created_at: {
     type: Date,
     default: Date.now
@@ -55,6 +60,7 @@ const attendanceSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
 attendanceSchema.pre('save', function (next) {
   this.updated_at = Date.now();
   next();

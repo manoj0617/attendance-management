@@ -9,12 +9,12 @@ module.exports.renderLoginForm = (req, res) => {
     return res.render('student/login.ejs');
 };
 
-// Handle student login
 module.exports.login = (req, res) => {
     req.flash("success", "Welcome back!");
-    let redirectUrl = res.locals.redirectUrl || '/student/courses';
+    let redirectUrl = res.locals.redirectUrl || `/student/studentAttendance/${req.user._id}`;
     return res.redirect(redirectUrl);
 };
+
 
 // Render signup form for students
 module.exports.renderSignupForm = (req, res) => {
@@ -55,7 +55,7 @@ module.exports.logout = (req, res, next) => {
 
 // Render student index (courses) and calculate attendance percentage
 module.exports.studentIndex = async (req, res) => {
-    let { dept, year, name, username } = req.user;
+    let { email, year, name, username ,branch,gender} = req.user;
     let courses = await Course.find({ dept: dept, year: year }).populate("faculty");
     let attendances = await Attendance.find({ year: year, roll: username, name: name });
     let p = 0,

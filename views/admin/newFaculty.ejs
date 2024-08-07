@@ -68,6 +68,8 @@
                                 subjectResults.appendChild(item);
                             });
                         });
+                } else {
+                    document.getElementById('subjectResults').innerHTML = '';
                 }
             });
 
@@ -90,6 +92,8 @@
                             alert('Faculty saved successfully');
                             this.reset();
                             document.getElementById('selectedSubjects').innerHTML = '';
+                            document.getElementById('subjectSearch').value = '';
+                            document.getElementById('subjectResults').innerHTML = '';
                         } else {
                             alert('Error saving faculty');
                         }

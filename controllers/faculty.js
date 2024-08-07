@@ -50,7 +50,6 @@ module.exports.facultyDashboard = async (req, res) => {
     try {
         let faculty = await Faculty.findById(req.user._id).populate('branch');
         let today = new Date().toLocaleString('en-US', { weekday: 'long' });
-        console.log(today);
         let periods = await Period.find({ faculty: req.user._id, day: today })
             .populate('subject')
             .populate('year')
@@ -69,8 +68,8 @@ module.exports.facultyDashboard = async (req, res) => {
 // Render form for downloading attendance records
 module.exports.renderDownloadForm = async (req, res) => {
     let { id } = req.user;
-    let courses = await Course.find({ faculty: id });
-    res.render("faculty/download.ejs", { courses });
+    const academicYears = await AcademicYear.find({});
+    res.render("faculty/download.ejs", { academicYears });
 };
 
 // Handle downloading attendance records in CSV format
@@ -136,7 +135,13 @@ module.exports.markAttendance = async (req, res) => {
             return res.status(400).send('Section is required');
         }
         const students = await Student.find({ section: new mongoose.Types.ObjectId(section) }).populate('section');
+
+         // Ensure periods are in array form and deduplicated
+         let uniquePeriods = Array.isArray(periods) ? periods : (periods ? periods.split(',') : []);
+         uniquePeriods = [...new Set(uniquePeriods)];
+         
         console.log(req.body);
+        console.log(students.length);
         res.render('faculty/markAttendance', {
             date,
             section,
@@ -144,7 +149,7 @@ module.exports.markAttendance = async (req, res) => {
             program,
             branch,
             sem,
-            periods: Array.isArray(periods) ? periods : (periods ?periods.split(',') : []),
+            periods: uniquePeriods,
             students,
             subject,
             period

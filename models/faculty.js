@@ -38,7 +38,13 @@ const facultySchema=mongoose.Schema({
             type: Schema.Types.ObjectId,
             ref: 'Subject',
         }
-        ]    
+        ],
+    periods:[
+        {
+            type: Schema.Types.ObjectId,
+            ref: 'Period',
+        }
+    ]
 });
 facultySchema.plugin(passportLocalMongoose);
 

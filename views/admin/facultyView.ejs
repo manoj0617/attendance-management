@@ -1,0 +1,32 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Faculty Details</h1>
+        <table class="table table-bordered">
+            <tbody>
+                <tr>
+                    <th>Name</th>
+                    <td><%= faculty.name %></td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td><%= faculty.email %></td>
+                </tr>
+                <tr>
+                    <th>Branch</th>
+                    <td><%= faculty.branch.name %></td>
+                </tr>
+                <tr>
+                    <th>Mobile</th>
+                    <td><%= faculty.mobile %></td>
+                </tr>
+                <tr>
+                    <th>Subjects</th>
+                    <td><%= faculty.subjects.map(subject => subject.name).join(', ') %></td>
+                </tr>
+            </tbody>
+        </table>
+        <a href="/admin/faculty" class="btn btn-primary">Back</a>
+    </div>
+</body>
+</html>

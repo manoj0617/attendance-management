@@ -3,188 +3,88 @@
     <div class="container mt-5">
         <h1>Faculty Management</h1>
 
-        <!-- Button to redirect to create new faculty page -->
-        <button onclick="location.href='/admin/faculty/new'" class="btn btn-primary mt-3">Create New Faculty</button>
-
-        <!-- Filter faculties by academic year, semester, and subject -->
-        <div class="mt-5">
-            <h2>Filter Faculties</h2>
-            <div class="mb-3">
-                <label for="academicYear" class="form-label">Academic Year</label>
-                <select id="academicYear" class="form-control">
-                    <option value="" disabled selected>Select Academic Year</option>
-                    <!-- Populate dynamically -->
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="semester" class="form-label">Semester</label>
-                <select id="semester" class="form-control">
-                    <option value="" disabled selected>Select Semester</option>
-                    <!-- Populate dynamically -->
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="filterSubject" class="form-label">Subject</label>
-                <select id="filterSubject" class="form-control" disabled>
-                    <option value="" disabled selected>Select Subject</option>
-                    <!-- Populate dynamically -->
-                </select>
-            </div>
-            <button type="button" id="filterButton" class="btn btn-primary" disabled>Filter</button>
+        <!-- Search and Filter Section -->
+        <div class="mb-4">
+            <form id="searchForm" method="get" action="/admin/faculti">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="text" name="username" class="form-control" placeholder="Username">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="branch" id="branch" class="form-control">
+                            <option value="" disabled selected>Select Branch</option>
+                            <% branches.forEach(function(branch) { %>
+                                <option value="<%= branch._id %>"><%= branch.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="subject" id="subject" class="form-control">
+                            <option value="" disabled selected>Select Subject</option>
+                            <% subjects.forEach(function(subject) { %>
+                                <option value="<%= subject._id %>"><%= subject.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
         </div>
 
-        <!-- Table to display faculties -->
-        <div id="facultyTableContainer" class="mt-5" style="display: none;">
-            <h2>Faculties</h2>
+        <!-- Add New Faculty Button -->
+        <form method="get" action="/admin/faculty/new">
+            <button class="btn btn-success mb-3">Add New Faculty</button>
+        </form>
+
+        <!-- Faculty Table -->
+        <% if (faculties && faculties.length > 0) { %>
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Branch</th>
-                        <th>ID</th>
-                        <th>Mobile</th>
-                        <th>Subjects</th>
-                        <th>Actions</th>
+                        <th scope="col">S.no</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Branch</th>
+                        <th scope="col">Mobile</th>
+                        <th scope="col">Subjects</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="facultyTableBody">
-                    <!-- Populate dynamically -->
+                <tbody>
+                    <% faculties.forEach(function(faculty, index) { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= faculty.name %></td>
+                            <td><%= faculty.email %></td>
+                            <td><%= faculty.branch.name %></td>
+                            <td><%= faculty.mobile %></td>
+                            <td><%= faculty.subjects.map(subject => subject.name).join(', ') %></td>
+                            <td>
+                                <form method="get" action="/admin/faculty/<%= faculty._id %>">
+                                    <button type="submit" class="btn btn-info btn-sm">View</button>
+                                </form>
+                                <form method="get" action="/admin/faculty/<%= faculty._id %>/edit">
+                                    <button type="submit" class="btn btn-warning btn-sm">Edit</button>
+                                </form>
+                                <form method="post" action="/admin/faculty/<%= faculty._id %>?_method=DELETE" onsubmit="return confirmDeletion(event)">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
                 </tbody>
             </table>
-        </div>
+        <% } else { %>
+            <p>No faculty data available. Please use the search form above to find faculties.</p>
+        <% } %>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Fetch academic years and populate the year dropdown
-            fetch('/admin/academic-year')
-                .then(response => response.json())
-                .then(academicYears => {
-                    const yearSelect = document.getElementById('academicYear');
-                    academicYears.forEach(year => {
-                        const option = document.createElement('option');
-                        option.value = year._id;
-                        option.textContent = year.name;
-                        yearSelect.appendChild(option);
-                    });
-                });
-
-            // Fetch semesters when academic year is selected
-            document.getElementById('academicYear').addEventListener('change', function() {
-                fetch(`/admin/semester`)
-                    .then(response => response.json())
-                    .then(semesters => {
-                        const semesterSelect = document.getElementById('semester');
-                        semesterSelect.innerHTML = '<option value="" disabled selected>Select Semester</option>';
-                        semesters.forEach(semester => {
-                            const option = document.createElement('option');
-                            option.value = semester._id;
-                            option.textContent = semester.name;
-                            semesterSelect.appendChild(option);
-                        });
-                        document.getElementById('filterSubject').disabled = true;
-                        document.getElementById('filterButton').disabled = true;
-                    });
-            });
-
-            // Fetch subjects when semester is selected
-            document.getElementById('semester').addEventListener('change', function () {
-                const semester = this.value;
-                const academicYear = document.getElementById('academicYear').value;
-                if (academicYear && semester) {
-                    fetchSubjects(semester, academicYear);
-                }
-            });
-
-            // Enable filter button when subject is selected
-            document.getElementById('filterSubject').addEventListener('change', function () {
-                const subject = this.value;
-                if (subject) {
-                    document.getElementById('filterButton').disabled = false;
-                }
-            });
-
-            // Fetch and populate subjects based on academic year and semester
-            function fetchSubjects(semester, academicYear) {
-                fetch(`/admin/subject?semester=${semester}&academicYear=${academicYear}`)
-                    .then(response => response.json())
-                    .then(subjects => {
-                        const subjectsSelect = document.getElementById('filterSubject');
-                        subjectsSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
-                        subjects.forEach(subject => {
-                            const option = document.createElement('option');
-                            option.value = subject._id;
-                            option.textContent = subject.name;
-                            subjectsSelect.appendChild(option);
-                        });
-                        subjectsSelect.disabled = false;
-                    });
+        function confirmDeletion(event) {
+            if (!confirm('Are you sure you want to delete this faculty?')) {
+                event.preventDefault();
             }
-
-            // Handle filter button click
-            document.getElementById('filterButton').addEventListener('click', function () {
-                const subject = document.getElementById('filterSubject').value;
-                console.log(subject);
-                fetchFaculties(subject);
-            });
-
-            // Fetch and populate faculties based on subject
-            function fetchFaculties(subject) {
-                fetch(`/admin/faculties?subject=${subject}`)
-                    .then(response => response.json())
-                    .then(faculties => {
-                        console.log('Faculties:', faculties); // Debugging: log the faculties
-                        const facultyTableBody = document.getElementById('facultyTableBody');
-                        facultyTableBody.innerHTML = '';
-                        if (faculties.length > 0) {
-                            faculties.forEach(faculty => {
-                                const row = document.createElement('tr');
-                                row.innerHTML = `
-                                    <td>${faculty.name}</td>
-                                    <td>${faculty.email}</td>
-                                    <td>${faculty.branch.name}</td>
-                                    <td>${faculty.id}</td>
-                                    <td>${faculty.mobile}</td>
-                                    <td>${faculty.subjects.map(subject => subject.name).join(', ')}</td>
-                                    <td>
-                                        <button onclick="editFaculty('${faculty._id}')" class="btn btn-sm btn-warning">Edit</button>
-                                        <button onclick="deleteFaculty('${faculty._id}')" class="btn btn-sm btn-danger">Delete</button>
-                                    </td>
-                                `;
-                                facultyTableBody.appendChild(row);
-                            });
-                            document.getElementById('facultyTableContainer').style.display = 'block'; // Show table container
-                        } else {
-                            document.getElementById('facultyTableContainer').style.display = 'none'; // Hide table container if no faculties found
-                            alert('No faculties found for the selected subject.');
-                        }
-                    });
-            }
-
-            // Function to edit a faculty
-            function editFaculty(facultyId) {
-                // Redirect to edit page or implement editing functionality here
-            }
-
-            // Function to delete a faculty
-            function deleteFaculty(facultyId) {
-                if (confirm('Are you sure you want to delete this faculty?')) {
-                    fetch(`/admin/faculty/${facultyId}`, {
-                        method: 'DELETE',
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert('Faculty deleted successfully');
-                                // Optionally, refresh the faculty list
-                            } else {
-                                alert('Error deleting faculty');
-                            }
-                        });
-                }
-            }
-        });
+        }
     </script>
 </body>
 </html>

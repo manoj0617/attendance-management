@@ -80,11 +80,11 @@
               </div>
               <div class="mb-3">
                 <label for="startTime" class="form-label">Start Time</label>
-                <input type="time" id="startTime" name="startTime" class="form-control" required readonly>
+                <input type="time" id="startTime" name="startTime" class="form-control" required>
               </div>
               <div class="mb-3">
                 <label for="endTime" class="form-label">End Time</label>
-                <input type="time" id="endTime" name="endTime" class="form-control" required readonly>
+                <input type="time" id="endTime" name="endTime" class="form-control" required>
               </div>
               <button type="submit" class="btn btn-primary">Save</button>
             </form>
@@ -95,45 +95,100 @@
   </div>
 
   <script>
-    // Function to display the period creation form
-    function createPeriodForm(day, period) {
-      document.getElementById('periodIdInput').value = ''; // Clear the period ID for a new period
-      document.getElementById('dayInput').value = day + 1; // Display day starting from 1
-      document.getElementById('hourInput').value = period + 1; // Display period starting from 1
+// Function to display the period creation form
+function createPeriodForm(day, period) {
+    document.getElementById('periodIdInput').value = ''; // Clear the period ID for a new period
+    document.getElementById('dayInput').value = day + 1; // Display day starting from 1
+    document.getElementById('hourInput').value = period + 1; // Display period starting from 1
 
-      const startTime = document.getElementById(`startTime_${period + 1}`).value;
-      const endTime = document.getElementById(`endTime_${period + 1}`).value;
+    const startTime = document.getElementById(`startTime_${period + 1}`).value;
+    const endTime = document.getElementById(`endTime_${period + 1}`).value;
 
-      document.getElementById('startTime').value = startTime;
-      document.getElementById('endTime').value = endTime;
+    document.getElementById('startTime').value = startTime;
+    document.getElementById('endTime').value = endTime;
 
-      const section = document.getElementById('sectionInput').value;
-      const year = document.getElementById('yearInput').value;
-      const branch = document.getElementById('branchInput').value;
-      const semester = document.getElementById('semesterInput').value;
+    const section = document.getElementById('sectionInput').value;
+    const year = document.getElementById('yearInput').value;
+    const branch = document.getElementById('branchInput').value;
+    const semester = document.getElementById('semesterInput').value;
 
-      populateDropdowns(branch, semester);
+    populateDropdowns(branch, semester, '', '', day + 1, period + 1);
 
-      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
-      periodModal.show();
-    }
+    const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+    periodModal.show();
+}
 
-    // Function to display the period edit form with pre-filled values
-    function editPeriodForm(periodId, day, period, subject, faculty, startTime, endTime) {
-      document.getElementById('periodIdInput').value = periodId;
-      document.getElementById('dayInput').value = day + 1;
-      document.getElementById('hourInput').value = period + 1;
-      document.getElementById('startTime').value = startTime;
-      document.getElementById('endTime').value = endTime;
+// Function to display the period edit form with pre-filled values
+function editPeriodForm(periodId, day, period, subject, faculty, startTime, endTime) {
+    document.getElementById('periodIdInput').value = periodId;
+    document.getElementById('dayInput').value = day + 1;
+    document.getElementById('hourInput').value = period + 1;
+    document.getElementById('startTime').value = startTime;
+    document.getElementById('endTime').value = endTime;
 
-      const branch = document.getElementById('branchInput').value;
-      const semester = document.getElementById('semesterInput').value;
+    const branch = document.getElementById('branchInput').value;
+    const semester = document.getElementById('semesterInput').value;
 
-      populateDropdowns(branch, semester, subject, faculty);
+    populateDropdowns(branch, semester, subject, faculty, day + 1, period + 1);
 
-      const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
-      periodModal.show();
-    }
+    const periodModal = new bootstrap.Modal(document.getElementById('periodModal'));
+    periodModal.show();
+}
+
+// Function to populate the subject and faculty dropdowns
+function populateDropdowns(branch, semester, selectedSubject = '', selectedFaculty = '', day = '', hour = '') {
+    fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
+        .then(response => response.json())
+        .then(subjects => {
+            const subjectSelect = document.getElementById('subject');
+            subjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+            subjects.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject._id;
+                option.textContent = subject.name;
+                if (subject._id === selectedSubject) {
+                    option.selected = true;
+                }
+                subjectSelect.appendChild(option);
+            });
+
+            // Initially disable the faculty select
+            const facultySelect = document.getElementById('faculty');
+            facultySelect.disabled = true;
+            facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
+
+            // Attach event listener to the subject dropdown to update faculties based on the selected subject
+            subjectSelect.addEventListener('change', () => {
+                const selectedSubjectId = subjectSelect.value;
+                if (selectedSubjectId) {
+                    fetch(`/admin/faculties?branch=${branch}&subject=${selectedSubjectId}&day=${day}&hour=${hour}&faculty=${faculty._id}`)
+                        .then(response => response.json())
+                        .then(faculties => {
+                            facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
+                            faculties.forEach(faculty => {
+                                const option = document.createElement('option');
+                                option.value = faculty._id;
+                                option.textContent = faculty.name;
+                                if (faculty._id === selectedFaculty) {
+                                    option.selected = true;
+                                }
+                                facultySelect.appendChild(option);
+                            });
+                            facultySelect.disabled = false;
+                        });
+                } else {
+                    // If no subject is selected, keep the faculty select disabled
+                    facultySelect.disabled = true;
+                    facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
+                }
+            });
+
+            // Trigger the change event manually if a subject is pre-selected (edit form scenario)
+            if (selectedSubject) {
+                subjectSelect.dispatchEvent(new Event('change'));
+            }
+        });
+}
 
     // Form submission handler
     document.getElementById('periodForm').addEventListener('submit', function(event) {
@@ -162,41 +217,6 @@
       });
     });
 
-    // Function to populate the subject and faculty dropdowns
-    function populateDropdowns(branch, semester, selectedSubject = '', selectedFaculty = '') {
-      fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
-        .then(response => response.json())
-        .then(subjects => {
-          const subjectSelect = document.getElementById('subject');
-          subjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
-          subjects.forEach(subject => {
-            const option = document.createElement('option');
-            option.value = subject._id;
-            option.textContent = subject.name;
-            if (subject._id === selectedSubject) {
-              option.selected = true;
-            }
-            subjectSelect.appendChild(option);
-          });
-        });
-
-      fetch(`/admin/faculties?branch=${branch}`)
-        .then(response => response.json())
-        .then(faculties => {
-          const facultySelect = document.getElementById('faculty');
-          facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
-          faculties.forEach(faculty => {
-            const option = document.createElement('option');
-            option.value = faculty._id;
-            option.textContent = faculty.name;
-            if (faculty._id === selectedFaculty) {
-              option.selected = true;
-            }
-            facultySelect.appendChild(option);
-          });
-        });
-    }
-
     // Function to delete a period
     function deletePeriod(periodId) {
       if (confirm('Are you sure you want to delete this period?')) {
@@ -214,5 +234,5 @@
         });
       }
     }
-  </script>
+    </script>
 </body>

@@ -230,15 +230,8 @@ router.get('/sections', async (req, res) => {
   }
 });
 router.get('/subject', async(req, res) => {
-  const { semester } = req.query;
-  const subjects = await Subject.find({semester});
+  const subjects = await Subject.find({});
   res.json(subjects);
-});
-
-router.get('/faculties', async(req, res) => {
-  const { branch } = req.query;
-  const faculties = await Faculty.find({branch:branch});
-  res.json(faculties);
 });
 // Route to get the timetable creation and viewing page
 router.get('/timetable', isAdminLoggedIn, async (req, res) => {
@@ -265,47 +258,45 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
   day = dayNames[day - 1];
 
   try {
-    // Find the semester document by ID
-    const semesterDoc = await Semester.findById(semester);
+      // Find the semester document by ID
+      const semesterDoc = await Semester.findById(semester);
 
-    if (!semesterDoc) {
-      req.flash('error', 'Invalid semester');
-      return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
-    }
+      if (!semesterDoc) {
+          req.flash('error', 'Invalid semester');
+          return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
+      }
 
-    // Extract the name of the semester
-    const sem = semesterDoc.name;
+      // Create a new period
+      const newPeriod = new Period({ hour, day, branch, year, section, subject, semester, startTime, endTime, faculty });
+      let period = await newPeriod.save();
 
-    // Create a new period
-    const newPeriod = new Period({ hour, day, branch, year, section, subject, semester, startTime, endTime, faculty });
-    let period = await newPeriod.save();
+      // Populate subject and faculty in the period
+      period = await period.populate('subject faculty');
 
-    // Populate subject and faculty in the period
-    period = await period.populate('subject faculty');
+      // Find the timetable
+      let timetable = await Timetable.findOne({ year, branch, section, semester });
 
-    // Find the timetable
-    let timetable = await Timetable.findOne({ year, branch, section, semester });
+      // Check if timetable exists
+      if (!timetable) {
+          // If not, create a new timetable
+          timetable = new Timetable({ year, branch, section, semester, periods: [] });
+      }
 
-    // Check if timetable exists
-    if (!timetable) {
-      // If not, create a new timetable
-      timetable = new Timetable({ year, branch, section, semester, periods: [] });
-    }
+      // Add the period to the timetable
+      timetable.periods.push(newPeriod._id);
+      await timetable.save();
 
-    // Add the period to the timetable
-    timetable.periods.push(newPeriod._id);
-    await timetable.save();
+      // Add the period to the faculty's periods array
+      await Faculty.findByIdAndUpdate(faculty, { $push: { periods: newPeriod._id } });
 
-    req.flash('success', 'Period added successfully');
-    res.json({ success: true, period: period });
+      req.flash('success', 'Period added successfully');
+      res.json({ success: true, period: period });
   } catch (error) {
-    console.error('Error adding period:', error);
-    req.flash('error', 'Error adding period');
-    res.json({ success: false, error: error.message });
+      console.error('Error adding period:', error);
+      req.flash('error', 'Error adding period');
+      res.json({ success: false, error: error.message });
   }
 });
-
-
 router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
   let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
   const { startTime, endTime } = req.body;
@@ -316,45 +307,61 @@ router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
   day = dayNames[day - 1];
 
   try {
-    // Find the semester document by ID
-    const semesterDoc = await Semester.findById(semester);
+      // Find the semester document by ID
+      const semesterDoc = await Semester.findById(semester);
 
-    if (!semesterDoc) {
-      req.flash('error', 'Invalid semester');
-      return res.redirect(`/admin/timetable/edit/${periodId}?year=${year}&branch=${branch}&section=${section}`);
-    }
+      if (!semesterDoc) {
+          req.flash('error', 'Invalid semester');
+          return res.redirect(`/admin/timetable/edit/${periodId}?year=${year}&branch=${branch}&section=${section}`);
+      }
 
-    // Extract the name of the semester
-    const sem = semesterDoc.name;
+      // Find the period to get the current faculty
+      const period = await Period.findById(periodId);
 
-    // Update the period
-    let updatedPeriod = await Period.findByIdAndUpdate(periodId, {
-      hour, day, branch, year, section, subject, semester, startTime, endTime, faculty
-    }, { new: true });
+      // Update the period
+      let updatedPeriod = await Period.findByIdAndUpdate(periodId, {
+          hour, day, branch, year, section, subject, semester, startTime, endTime, faculty
+      }, { new: true });
 
-    // Populate subject and faculty in the period
-    updatedPeriod = await updatedPeriod.populate('subject faculty');
+      // Populate subject and faculty in the period
+      updatedPeriod = await updatedPeriod.populate('subject faculty');
 
-    req.flash('success', 'Period updated successfully');
-    res.json({ success: true, period: updatedPeriod });
+      // If faculty has changed, update the faculty's periods array
+      if (period.faculty.toString() !== faculty) {
+          // Remove the period from the old faculty's periods array
+          await Faculty.findByIdAndUpdate(period.faculty, { $pull: { periods: periodId } });
+          // Add the period to the new faculty's periods array
+          await Faculty.findByIdAndUpdate(faculty, { $push: { periods: periodId } });
+      }
+
+      req.flash('success', 'Period updated successfully');
+      res.json({ success: true, period: updatedPeriod });
   } catch (error) {
-    console.error('Error updating period:', error);
-    req.flash('error', 'Error updating period');
-    res.json({ success: false, error: error.message });
+      console.error('Error updating period:', error);
+      req.flash('error', 'Error updating period');
+      res.json({ success: false, error: error.message });
   }
 });
-
-// Route to delete a period
 router.delete('/timetable/period/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await Period.findByIdAndDelete(id);
-    res.json({ success: true, message: 'Period deleted successfully' });
+      const { id } = req.params;
+
+      // Find the period to get the faculty
+      const period = await Period.findById(id);
+
+      // Delete the period
+      await Period.findByIdAndDelete(id);
+
+      // Remove the period from the faculty's periods array
+      await Faculty.findByIdAndUpdate(period.faculty, { $pull: { periods: id } });
+
+      res.json({ success: true, message: 'Period deleted successfully' });
   } catch (error) {
-    console.error('Error deleting period:', error);
-    res.status(500).json({ success: false, message: 'Error deleting period' });
+      console.error('Error deleting period:', error);
+      res.status(500).json({ success: false, message: 'Error deleting period' });
   }
 });
+
 
 router.get('/timetables', async (req, res) => {
   const { section, year, branch, semester } = req.query;
@@ -383,7 +390,6 @@ router.get('/timetable/:id', async (req, res) => {
       })
       .populate('branch section year semester')
       .exec();
-
     res.render('admin/viewTimetable', { timetable });
   } catch (error) {
     console.error('Error fetching timetable:', error);
@@ -417,7 +423,6 @@ router.get('/student', async (req, res) => {
       const academicYears = await AcademicYear.find({});
       const branches = await Branch.find({});
       const sections = await Section.find({});
-    console.log(students, academicYears, branches, sections);
       res.render('admin/student', { students, academicYears: academicYears, branches, sections });
   } catch (err) {
       res.status(500).send('Server Error');
@@ -474,7 +479,6 @@ router.post('/student/new', async (req, res) => {
       const { name, email, username, password, year, branch, gender } = req.body;
       const newStudent = new Student({ name, email, username, year, branch, gender });
       let registeredStudent = await Student.register(newStudent, password);
-      console.log(registeredStudent);
       res.redirect('/admin/student');
   } catch (err) {
       res.status(500).send('Server Error');
@@ -506,10 +510,16 @@ router.get('/subjects/search', async (req, res) => {
   const subjects = await Subject.find({ name: new RegExp(q, 'i') });
   res.json(subjects);
 });
-// Render the faculty management page
+// Route to render the faculty management page
 router.get('/faculty', async (req, res) => {
-  const branches = await Branch.find({});
-  res.render('admin/faculty', { branches });
+  try {
+      const branches = await Branch.find({});
+      const subjects = await Subject.find({});
+      res.render('admin/faculty', { branches, subjects, faculties: [] }); // Initial load with empty faculties array
+  } catch (error) {
+      console.error('Error fetching branches or subjects:', error);
+      res.status(500).send('Internal Server Error');
+  }
 });
 
 // Render the new faculty creation page
@@ -522,7 +532,6 @@ router.get('/faculty/new', async (req, res) => {
 router.post('/faculty/new', async (req, res) => {
   try {
       const { email, name, branch, password, username, mobile, subjects } = req.body;
-      console.log(username,req.body);
       if (!name || !email || !branch || !password || !username || !mobile) {
         req.flash('error', 'All fields are required');
         return res.redirect('/admin/register-faculty');
@@ -574,52 +583,109 @@ router.get('/subjects', async (req, res) => {
   const subjects = await Subject.find({ branch, semester, academicYear });
   res.json(subjects);
 });
-
-// Fetch faculties based on subject
+const DaysOfWeek = {
+  MONDAY: 'Monday',
+  TUESDAY: 'Tuesday',
+  WEDNESDAY: 'Wednesday',
+  THURSDAY: 'Thursday',
+  FRIDAY: 'Friday',
+  SATURDAY: 'Saturday',
+  SUNDAY: 'Sunday',
+};
+function convertDayNumberToEnum(dayNumber) {
+  const days = [
+    DaysOfWeek.MONDAY,
+    DaysOfWeek.TUESDAY,
+    DaysOfWeek.WEDNESDAY,
+    DaysOfWeek.THURSDAY,
+    DaysOfWeek.FRIDAY,
+    DaysOfWeek.SATURDAY,
+    DaysOfWeek.SUNDAY
+  ];
+  return days[dayNumber - 1] || null; // dayNumber - 1 to convert 1-based to 0-based index
+}
+// Fetch faculties based on subject and availability
 router.get('/faculties', async (req, res) => {
-  const { subject } = req.query;
-
-  console.log('Received subject:', subject);
-
-  // Check if subject ID is provided and valid
+  const { subject, day, hour,faculty } = req.query;
+  // Convert numeric day to enum day
+  const dayEnum = convertDayNumberToEnum(Number(day));
+  if (!dayEnum) {
+    return res.status(400).json({ message: 'Invalid day number' });
+  }
+  // Validate subject ID
   if (!subject || !mongoose.Types.ObjectId.isValid(subject)) {
-    console.error('Invalid or missing subject ID');
     return res.status(400).json({ message: 'Invalid or missing subject ID' });
   }
 
   try {
-    // Find faculties that have the subject in their subjects array
-    const faculties = await Faculty.find({ subjects: { $in: [subject] } }).populate('branch subjects');
+    // Find faculties teaching the subject
+    const faculties = await Faculty.find({ subjects: { $in: [subject] } })
+    .populate('subjects') // Populating subjects array
+    .populate('periods') // Populating periods array
+    .populate('branch'); // Populating branch
 
-    console.log('Faculties found:', faculties.length);
-    console.log('Faculties details:', faculties);
-
-    res.json(faculties);
+    // Filter out faculties who have a period at the same day and hour
+    const availableFaculties = [];
+    for (let faculty of faculties) {
+      const periods = await Period.find({ faculty: faculty._id, day: dayEnum, hour: hour });
+      console.log(periods);
+      if (periods.length === 0) {
+        availableFaculties.push(faculty);
+      }
+    }
+    console.log(dayEnum);
+    console.log(availableFaculties);
+    console.log(faculties);
+    res.json(availableFaculties);
   } catch (error) {
     console.error('Error fetching faculties:', error);
     res.status(500).json({ message: 'Error fetching faculties' });
   }
 });
-
-
-
-// Fetch faculty data for editing
 router.get('/faculty/:id', async (req, res) => {
-  const faculty = await Faculty.findById(req.params.id).populate('branch subjects');
-  res.json(faculty);
+  try {
+      const faculty = await Faculty.findById(req.params.id)
+          .populate('branch')
+          .populate('subjects');
+      res.render('admin/facultyView', { faculty });
+  } catch (error) {
+      console.error('Error fetching faculty:', error);
+      res.status(500).send('Internal Server Error');
+  }
 });
 
-// Update faculty data
-router.put('/faculty/:id', async (req, res) => {
-  const faculty = await Faculty.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json({ success: true });
+router.get('/faculty/:id/edit', async (req, res) => {
+  try {
+      const faculty = await Faculty.findById(req.params.id);
+      const branches = await Branch.find({});
+      const subjects = await Subject.find({});
+      res.render('admin/facultyEdit', { faculty, branches, subjects });
+  } catch (error) {
+      console.error('Error fetching faculty:', error);
+      res.status(500).send('Internal Server Error');
+  }
 });
 
-// Delete a faculty
+router.post('/faculty/:id', async (req, res) => {
+  try {
+      const { name, email, branch, mobile, subjects } = req.body;
+      await Faculty.findByIdAndUpdate(req.params.id, { name, email, branch, mobile, subjects });
+      res.redirect('/admin/faculty');
+  } catch (error) {
+      console.error('Error updating faculty:', error);
+      res.status(500).send('Internal Server Error');
+  }
+});
 router.delete('/faculty/:id', async (req, res) => {
-  await Faculty.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+  try {
+      await Faculty.findByIdAndDelete(req.params.id);
+      res.redirect('/admin/faculty');
+  } catch (error) {
+      console.error('Error deleting faculty:', error);
+      res.status(500).send('Internal Server Error');
+  }
 });
+
 
 // Fetch all sections along with their branches and academic years
 router.get('/section', async (req, res) => {
@@ -632,7 +698,6 @@ router.get('/section', async (req, res) => {
                   model: 'AcademicYear'
               }
           });
-          console.log(sections);
       res.render('admin/section', { sections });
   } catch (err) {
       res.status(500).send('Server Error');
@@ -697,6 +762,30 @@ router.post('/section/new', async (req, res) => {
       res.status(500).send('Server Error');
   }
 });
+// Fetch faculties based on query
+router.get('/faculti', async (req, res) => {
+  const { username, subject, branch } = req.query;
+
+  // Build search query
+  const searchQuery = {};
+  if (username) searchQuery.username = username;
+  if (subject && mongoose.Types.ObjectId.isValid(subject)) searchQuery.subjects = { $in: [subject] };
+  if (branch && mongoose.Types.ObjectId.isValid(branch)) searchQuery.branch = branch;
+
+  try {
+    const faculties = await Faculty.find(searchQuery)
+      .populate('branch')
+      .populate('subjects');
+
+      const branches = await Branch.find({});
+      const subjects = await Subject.find({});
+  
+      res.render('admin/faculty', { faculties, branches, subjects });
+  } catch (error) {
+    console.error('Error fetching faculties:', error);
+    res.status(500).json({ message: 'Error fetching faculties' });
+  }
+});
 router.get("/section/:id", async (req, res) => {
   let { id } = req.params;
   let section = await Section.findById(id).populate('students');
@@ -707,7 +796,6 @@ router.get("/section/:id", async (req, res) => {
   }
   let x=0;
   let students = section.students;
-  console.log(students, section);
   res.render("admin/showSection.ejs", { students, id ,x});
 });
 router.get('/student/:id/edit', isAdminLoggedIn, async (req, res) => {

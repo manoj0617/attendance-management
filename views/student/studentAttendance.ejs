@@ -1,0 +1,71 @@
+<%- layout("../layouts/studentBoilerplate") -%>
+
+<body class="courses-body">
+  <!-- Main Container -->
+  <div class="main row">
+    
+    <!-- Student Details Section -->
+    <div class="student-details">
+      <h1><%= currUser.name %> - <%= currUser.username %></h1>
+    </div>    
+    <section>
+        <h2>Today's Timetable</h2>
+        <%if (periods.length > 0) { %>
+            <table class="timetable table">
+                <thead>
+                    <tr>
+                        <th>DayName</th>
+                        <th>1</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                        <th>6</th>
+                        <th>7</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><%= today %></td>
+                        <% for (let i = 1; i <= 7; i++) { %>
+                            <% let period = periods.find(p => p.hour === i); %>
+                            <% if (period) { %>
+                                <td class="attendance-entered">
+                                    <div><%= period.subject.name %></div>
+                                    <div><%= period.branch.name %></div>
+                                    <div><%= period.year.name %> SEM</div>
+                                    <div>Sec: <%= period.section.name %></div>
+                                    <div><%= period.startTime %> - <%= period.endTime %></div>
+                                </td>
+                            <% } else { %>
+                                <td></td>
+                            <% } %>
+                        <% } %>
+                    </tr>
+                </tbody>
+            </table>
+        <% } else { %>
+            <h3>No periods scheduled for today.</h3>
+        <% } %>
+    </section>
+    <!-- Attendance Details Section -->
+    <div class="attendance-details">
+      <!-- Average Attendance Record -->
+      <div class="average-attendance">
+        <h2>Average Attendance Record</h2>
+        <div class="circle" id="circle">
+          <span id="percentage-text"><h1><%= percentage %> %</h1></span>
+        </div>
+      </div>
+
+      <!-- Eligibility Status -->
+      <div class="eligibility-status">
+        <% if (percentage > 75) { %>
+          <h3 class="eligible">Eligible (Eligibility cut-off 75%)</h3>
+        <% } else { %>
+          <h3 class="not-eligible">Not Eligible (Eligibility cut-off 75%)</h3>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</body>

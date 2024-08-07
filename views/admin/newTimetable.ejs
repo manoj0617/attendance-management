@@ -212,5 +212,34 @@
         });
       }
     }
+    document.addEventListener('DOMContentLoaded', function () {
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+
+        // Function to ensure time is within 0-12 hours range
+        function ensureTimeRange(input) {
+            const time = input.value;
+            if (time) {
+                const [hours, minutes] = time.split(':').map(Number);
+                if (hours < 0 || hours >= 12) {
+                    input.value = '12:00';
+                }
+            }
+        }
+
+        startTimeInput.addEventListener('change', function () {
+            ensureTimeRange(startTimeInput);
+        });
+
+        endTimeInput.addEventListener('change', function () {
+            ensureTimeRange(endTimeInput);
+        });
+
+        // Set the initial min and max values for the time inputs
+        startTimeInput.min = '00:00';
+        startTimeInput.max = '12:00';
+        endTimeInput.min = '00:00';
+        endTimeInput.max = '12:00';
+    });
   </script>
 </body>

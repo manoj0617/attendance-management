@@ -3,7 +3,9 @@ const passport = require('passport');
 const Admin = require('../models/admin');
 const { isAdminLoggedIn } = require('../middleware');
 const router = express.Router();
+const Batch = require('../models/batch');
 const Student=require('../models/student');
+const puppeteer = require('puppeteer');
 const Faculty=require('../models/faculty');
 const Section=require("../models/section");
 const Timetable = require('../models/timetable');
@@ -158,9 +160,20 @@ router.delete('/academic-years/:id', isAdminLoggedIn, async (req, res) => {
 
 // Subject Management
 router.get('/subjects', isAdminLoggedIn, async (req, res) => {
-  const subjects = await Subject.find({}).populate('academicYear').populate('semester');
-  res.render('admin/subjects/index', { subjects });
+  const searchTerm = req.query.search || '';
+  const searchQuery = {
+    $or: [
+      { name: new RegExp(searchTerm, 'i') },
+      { short_name: new RegExp(searchTerm, 'i') },
+      { code: new RegExp(searchTerm, 'i') }
+    ]
+  };
+  const subjects = await Subject.find(searchQuery)
+    .populate('academicYear')
+    .populate('semester');
+  res.render('admin/subjects/index', { subjects, searchTerm });
 });
+
 
 router.get('/subjects/new', isAdminLoggedIn, async (req, res) => {
   const academicYears = await AcademicYear.find({});
@@ -170,7 +183,7 @@ router.get('/subjects/new', isAdminLoggedIn, async (req, res) => {
 
 router.post('/subjects', isAdminLoggedIn, async (req, res) => {
   const { name, academicYear, semester } = req.body;
-  const subject = new Subject({ name, academicYear, semester });
+  const subject = new Subject(req.body );
   await subject.save();
   req.flash('success', 'Subject created successfully');
   res.redirect('/admin/subjects');
@@ -185,7 +198,7 @@ router.get('/subjects/:id/edit', isAdminLoggedIn, async (req, res) => {
 
 router.put('/subjects/:id', isAdminLoggedIn, async (req, res) => {
   const { name, academicYear, semester } = req.body;
-  await Subject.findByIdAndUpdate(req.params.id, { name, academicYear, semester });
+  await Subject.findByIdAndUpdate(req.params.id,  req.body );
   req.flash('success', 'Subject updated successfully');
   res.redirect('/admin/subjects');
 });
@@ -242,7 +255,7 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
     if (year && branch && section) {
       periods = await Period.find({ year, branch, section });
     }
-    res.render('admin/timetable', { periods, sections, year, branch, section, message: req.flash('message') });
+    res.render('admin/timetable/timetable.ejs', { periods, sections, year, branch, section, message: req.flash('message') });
   } catch (error) {
     console.error(error);
     res.redirect('/error');
@@ -250,12 +263,11 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
 });
 
 router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
-  let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
-  const { startTime, endTime } = req.body;
-
-  // Convert day number to day name
+  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails,subject,faculty,room } = req.body;
+  console.log(req.body);
+  // Convert day number to day name if needed
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  day = dayNames[day - 1];
+  const dayName = dayNames[day - 1];
 
   try {
       // Find the semester document by ID
@@ -266,101 +278,89 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
           return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
       }
 
-      // Create a new period
-      const newPeriod = new Period({ hour, day, branch, year, section, subject, semester, startTime, endTime, faculty });
-      let period = await newPeriod.save();
+      // Initialize an array to hold the period documents
+      let periods = [];
+      if(batchDetails.length>0 && batchDetails){
+      // Create a period for each batch detail
+      for (const { batchId, subject, faculty } of batchDetails) {
+        if (!subject || !faculty) {
+          req.flash('error', 'Subject and Faculty must be selected for each batch.');
+          return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
+      }
+          const newPeriod = new Period({ hour, day: dayName, branch, year, section, subject,room, semester, startTime, endTime, faculty, batch: batchId });
+          let period = await newPeriod.save();
+          period = await period.populate('subject faculty'); // Populate subject and faculty in the period
+          periods.push(period._id);
+      }}else{
+        const newPeriod = new Period({ hour, day: dayName, branch, year, section, subject,room, semester, startTime, endTime, faculty });
+          let period = await newPeriod.save();
+          period = await period.populate('subject faculty'); // Populate subject and faculty in the period
+          periods.push(period._id);
+      }
 
-      // Populate subject and faculty in the period
-      period = await period.populate('subject faculty');
-
-      // Find the timetable
+      // Find or create the timetable
       let timetable = await Timetable.findOne({ year, branch, section, semester });
-
-      // Check if timetable exists
       if (!timetable) {
-          // If not, create a new timetable
           timetable = new Timetable({ year, branch, section, semester, periods: [] });
       }
 
-      // Add the period to the timetable
-      timetable.periods.push(newPeriod._id);
+      // Add the periods to the timetable and save
+      timetable.periods.push(...periods);
+      console.log(periods);
       await timetable.save();
+      if(batchDetails.length>0 && batchDetails){
+      // Update faculty with the new periods
+      for (const { faculty } of batchDetails) {
+          await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
+      }}else{
+        await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
+      }
 
-      // Add the period to the faculty's periods array
-      await Faculty.findByIdAndUpdate(faculty, { $push: { periods: newPeriod._id } });
-
-      req.flash('success', 'Period added successfully');
-      res.json({ success: true, period: period });
+      req.flash('success', 'Period(s) added successfully');
+      res.json({ success: true, periods: periods });
   } catch (error) {
       console.error('Error adding period:', error);
       req.flash('error', 'Error adding period');
       res.json({ success: false, error: error.message });
   }
 });
-router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
-  let { hour, day, branch, year, section, subject, semester, faculty } = req.body;
-  const { startTime, endTime } = req.body;
-  const periodId = req.params.id;
 
-  // Convert day number to day name
-  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  day = dayNames[day - 1];
-
+router.put('/timetable/period/:id', async (req, res) => {
   try {
-      // Find the semester document by ID
-      const semesterDoc = await Semester.findById(semester);
+      const { subject, faculty, startTime, endTime, batches, room } = req.body;
 
-      if (!semesterDoc) {
-          req.flash('error', 'Invalid semester');
-          return res.redirect(`/admin/timetable/edit/${periodId}?year=${year}&branch=${branch}&section=${section}`);
+      // Parse batches if it's a JSON string
+      const batchArray = Array.isArray(batches) ? batches : JSON.parse(batches || '[]');
+
+      // Create an update object
+      let updateData = {
+          subject,
+          startTime,
+          endTime,
+          room,
+      };
+
+      // Conditionally add faculty to the update object if it's not null
+      if (faculty) {
+          updateData.faculty = faculty;
       }
 
-      // Find the period to get the current faculty
-      const period = await Period.findById(periodId);
-
-      // Update the period
-      let updatedPeriod = await Period.findByIdAndUpdate(periodId, {
-          hour, day, branch, year, section, subject, semester, startTime, endTime, faculty
-      }, { new: true });
-
-      // Populate subject and faculty in the period
-      updatedPeriod = await updatedPeriod.populate('subject faculty');
-
-      // If faculty has changed, update the faculty's periods array
-      if (period.faculty.toString() !== faculty) {
-          // Remove the period from the old faculty's periods array
-          await Faculty.findByIdAndUpdate(period.faculty, { $pull: { periods: periodId } });
-          // Add the period to the new faculty's periods array
-          await Faculty.findByIdAndUpdate(faculty, { $push: { periods: periodId } });
+      // Conditionally add batch to the update object if it's not empty
+      if (batchArray.length > 0) {
+          updateData.batch = batchArray;
       }
 
-      req.flash('success', 'Period updated successfully');
-      res.json({ success: true, period: updatedPeriod });
-  } catch (error) {
-      console.error('Error updating period:', error);
-      req.flash('error', 'Error updating period');
-      res.json({ success: false, error: error.message });
+      // Update the period with the provided details
+      await Period.findByIdAndUpdate(req.params.id, updateData);
+
+      res.json({ success: true });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-router.delete('/timetable/period/:id', async (req, res) => {
-  try {
-      const { id } = req.params;
 
-      // Find the period to get the faculty
-      const period = await Period.findById(id);
 
-      // Delete the period
-      await Period.findByIdAndDelete(id);
-
-      // Remove the period from the faculty's periods array
-      await Faculty.findByIdAndUpdate(period.faculty, { $pull: { periods: id } });
-
-      res.json({ success: true, message: 'Period deleted successfully' });
-  } catch (error) {
-      console.error('Error deleting period:', error);
-      res.status(500).json({ success: false, message: 'Error deleting period' });
-  }
-});
 
 
 router.get('/timetables', async (req, res) => {
@@ -390,7 +390,31 @@ router.get('/timetable/:id', async (req, res) => {
       })
       .populate('branch section year semester')
       .exec();
-    res.render('admin/viewTimetable', { timetable });
+      const { section, year, branch, semester } = timetable;
+      // Fetch periods from the database
+      const periods = await Period.find({
+        section,
+        year,
+        branch,
+        semester
+    }).populate('batch').populate('subject').populate('faculty');
+    let groupedPeriods=[];
+    // Group periods by day and hour
+    groupedPeriods = periods.reduce((acc, period) => {
+        const day = period.day;
+        const hour = period.hour;
+        if (!acc[day]) acc[day] = {};
+        if (!acc[day][hour]) acc[day][hour] = [];
+        acc[day][hour].push(period);
+        return acc;
+    }, {});
+    console.log(timetable);
+    console.log(groupedPeriods);
+    // Render the view and pass groupedPeriods to it
+    res.render('admin/timetable/viewTimetable', {
+      timetable, // You should pass your actual timetable data here
+      groupedPeriods,
+  });
   } catch (error) {
     console.error('Error fetching timetable:', error);
     req.flash('error', 'Error fetching timetable');
@@ -423,7 +447,7 @@ router.get('/student', async (req, res) => {
       const academicYears = await AcademicYear.find({});
       const branches = await Branch.find({});
       const sections = await Section.find({});
-      res.render('admin/student', { students, academicYears: academicYears, branches, sections });
+      res.render('admin/student/student', { students, academicYears: academicYears, branches, sections });
   } catch (err) {
       res.status(500).send('Server Error');
   }
@@ -450,14 +474,14 @@ router.get('/student/search', isAdminLoggedIn, async (req, res) => {
   const sections = await Section.find({});
   const academicYears=await AcademicYear.find({name:year});
 
-  res.render('admin/student', { students, sections,academicYears:academicYears });
+  res.render('admin/student/student', { students, sections,academicYears:academicYears });
 });
 // Render the signup form with academic years and branches
 router.get('/student/new', async (req, res) => {
   try {
       const academicYears = await AcademicYear.find({});
       const branches = await Branch.find({});
-      res.render('admin/createStudent', { academicYears, branches });
+      res.render('admin/student/createStudent', { academicYears, branches });
   } catch (err) {
       res.status(500).send('Server Error');
   }
@@ -498,7 +522,7 @@ router.get('/student/:id', async (req, res) => {
           return res.status(404).send('Student not found');
       }
 
-      res.render('admin/viewStudent', { student: student });
+      res.render('admin/student/viewStudent', { student: student });
   } catch (error) {
       console.error('Error fetching student:', error);
       res.status(500).send('Error fetching student');
@@ -510,12 +534,37 @@ router.get('/subjects/search', async (req, res) => {
   const subjects = await Subject.find({ name: new RegExp(q, 'i') });
   res.json(subjects);
 });
+router.put('/faculty/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { email, name, branch, mobile, pan, aadhar, motherName, fatherName, subjects } = req.body;
+
+      // Update the faculty details
+      const updatedFaculty = await Faculty.findByIdAndUpdate(id, {
+          email,
+          name,
+          branch,
+          mobile,
+          pan,
+          aadhar,
+          motherName,
+          fatherName,
+          subjects: Array.isArray(subjects) ? subjects : [subjects] // Ensure it's an array even if only one subject is selected
+      }, { new: true });
+
+      req.flash('success', 'Faculty updated successfully');
+      res.redirect(`/admin/faculty/${updatedFaculty._id}`);
+  } catch (e) {
+      req.flash('error', 'Error updating faculty');
+      res.redirect('/admin/faculty');
+  }
+});
 // Route to render the faculty management page
 router.get('/faculty', async (req, res) => {
   try {
       const branches = await Branch.find({});
       const subjects = await Subject.find({});
-      res.render('admin/faculty', { branches, subjects, faculties: [] }); // Initial load with empty faculties array
+      res.render('admin/faculty/faculty', { branches, subjects, faculties: [] }); // Initial load with empty faculties array
   } catch (error) {
       console.error('Error fetching branches or subjects:', error);
       res.status(500).send('Internal Server Error');
@@ -525,7 +574,7 @@ router.get('/faculty', async (req, res) => {
 // Render the new faculty creation page
 router.get('/faculty/new', async (req, res) => {
   const branches = await Branch.find({});
-  res.render('admin/newFaculty', { branches });
+  res.render('admin/faculty/newFaculty', { branches });
 });
 
 // Handle faculty creation
@@ -604,6 +653,16 @@ function convertDayNumberToEnum(dayNumber) {
   ];
   return days[dayNumber - 1] || null; // dayNumber - 1 to convert 1-based to 0-based index
 }
+router.get('/batches', async (req, res) => {
+  const { section } = req.query;
+  const batches = await Batch.find({ section });
+  // Convert the array of objects into an array of batch names
+  const batchNames = batches.map(batch => batch);
+
+  // Optionally, you could return this array if that's what you need
+  res.json(batchNames);
+});
+
 // Fetch faculties based on subject and availability
 router.get('/faculties', async (req, res) => {
   const { subject, day, hour,faculty } = req.query;
@@ -627,15 +686,14 @@ router.get('/faculties', async (req, res) => {
     // Filter out faculties who have a period at the same day and hour
     const availableFaculties = [];
     for (let faculty of faculties) {
+
       const periods = await Period.find({ faculty: faculty._id, day: dayEnum, hour: hour });
-      console.log(periods);
       if (periods.length === 0) {
         availableFaculties.push(faculty);
       }
     }
-    console.log(dayEnum);
-    console.log(availableFaculties);
     console.log(faculties);
+    console.log(availableFaculties);
     res.json(availableFaculties);
   } catch (error) {
     console.error('Error fetching faculties:', error);
@@ -647,7 +705,7 @@ router.get('/faculty/:id', async (req, res) => {
       const faculty = await Faculty.findById(req.params.id)
           .populate('branch')
           .populate('subjects');
-      res.render('admin/facultyView', { faculty });
+      res.render('admin/faculty/facultyView', { faculty });
   } catch (error) {
       console.error('Error fetching faculty:', error);
       res.status(500).send('Internal Server Error');
@@ -656,10 +714,10 @@ router.get('/faculty/:id', async (req, res) => {
 
 router.get('/faculty/:id/edit', async (req, res) => {
   try {
-      const faculty = await Faculty.findById(req.params.id);
+      const faculty = await Faculty.findById(req.params.id).populate('subjects');
       const branches = await Branch.find({});
       const subjects = await Subject.find({});
-      res.render('admin/facultyEdit', { faculty, branches, subjects });
+      res.render('admin/faculty/facultyEdit', { faculty, branches, subjects });
   } catch (error) {
       console.error('Error fetching faculty:', error);
       res.status(500).send('Internal Server Error');
@@ -698,7 +756,7 @@ router.get('/section', async (req, res) => {
                   model: 'AcademicYear'
               }
           });
-      res.render('admin/section', { sections });
+      res.render('admin/section/section', { sections });
   } catch (err) {
       res.status(500).send('Server Error');
   }
@@ -720,7 +778,7 @@ router.get('/attendance', async (req, res) => {
   try {
     const attendances = await Attendance.find(filter)
       .populate('student subject branch section semester year');
-    res.render('admin/attendance', { attendances });
+    res.render('admin/attendance/attendance', { attendances });
   } catch (error) {
     console.error('Error fetching attendances:', error);
     req.flash('error', 'Error fetching attendances');
@@ -745,7 +803,7 @@ router.post('/attendance', isAdminLoggedIn, async (req, res) => {
   }
 });
 router.get("/section/new",(req,res)=>{
-  res.render("admin/createSection.ejs");
+  res.render("admin/section/createSection.ejs");
 });
 // Create New Section
 router.post('/section/new', async (req, res) => {
@@ -780,24 +838,37 @@ router.get('/faculti', async (req, res) => {
       const branches = await Branch.find({});
       const subjects = await Subject.find({});
   
-      res.render('admin/faculty', { faculties, branches, subjects });
+      res.render('admin/faculty/faculty', { faculties, branches, subjects });
   } catch (error) {
     console.error('Error fetching faculties:', error);
     res.status(500).json({ message: 'Error fetching faculties' });
   }
 });
 router.get("/section/:id", async (req, res) => {
-  let { id } = req.params;
-  let section = await Section.findById(id).populate('students');
-  
-  if (!section) {
-    req.flash('error', 'Section not found');
-    return res.redirect('/admin/section');
+  try {
+    const { id } = req.params;
+    
+    const section = await Section.findById(id)
+      .populate({
+        path: 'students.student', // Populate student details
+      });
+    const students = section.students.map(item => ({
+      ...item.student._doc, // Spread the student document
+    }));
+
+    if (!section) {
+      req.flash('error', 'Section not found');
+      return res.redirect('/admin/section');
+    }
+
+    res.render("admin/section/showSection.ejs", { students, id, section });
+  } catch (error) {
+    console.error(error);
+    req.flash('error', 'Something went wrong');
+    res.redirect('/admin/section');
   }
-  let x=0;
-  let students = section.students;
-  res.render("admin/showSection.ejs", { students, id ,x});
 });
+
 router.get('/student/:id/edit', isAdminLoggedIn, async (req, res) => {
   try {
       const student = await Student.findById(req.params.id);
@@ -805,7 +876,7 @@ router.get('/student/:id/edit', isAdminLoggedIn, async (req, res) => {
           req.flash('error', 'Student not found');
           return res.redirect('/admin/student');
       }
-      res.render('admin/studentEdit.ejs', { student });
+      res.render('admin/student/studentEdit.ejs', { student });
   } catch (err) {
       console.log(err);
       req.flash('error', 'An error occurred');
@@ -853,34 +924,72 @@ router.delete('/student/:id', isAdminLoggedIn, async (req, res) => {
 });
 // Route to display form for adding students to a section
 router.get('/section/:id/add-student', isAdminLoggedIn, async (req, res) => {
-  const section = await Section.findById(req.params.id).populate('students');
-  res.render('admin/addStudentToSection.ejs', { section });
+  try {
+    const section = await Section.findById(req.params.id)
+      .populate({
+        path: 'students.student', // Populate student details
+      });
+
+    const id = section._id;
+    const students = section.students.map(item => ({
+      ...item.student._doc, // Spread the student document
+    }));
+    res.render('admin/section/addStudentToSection.ejs', { section, id, students });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
 });
 
-// Route to handle search query for students
+
 router.get('/section/:id/search-students', isAdminLoggedIn, async (req, res) => {
-  const searchQuery = req.query.term;
-  const students = await Student.find({ username: { $regex: searchQuery, $options: 'i' } });
-  res.json(students);
+  try {
+    const searchQuery = req.query.term;
+    // Find students who do not have a section assigned and match the search query
+    const students = await Student.find({
+      username: { $regex: searchQuery, $options: 'i' }, // Case-insensitive search by username
+      section: null // Students with a null section reference
+    });
+    
+    res.json(students);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
 });
 
 
-// Adding a student to a section
+// Route to add a student to a section
 router.post('/section/:id/add-student', isAdminLoggedIn, async (req, res) => {
-  const sectionId = req.params.id;
-  const studentId = req.body.studentId;
+  try {
+    const sectionId = req.params.id;
+    const { studentId } = req.body; // Expecting batchId from the request
 
-  const section = await Section.findById(sectionId);
-  section.students.push(studentId);
-  await section.save();
+    const section = await Section.findById(sectionId);
+    const student = await Student.findById(studentId);
 
-  const student = await Student.findById(studentId);
-  student.section = sectionId;
-  await student.save();
+    if (!student.section) {
+      // Update the student's section
+      student.section = sectionId;
+      await student.save();
 
-  req.flash('success', 'Student added successfully');
-  res.redirect(`/admin/section/${sectionId}/add-student`);
+      // Add student to the section along with the batch reference
+      section.students.push({
+        student: studentId,
+        batch: null
+      });
+      await section.save();
+
+      res.json({ success: true });
+    } else {
+      res.json({ success: false, message: 'Student is already in another section.' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
 });
+
 // Route to delete a section
 router.delete('/section/:id', isAdminLoggedIn, async (req, res) => {
   try {
@@ -909,7 +1018,7 @@ router.delete('/section/:id', isAdminLoggedIn, async (req, res) => {
 // Route to edit student details
 router.get('/section/:id/edit-student/:studentId', isAdminLoggedIn, async (req, res) => {
   const student = await Student.findById(req.params.studentId);
-  res.render('admin/editStudent.ejs', { student, sectionId: req.params.id });
+  res.render('admin/student/editStudent.ejs', { student, sectionId: req.params.id });
 });
 
 router.put('/section/:id/edit-student/:studentId', isAdminLoggedIn, async (req, res) => {
@@ -933,25 +1042,161 @@ router.put('/section/:id/edit-student/:studentId', isAdminLoggedIn, async (req, 
 router.put('/section/:sectionId/delete-student/:studentId', isAdminLoggedIn, async (req, res) => {
   const { sectionId, studentId } = req.params;
   try {
-    // Remove the student from the section
+    // Find the section by ID
     const section = await Section.findById(sectionId);
     if (!section) {
       req.flash('error', 'Section not found');
       return res.redirect(req.headers.referer || '/admin/section');
     }
-    section.students.pull(studentId);
+
+    // Remove the student object from the section's students array
+    section.students = section.students.filter(student => student.student.toString() !== studentId);
     await section.save();
 
     // Unset the section field in the student document
     await Student.findByIdAndUpdate(studentId, { $unset: { section: 1 } });
 
     req.flash('success', 'Student removed from section');
-    res.redirect( `/admin/section/${sectionId}/add-student`);
+    res.redirect(`/admin/section/${sectionId}/add-student`);
   } catch (err) {
     console.error(err);
     req.flash('error', 'Failed to remove student from section');
-    res.redirect( `/admin/section/${sectionId}/add-student`);
+    res.redirect(`/admin/section/${sectionId}/add-student`);
   }
 });
+
+
+// Display form to create a new batch
+router.get('/section/:id/create-batch', async (req, res) => {
+  const { id } = req.params;
+  const section = await Section.findById(id);
+  res.render('admin/section/createBatch', { section });
+});
+
+// Handle creation of a new batch
+router.post('/section/:id/create-batch', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  // Create and save the new batch
+  const newBatch = new Batch({ name, section: id });
+  await newBatch.save();
+
+  res.redirect(`/admin/section/${id}/batches`);
+});
+
+
+// Display all batches in a section
+router.get('/section/:id/batches', async (req, res) => {
+  const { id } = req.params;
+
+  // Populate the batches of the section
+  const section = await Section.findById(id).populate({
+    path: 'students.batch',
+    match: { section: id }
+  });
+  const batches=await Batch.find({section:id});
+  res.render('admin/section/viewBatches', { section,batches });
+});
+
+
+// View students in a specific batch
+router.get('/section/:id/batch/:batchId', async (req, res) => {
+  const { id, batchId } = req.params;
+
+  // Fetch the section and populate students belonging to the specific batch
+  const section = await Section.findById(id)
+      .populate({
+          path: 'students',
+          populate: { path: 'batch', match: { _id: batchId } }
+      })
+      .populate({
+        path: 'students',
+        populate: { path: 'student' }
+    });
+      
+  const batch = await Batch.findById(batchId);
+  
+  // Filter students who belong to the batch
+  const batchStudents = section.students.filter(s => s.batch && s.batch.equals(batchId));
+  res.render('admin/section/viewBatchStudents', { section, batch, batchStudents });
+});
+
+
+// Add student to a batch
+router.post('/section/:id/batch/:batchId/add-student', async (req, res) => {
+  const { id, batchId } = req.params;
+  const { studentId } = req.body;
+
+  const section = await Section.findById(id);
+
+  // Find the student in the section and assign them to the batch
+  const studentIndex = section.students.findIndex(s => s.student.toString() === studentId);
+  if (studentIndex !== -1) {
+      section.students[studentIndex].batch = batchId;
+      await section.save();
+  }
+
+  res.redirect(`/admin/section/${id}/batch/${batchId}`);
+});
+
+
+// Remove student from a batch
+router.post('/section/:id/batch/:batchId/remove-student/:studentId', async (req, res) => {
+  const { id, batchId, studentId } = req.params;
+
+  const section = await Section.findById(id);
+
+  // Find the student in the section and remove them from the batch
+  const studentIndex = section.students.findIndex(s => s.student.toString() === studentId);
+  if (studentIndex !== -1) {
+      section.students[studentIndex].batch = null;
+      await section.save();
+  }
+
+  res.redirect(`/admin/section/${id}/batch/${batchId}`);
+});
+
+
+// Delete a batch
+router.post('/section/:id/batch/:batchId/delete', async (req, res) => {
+  const { id, batchId } = req.params;
+
+  // Delete the batch
+  await Batch.findByIdAndDelete(batchId);
+
+  // Remove the batch reference from students and section
+  const section = await Section.findById(id);
+  section.students.forEach(student => {
+    if (student.batch && student.batch.equals(batchId)) {
+      student.batch = null;
+    }
+  });
+  await section.save();
+
+  res.redirect(`/admin/section/${id}/batches`);
+});
+
+
+// Route to handle search query for students without a batch
+router.get('/section/:id/search-students-no-batch', async (req, res) => {
+  const { id } = req.params;
+  const searchQuery = req.query.term;
+
+  // Fetch the section and populate students without a batch
+  const section = await Section.findById(id)
+      .populate({
+          path: 'students.student',
+          match: { username: new RegExp(searchQuery, 'i') }
+      });
+
+  // Filter out students who do not have a batch
+  const studentsNoBatch = section.students
+      .filter(s => !s.batch)
+      .map(s => s.student);
+
+  res.json(studentsNoBatch);
+});
+
+
 
 module.exports = router;

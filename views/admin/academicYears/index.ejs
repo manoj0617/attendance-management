@@ -1,16 +1,20 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Academic Years</h1>
-<a href="/admin/academic-years/new">Create New Academic Year</a>
-<ul>
-  <% academicYears.forEach(year => { %>
-    <li>
-      <%= year.name %>
-      <a href="/admin/academic-years/<%= year._id %>/edit">Edit</a>
-      <form action="/admin/academic-years/<%= year._id %>?_method=DELETE" method="POST">
-        <button type="submit">Delete</button>
-      </form>
-    </li>
-  <% }) %>
-</ul>
+    <div class="container mt-5">
+        <h1 class="mb-4">Academic Years</h1>
+        <a href="/admin/academic-years/new" class="btn btn-success mb-3">Create New Academic Year</a>
+        <ul class="list-group">
+            <% academicYears.forEach(year => { %>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><%= year.name %></span>
+                    <div>
+                        <a href="/admin/academic-years/<%= year._id %>/edit" class="btn btn-info btn-sm mr-2">Edit</a>
+                        <form action="/admin/academic-years/<%= year._id %>?_method=DELETE" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
 </body>

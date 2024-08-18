@@ -1,0 +1,36 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <!-- Form to create a new batch -->
+        <div class="mt-5">
+            <h2>Create New Batch</h2>
+            <form method="post" action="/admin/section/<%= section._id %>/create-batch">
+                <div class="form-group">
+                    <label for="batchName">Batch Name:</label>
+                    <input type="text" name="name" class="form-control" id="batchName" placeholder="Enter batch name" required>
+                </div>
+                <button type="submit" class="btn btn-primary mt-1">Create Batch</button>
+            </form>
+        </div>
+        <h1>Batches in Section: <%= section.name %></h1>
+
+        <!-- Display the list of batches in the section -->
+        <% if (batches && batches.length > 0) { %>
+            <ul class="list-group">
+                <% batches.forEach(function(batch) { %>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><%= batch.name %></span>
+                        <div>
+                            <a href="/admin/section/<%= section._id %>/batch/<%= batch._id %>" class="btn btn-info btn-sm">View Students</a>
+                            <form method="post" action="/admin/section/<%= section._id %>/batch/<%= batch._id %>/delete" onsubmit="return confirm('Are you sure you want to delete this batch?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </li>
+                <% }); %>
+            </ul>
+        <% } else { %>
+            <p>No batches found in this section.</p>
+        <% } %>
+    </div>
+</body>

@@ -6,6 +6,10 @@ const SubjectSchema = new Schema({
     type: String,
     required: true
   },
+  full_name: {
+    type: String,
+    required: true
+  },
   academicYear: {
     type: Schema.Types.ObjectId,
     ref: 'AcademicYear',
@@ -15,6 +19,14 @@ const SubjectSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Semester',
     required: true
+  },
+  type:{
+    type: String,
+    required: true,
+    enum:['Theory','Practical','Leisure'],
+  },
+  code: {
+    type: String,
   }
 });
 

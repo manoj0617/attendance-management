@@ -7,31 +7,7 @@
     <!-- Student Details Section -->
     <div class="student-details">
       <h1><%= currUser.name %> - <%= currUser.username %></h1>
-    </div>
-    
-    <!-- Ongoing Courses Section -->
-    <div class="course-details">
-      <h1>Ongoing Courses:</h1>
-      <div class="course-cards">
-        <!-- Loop through each course and display it -->
-        <% for (course of courses) { %>
-          <div class="card col-md-3 course-card">
-            <div class="card-body">
-              <h2><%= course.course %></h2>
-              <h4 class="card-subtitle mb-2 text-body-primary">Faculty - <%= course.faculty.name %></h4>
-              <div class="button-container">
-                <a href="/student/courses/<%= course._id %>">
-                  <button class="btn btn-dark course-btn">
-                    Click here
-                  </button>
-                </a>
-              </div>
-            </div>
-          </div>
-        <% } %>
-      </div>
-    </div>
-    
+    </div>    
     <!-- Attendance Details Section -->
     <div class="attendance-details">
       <!-- Average Attendance Record -->

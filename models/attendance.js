@@ -34,7 +34,10 @@ const attendanceSchema = new mongoose.Schema({
   section: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Section',
-    required: true
+  },
+  batch: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch',
   },
   semester: {
     type: mongoose.Schema.Types.ObjectId,

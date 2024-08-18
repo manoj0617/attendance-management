@@ -12,7 +12,8 @@ const facultySchema=mongoose.Schema({
         type:String,
         required:true,
     },
-    branch:{type: Schema.Types.ObjectId,
+    branch:{
+        type: Schema.Types.ObjectId,
         ref: 'Branch',
         required: true
     },

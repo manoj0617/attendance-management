@@ -24,7 +24,7 @@
                         <td><%= student.name %></td>
                         <td><%= student.section.name %></td>
                         <td>
-                            <input type="checkbox" name="attendance[<%= student._id %>]" value="true" <% if (attendanceRecords.some(record => record.student.equals(student._id) && record.present)) { %>checked<% } %> disabled>
+                            <input type="checkbox" name="attendance[<%= student._id %>]" value="true" <%= attendanceRecords.find(att => att.student.toString() === student._id.toString())?.status ? 'checked' : '' %> disabled>
                         </td>
                     </tr>
                 <% }); %>

@@ -1,16 +1,34 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Subjects</h1>
-<a href="/admin/subjects/new">Create New Subject</a>
-<ul>
-  <% subjects.forEach(subject => { %>
-    <li>
-      <%= subject.name %> (Academic Year: <%= subject.academicYear.name %>, Semester: <%= subject.semester.name %>)
-      <a href="/admin/subjects/<%= subject._id %>/edit">Edit</a>
-      <form action="/admin/subjects/<%= subject._id %>?_method=DELETE" method="POST">
-        <button type="submit">Delete</button>
-      </form>
-    </li>
-  <% }) %>
-</ul>
+    <div class="container mt-5">
+        <h1 class="mb-4">Subjects</h1>
+
+        <!-- Search Form -->
+        <form action="/admin/subjects" method="GET" class="form-inline mb-4">
+            <input type="text" name="search" class="form-control mr-2" placeholder="Search by subject name or code" value="<%= searchTerm %>">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+
+        <!-- Create New Subject Button -->
+        <a href="/admin/subjects/new" class="btn btn-success mb-3">Create New Subject</a>
+
+        <!-- Subjects List -->
+        <ul class="list-group">
+            <% subjects.forEach(subject => { %>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5><%= subject.name %> (<%= subject.full_name %>)</h5>
+                        <p>Code: <%= subject.code %></p>
+                        <p>Academic Year: <%= subject.academicYear.name %>, Semester: <%= subject.semester.name %></p>
+                    </div>
+                    <div>
+                        <a href="/admin/subjects/<%= subject._id %>/edit" class="btn btn-info mr-2">Edit</a>
+                        <form action="/admin/subjects/<%= subject._id %>?_method=DELETE" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
 </body>

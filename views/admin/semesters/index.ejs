@@ -1,16 +1,20 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Semesters</h1>
-<a href="/admin/semesters/new">Create New Semester</a>
-<ul>
-  <% semesters.forEach(semester => { %>
-    <li>
-      <%= semester.name %>
-      <a href="/admin/semesters/<%= semester._id %>/edit">Edit</a>
-      <form action="/admin/semesters/<%= semester._id %>?_method=DELETE" method="POST">
-        <button type="submit">Delete</button>
-      </form>
-    </li>
-  <% }) %>
-</ul>
+    <div class="container mt-5">
+        <h1 class="mb-4">Semesters</h1>
+        <a href="/admin/semesters/new" class="btn btn-success mb-3">Create New Semester</a>
+        <ul class="list-group">
+            <% semesters.forEach(semester => { %>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><%= semester.name %></span>
+                    <div>
+                        <a href="/admin/semesters/<%= semester._id %>/edit" class="btn btn-info btn-sm mr-2">Edit</a>
+                        <form action="/admin/semesters/<%= semester._id %>?_method=DELETE" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
 </body>

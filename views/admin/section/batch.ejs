@@ -1,0 +1,46 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Manage Section</h1>
+
+        <!-- Create New Batch Form -->
+        <form method="post" action="/admin/section/<%= section._id %>/create-batch">
+            <div class="form-group">
+                <label for="batchName">Create New Batch:</label>
+                <input type="text" name="name" class="form-control" id="batchName" placeholder="Enter batch name" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Batch</button>
+        </form>
+
+        <!-- List of Students with their Batch -->
+        <div class="mt-5">
+            <h2>Students in this Section:</h2>
+            <ul class="list-group">
+                <% section.students.forEach(function(studentWrapper) { %>
+                    <li class="list-group-item">
+                        <span><%= studentWrapper.student.username %> - <%= studentWrapper.student.name %></span>
+                        <br>
+                        <% if (studentWrapper.batch) { %>
+                            <span>Batch: <%= studentWrapper.batch.name %></span>
+                        <% } else { %>
+                            <span>Batch: Not Assigned</span>
+                        <% } %>
+                        <!-- Update Batch Form -->
+                        <form method="post" action="/admin/section/<%= section._id %>/student/<%= studentWrapper.student._id %>/update-batch">
+                            <div class="form-group mt-2">
+                                <label for="batchSelect<%= studentWrapper.student._id %>">Assign/Update Batch:</label>
+                                <select name="batchId" id="batchSelect<%= studentWrapper.student._id %>" class="form-control">
+                                    <option value="">-- Select Batch --</option>
+                                    <% availableBatches.forEach(function(batch) { %>
+                                        <option value="<%= batch._id %>" <% if (studentWrapper.batch && studentWrapper.batch._id.equals(batch._id)) { %>selected<% } %>><%= batch.name %></option>
+                                    <% }); %>
+                                </select>
+                                <button type="submit" class="btn btn-success mt-2">Update Batch</button>
+                            </div>
+                        </form>
+                    </li>
+                <% }); %>
+            </ul>
+        </div>
+    </div>
+</body>

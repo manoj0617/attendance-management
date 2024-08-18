@@ -281,7 +281,10 @@ select {
 /* Home body styles */
 .home-body {
   color: white;
-  background-image: url(https://res.cloudinary.com/drqpxfysj/image/upload/v1716372935/ozvo98qhspbtzslfewyg.jpg);
+  background-image: url(https://res.cloudinary.com/drqpxfysj/image/upload/v1723972303/download_p1ogc2.jpg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 
 .home-body h2 {
@@ -474,4 +477,11 @@ p {
   margin: 0;
   padding: 5px 0;
   color: #555;
+}
+.batch-form {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  background-color: #f9f9f9;
 }

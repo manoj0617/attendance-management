@@ -1,15 +1,21 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Edit Branch</h1>
-<form action="/admin/branches/<%= branch._id %>?_method=PUT" method="POST">
-  <label for="name">Branch Name:</label>
-  <input type="text" name="name" id="name" value="<%= branch.name %>" required>
-  <label for="academicYear">Academic Year:</label>
-  <select name="academicYear" id="academicYear">
-    <% academicYears.forEach(year => { %>
-      <option value="<%= year._id %>" <%= branch.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
-    <% }) %>
-  </select>
-  <button type="submit">Update Branch</button>
-</form>
+    <div class="container mt-5">
+        <h1 class="mb-4">Edit Branch</h1>
+        <form action="/admin/branches/<%= branch._id %>?_method=PUT" method="POST">
+            <div class="form-group">
+                <label for="name">Branch Name:</label>
+                <input type="text" name="name" id="name" class="form-control" value="<%= branch.name %>" required>
+            </div>
+            <div class="form-group mt-3">
+                <label for="academicYear">Academic Year:</label>
+                <select name="academicYear" id="academicYear" class="form-control">
+                    <% academicYears.forEach(year => { %>
+                        <option value="<%= year._id %>" <%= branch.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
+                    <% }) %>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Update Branch</button>
+        </form>
+    </div>
 </body>

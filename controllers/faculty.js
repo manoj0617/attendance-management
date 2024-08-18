@@ -3,8 +3,10 @@ const Student = require('../models/student.js');
 const Attendance = require("../models/attendance.js");
 const Faculty = require('../models/faculty');
 const Period = require('../models/period');
+const Section = require('../models/section');
 const { Parser } = require('json2csv');
 const AcademicYear = require('../models/academicYear');
+const Batch = require('../models/batch');
 const mongoose=require("mongoose");
 
 // Render login form
@@ -130,18 +132,48 @@ module.exports.renderAttendanceForm = async (req, res) => {
 
 module.exports.markAttendance = async (req, res) => {
     try {
-        const { date, section, acYear, program, branch, sem, periods, subject, period } = req.body;
+        const { date, section, acYear, program, branch, sem, periods, subject, period, batch } = req.body;
+
         if (!section) {
             return res.status(400).send('Section is required');
         }
-        const students = await Student.find({ section: new mongoose.Types.ObjectId(section) }).populate('section');
-
-         // Ensure periods are in array form and deduplicated
-         let uniquePeriods = Array.isArray(periods) ? periods : (periods ? periods.split(',') : []);
-         uniquePeriods = [...new Set(uniquePeriods)];
-         
         console.log(req.body);
-        console.log(students.length);
+
+        // Fetch the section with populated students and their batches
+        const sectionData = await Section.findById(section)
+            .populate('students.student') // Populate the student field in students array
+            .populate('students.batch')   // Populate the batch field in students array
+            .populate('branch');
+
+        if (!sectionData) {
+            return res.status(404).send('Section not found');
+        }
+
+        // Map students with their batch and section info
+        let students = sectionData.students.map(s => ({
+            _id: s.student._id,
+            username: s.student.username,
+            name: s.student.name,
+            batch: s.batch ? s.batch.name : null,
+            section: sectionData.name,
+            batchId: s.batch ? s.batch._id : null
+        }));
+
+        console.log("All students:", students);
+
+        // Filter students by the selected batch
+        if (batch) {
+            students = students.filter(s => s.batchId && s.batchId.toString() === batch.toString());
+        }
+
+        console.log("Filtered students for batch:", batch, students);
+
+        // Ensure periods are in array form and deduplicated
+        let uniquePeriods = Array.isArray(periods) ? periods : (periods ? periods.split(',') : []);
+        uniquePeriods = [...new Set(uniquePeriods)];
+
+        console.log("Unique periods:", uniquePeriods);
+
         res.render('faculty/markAttendance', {
             date,
             section,
@@ -149,6 +181,7 @@ module.exports.markAttendance = async (req, res) => {
             program,
             branch,
             sem,
+            selectedBatch: batch,
             periods: uniquePeriods,
             students,
             subject,
@@ -159,4 +192,8 @@ module.exports.markAttendance = async (req, res) => {
         res.status(500).send('Server Error');
     }
 };
+
+
+
+
 

@@ -19,18 +19,21 @@
             </div>
         </form>
 
-        <!-- List of students already in the section -->
-        <div class="mt-5">
-            <h2>Students in this Section:</h2>
-            <ul class="list-group">
-                <% section.students.forEach(function(student) { %>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span><%= student.username %> - <%= student.name %></span>
-                        <form><button class="btn btn-danger btn-sm" >Remove</button></form>
-                    </li>
-                <% }); %>
-            </ul>
-        </div>
+       <!-- List of students already in the section -->
+<div class="mt-5">
+    <h2>Students in this Section:</h2>
+    <ul class="list-group">
+        <% students.forEach(function(student) { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><%= student.username %> - <%= student.name %></span>
+                <form method="post" action="/admin/section/<%= id %>/delete-student/<%= student._id %>?_method=PUT" onsubmit="return confirmDeletion(event)">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+            </li>
+        <% }); %>
+    </ul>
+</div>
+
     </div>
 
     <!-- Include jQuery and jQuery UI Autocomplete libraries -->

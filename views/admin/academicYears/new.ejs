@@ -1,9 +1,13 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Create New Academic Year</h1>
-<form action="/admin/academic-years" method="POST">
-  <label for="name">Academic Year Name:</label>
-  <input type="text" name="name" id="name" required>
-  <button type="submit">Create Academic Year</button>
-</form>
+    <div class="container mt-5">
+        <h1 class="mb-4">Create New Academic Year</h1>
+        <form action="/admin/academic-years" method="POST">
+            <div class="form-group">
+                <label for="name">Academic Year Name:</label>
+                <input type="text" name="name" id="name" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Create Academic Year</button>
+        </form>
+    </div>
 </body>

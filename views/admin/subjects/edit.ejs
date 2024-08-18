@@ -1,21 +1,58 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-<h1>Edit Subject</h1>
-<form action="/admin/subjects/<%= subject._id %>?_method=PUT" method="POST">
-  <label for="name">Subject Name:</label>
-  <input type="text" name="name" id="name" value="<%= subject.name %>" required>
-  <label for="academicYear">Academic Year:</label>
-  <select name="academicYear" id="academicYear">
-    <% academicYears.forEach(year => { %>
-      <option value="<%= year._id %>" <%= subject.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
-    <% }) %>
-  </select>
-  <label for="semester">Semester:</label>
-  <select name="semester" id="semester">
-    <% semesters.forEach(sem => { %>
-      <option value="<%= sem._id %>" <%= subject.semester._id.equals(sem._id) ? 'selected' : '' %>><%= sem.name %></option>
-    <% }) %>
-  </select>
-  <button type="submit">Update Subject</button>
-</form>
+    <div class="container mt-5">
+        <h1>Edit Subject</h1>
+        <form action="/admin/subjects/<%= subject._id %>?_method=PUT" method="POST">
+            <!-- Subject Name -->
+            <div class="form-group">
+                <label for="name">Subject Name:</label>
+                <input type="text" name="name" id="name" value="<%= subject.name %>" class="form-control" required>
+            </div>
+
+            <!-- Subject Short Name -->
+            <div class="form-group mt-3">
+                <label for="full_name">Subject full Name:</label>
+                <input type="text" name="full_name" id="full_name" value="<%= subject.full_name %>" class="form-control" required>
+            </div>
+
+            <!-- Subject Code -->
+            <div class="form-group mt-3">
+                <label for="code">Subject Code:</label>
+                <input type="text" name="code" id="code" value="<%= subject.code %>" class="form-control" required>
+            </div>
+
+            <!-- Academic Year -->
+            <div class="form-group mt-3">
+                <label for="academicYear">Academic Year:</label>
+                <select name="academicYear" id="academicYear" class="form-control">
+                    <% academicYears.forEach(year => { %>
+                        <option value="<%= year._id %>" <%= subject.academicYear._id.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <!-- Semester -->
+            <div class="form-group mt-3">
+                <label for="semester">Semester:</label>
+                <select name="semester" id="semester" class="form-control">
+                    <% semesters.forEach(sem => { %>
+                        <option value="<%= sem._id %>" <%= subject.semester._id.equals(sem._id) ? 'selected' : '' %>><%= sem.name %></option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <!-- Subject Type -->
+            <div class="form-group mt-3">
+                <label for="type">Subject Type:</label>
+                <select name="type" id="type" class="form-control" required>
+                    <option value="Theory" <%= subject.type === 'Theory' ? 'selected' : '' %>>Theory</option>
+                    <option value="Practical" <%= subject.type === 'Practical' ? 'selected' : '' %>>Practical</option>
+                    <option value="free" <%= subject.type === 'free' ? 'selected' : '' %>>Free</option>
+                </select>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary mt-4">Update Subject</button>
+        </form>
+    </div>
 </body>

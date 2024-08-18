@@ -7,6 +7,9 @@ const PeriodSchema = new Schema({
         type:Number,
         required:true,
     },
+    room:{
+        type: String
+    },
     faculty: {
         type: Schema.Types.ObjectId,
         ref: 'Faculty'
@@ -18,6 +21,10 @@ const PeriodSchema = new Schema({
     year: {
         type: Schema.Types.ObjectId,
         ref: 'AcademicYear'
+    },
+    batch: {
+        type: Schema.Types.ObjectId,
+        ref: 'Batch'
     },
     branch: {
         type: Schema.Types.ObjectId,

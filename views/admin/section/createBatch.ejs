@@ -1,0 +1,13 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+    <div class="container mt-5">
+        <h1>Create New Batch for Section: <%= section.name %></h1>
+        <form method="POST" action="/admin/section/<%= section._id %>/create-batch">
+            <div class="form-group">
+                <label for="batchName">Batch Name:</label>
+                <input type="text" name="batchName" class="form-control" id="batchName" placeholder="Enter batch name" required>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Create Batch</button>
+        </form>
+    </div>
+</body>

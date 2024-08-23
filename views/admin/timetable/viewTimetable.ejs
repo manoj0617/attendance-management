@@ -277,7 +277,7 @@ function populateDropdowns(branch, semester, selectedSubject = '', selectedFacul
     subjectSelect.addEventListener('change', () => {
         const selectedSubjectId = subjectSelect.value;
         if (selectedSubjectId) {
-            fetch(`/admin/faculties?branch=${branch}&subject=${selectedSubjectId}&day=${day}&hour=${hour}`)
+            fetch(`/admin/faculties?branch=${branch}&subject=${selectedSubjectId}&day=${day}&hour=${hour-1}`)
                 .then(response => response.json())
                 .then(faculties => {
                     facultySelect.innerHTML = '<option value="" disabled selected>Select Faculty</option>';
@@ -714,5 +714,4 @@ document.getElementById('periodForm').addEventListener('submit', function(event)
 });
 
 </script>
-
 </body>

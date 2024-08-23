@@ -1,16 +1,49 @@
-<%if(success && success.length){%>
-    <div class="row">
-    <div class="alert alert-success alert-dismissible fade show col-6 offset-3" role="alert">
-        <%=success%>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<% if (success && success.length) { %>
+  <div class="row">
+      <div class="alert alert-success alert-dismissible fade show" role="alert"
+           style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; width: auto;">
+          <!-- Timer Line -->
+          <div class="progress-bar" style="position: absolute; top: 0; left: 0; height: 3px; background-color: #28a745; width: 0%;"></div>
+          <%= success %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
-    </div>
-<%}%>
-    <%if(error && error.length){%>
-        <div class="row">
-        <div class="alert alert-danger alert-dismissible fade show col-6 offset-3" role="alert">
-            <%=error%>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        </div>
-    <%}%>
+  </div>
+  <script>
+      // Animate the progress bar over 5 seconds
+      const successBar = document.querySelector('.alert-success .progress-bar');
+      setTimeout(function() {
+          document.querySelector('.alert-success').classList.remove('show');
+          document.querySelector('.alert-success').classList.add('fade');
+      }, 5000);
+
+      setTimeout(function() {
+          successBar.style.transition = 'width 5s linear';
+          successBar.style.width = '100%';
+      }, 0); // Start immediately
+  </script>
+<% } %>
+
+<% if (error && error.length) { %>
+  <div class="row">
+      <div class="alert alert-danger alert-dismissible fade show" role="alert"
+           style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; width: auto;">
+          <!-- Timer Line -->
+          <div class="progress-bar" style="position: absolute; top: 0; left: 0; height: 3px; background-color: #dc3545; width: 0%;"></div>
+          <%= error %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+  </div>
+  <script>
+      // Animate the progress bar over 5 seconds
+      const errorBar = document.querySelector('.alert-danger .progress-bar');
+      setTimeout(function() {
+          document.querySelector('.alert-danger').classList.remove('show');
+          document.querySelector('.alert-danger').classList.add('fade');
+      }, 5000);
+
+      setTimeout(function() {
+          errorBar.style.transition = 'width 5s linear';
+          errorBar.style.width = '100%';
+      }, 0); // Start immediately
+  </script>
+<% } %>

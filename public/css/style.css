@@ -281,10 +281,8 @@ select {
 /* Home body styles */
 .home-body {
   color: white;
-  background-image: url(https://res.cloudinary.com/drqpxfysj/image/upload/v1723972303/download_p1ogc2.jpg);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
+  background-image: url(https://res.cloudinary.com/drqpxfysj/image/upload/v1716468033/wanderlust_DEV/h8jbqatguqz948drpqmv.jpg);
+  
 }
 
 .home-body h2 {

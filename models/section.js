@@ -11,6 +11,10 @@ const sectionSchema = new Schema({
         ref: 'Branch',
         required: true
     },
+    class_teacher:{
+        type: Schema.Types.ObjectId,
+        ref: 'Faculty',
+    },
     students: [
         {
             student: {

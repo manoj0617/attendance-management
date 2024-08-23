@@ -668,6 +668,7 @@ router.get('/faculties', async (req, res) => {
   const { subject, day, hour,faculty } = req.query;
   // Convert numeric day to enum day
   const dayEnum = convertDayNumberToEnum(Number(day));
+  console.log(req.query);
   if (!dayEnum) {
     return res.status(400).json({ message: 'Invalid day number' });
   }
@@ -762,23 +763,24 @@ router.get('/section', async (req, res) => {
   }
 });
 router.get('/attendance', async (req, res) => {
-  const { student, subject, date, status, period, branch, section, semester, year } = req.query;
+  // const { student, subject, date, status, period, branch, section, semester, year } = req.query;
 
-  let filter = {};
-  if (student) filter.student = student;
-  if (subject) filter.subject = subject;
-  if (date) filter.date = new Date(date);
-  if (status !== undefined) filter.status = status.toLowerCase() === 'present';
-  if (period) filter.period = period;
-  if (branch) filter.branch = branch;
-  if (section) filter.section = section;
-  if (semester) filter.semester = semester;
-  if (year) filter.year = year;
+  // let filter = {};
+  // if (student) filter.student = student;
+  // if (subject) filter.subject = subject;
+  // if (date) filter.date = new Date(date);
+  // if (status !== undefined) filter.status = status.toLowerCase() === 'present';
+  // if (period) filter.period = period;
+  // if (branch) filter.branch = branch;
+  // if (section) filter.section = section;
+  // if (semester) filter.semester = semester;
+  // if (year) filter.year = year;
 
   try {
-    const attendances = await Attendance.find(filter)
-      .populate('student subject branch section semester year');
-    res.render('admin/attendance/attendance', { attendances });
+    // const attendances = await Attendance.find(filter)
+    //   .populate('student subject branch section semester year');
+    // res.render('admin/attendance/attendance', { attendances });
+    res.render('admin/attendance/attendance');
   } catch (error) {
     console.error('Error fetching attendances:', error);
     req.flash('error', 'Error fetching attendances');

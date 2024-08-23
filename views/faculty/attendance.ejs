@@ -1,7 +1,4 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
-<head>
-    <link rel="stylesheet" href="/styles/attendance.css">
-</head>
 <body>
     <div class="container">
         <h2>Daily Attendance</h2>
@@ -107,15 +104,23 @@
     <script>
         $(document).ready(function() {
             $('#newRecord, #modifyRecord, #showRecord').click(function() {
-                $('#attendanceForm').show();
-                $('#attendanceForm').attr('action', $(this).data('action'));
-                $('#newRecord, #modifyRecord, #showRecord').attr('disabled', 'disabled');
-                if ($(this).data('action') === '/faculty/modifyAttendance') {
-                    $('#attendanceForm').append('<input type="hidden" name="facultyId" value="<%= currUser._id %>">');
-                } else {
-                    $('#attendanceForm').find('input[name="facultyId"]').remove();
+        $('#attendanceForm').show();
+        $('#attendanceForm').attr('action', $(this).data('action'));
+        $('#newRecord, #modifyRecord, #showRecord').attr('disabled', 'disabled');
+
+        if ($(this).data('action') === '/faculty/modifyAttendance' || $(this).data('action') === '/faculty/showAttendance') {
+            $('#attendanceForm').append('<input type="hidden" name="facultyId" value="<%= currUser._id %>">');
+            // Restrict to only one period selection
+            $('.period-checkbox').off('change').on('change', function() {
+                if ($('.period-checkbox:checked').length > 1) {
+                    alert('You can only select one period.');
+                    $(this).prop('checked', false);
                 }
             });
+        } else {
+            $('#attendanceForm').find('input[name="facultyId"]').remove();
+        }
+    });
 
             function fetchTimetable() {
             var section = $('#section').val();
@@ -147,6 +152,7 @@
                 success: function(data) {
                     console.log('Received periods data:', data);
                     $('#timetableSection').show();
+                    var periodsMatched = false; // Track if any period matches
 
                     for (let i = 1; i <= 7; i++) {
                         let period = data.periods.find(p => p.hour === i);
@@ -155,6 +161,7 @@
                         periodCell.html(''); // Clear the cell
 
                         if (period) {
+                            periodsMatched = true;
                             let periodHtml = `<div>${period.subject.name}</div>
                                               <div>${period.branch.name}</div>
                                               <div>${period.year.name} SEM</div>
@@ -169,8 +176,13 @@
                             periodCell.html(periodHtml);
                             periodCell.removeClass('attendance-not-entered attendance-mismatch attendance-entered class-cancelled');
 
-                            // Add hidden input for the subject
+                            if (!periodsMatched) {
+                                // Add hidden input for the subject
+                                periodCell.append(`<input type="hidden" name="subjects[${i}]" value="${$('#subject').val()}">`);
+                            }else{
+                                // Add hidden input for the subject
                             periodCell.append(`<input type="hidden" name="subjects[${i}]" value="${period.subject._id}">`);
+                            }
 
                             // Preselect the checkbox if the subject matches
                             if (period.subject._id === subject) {
@@ -201,6 +213,9 @@
                             }
                         }
                     }
+                    
+                    // Append hidden input field for periodsMatched
+                    $('#attendanceForm').append(`<input type="hidden" name="periodsMatched" value="${periodsMatched}">`);
 
                     // Handle batch selection based on section
                     $('#includeBatches').change(function() {
@@ -217,6 +232,7 @@
             });
         }
     }   
+            
             $('#acYear, #branch, #sem, #section, #date, #subject').change(fetchTimetable);
 
             $('#acYear').change(function() {
@@ -265,26 +281,47 @@
 
             $('#subject').change(fetchTimetable);
 
-            // Add this to handle form submission and include only checked periods
+
+            
             $('#attendanceForm').submit(function(event) {
-                // Remove previously added hidden inputs to avoid duplication
-                $('input[name="periods[]"]').remove();
+    var checkedPeriods = [];
+    $('input.period-checkbox:checked').each(function() {
+        checkedPeriods.push($(this).val());
+    });
 
-                var checkedPeriods = [];
-                $('input.period-checkbox:checked').each(function() {
-                    checkedPeriods.push($(this).val());
-                });
+    if (!periodsMatched) {
+        // No periods selected, gather form data and append as hidden inputs
+        var formData = {
+            acYear: $('#acYear').val(),
+            branch: $('#branch').val(),
+            section: $('#section').val(),
+            date: $('#date').val(),
+            sem: $('#sem').val(),
+            subject: $('#subject').val(),
+            program: $('#program').val(),
+            batch: $('#batch').val() || '' // Handle case if batch is not selected
+        };
 
-                // Add hidden input to include the checked periods in the form data
-                if (checkedPeriods.length > 0) {
-                    checkedPeriods.forEach(function(period) {
-                        $('#attendanceForm').append(`<input type="hidden" name="periods[]" value="${period}">`);
-                    });
-                } else {
-                    event.preventDefault();
-                    alert('Please select at least one period.');
-                }
-            });
+        for (var key in formData) {
+            if (formData.hasOwnProperty(key)) {
+                $('#attendanceForm').append(`<input type="hidden" name="${key}" value="${formData[key]}">`);
+            }
+        }
+    } else {
+        // Add checked periods to the form data
+        checkedPeriods.forEach(function(period) {
+            $('#attendanceForm').append(`<input type="hidden" name="periods[]" value="${period}">`);
         });
+    }
+
+    // Prevent default submission if appending additional data
+    if (checkedPeriods.length === 0) {
+        event.preventDefault();
+    }
+});
+
+        });
+        
     </script>
+    <script src="../js/script.js"></script>
 </body>

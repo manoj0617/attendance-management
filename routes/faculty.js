@@ -28,7 +28,6 @@ router.get('/subject',async(req,res)=>{
       select:'name'
   });
   const subjects=faculty.subjects;
-  console.log(subjects);
   res.json(subjects);
 } catch (err) {
     res.status(500).send('Server Error');
@@ -36,8 +35,8 @@ router.get('/subject',async(req,res)=>{
 });
 
 router.post('/submitAttendance', isFacultyLoggedIn, async (req, res) => {
-    const { date, section, acYear, branch, sem, periods, attendance, batch, students } = req.body;
-
+    const { date, section, acYear, branch, sem, periods, attendance, batch, students, periodsMatched, subject } = req.body;
+    console.log(req.body+"req");
     try {
         // Convert date to the day of the week
         const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
@@ -56,10 +55,6 @@ router.post('/submitAttendance', isFacultyLoggedIn, async (req, res) => {
             hour: { $in: periods.map(Number) },
             batch: batch ? batch : null
         }).populate('subject');
-        
-        console.log(req.body);
-        console.log(periodsData);
-        console.log(students);
 
         // Create attendance records for each period
         for (const period of periodsData) {
@@ -84,7 +79,7 @@ const studentsAttendance = students.map(studentId => {
                 branch: new mongoose.Types.ObjectId(branch),
                 semester: new mongoose.Types.ObjectId(sem),
                 period: period._id,
-                subject: period.subject._id,
+                subject: periodsMatched?period.subject._id:subject,
                 students: studentsAttendance,
                 batch: batch ? new mongoose.Types.ObjectId(batch) : null, // Include batch if provided
                 created_by: req.user._id // Assuming req.user contains the logged-in faculty info
@@ -101,10 +96,6 @@ const studentsAttendance = students.map(studentId => {
         res.status(500).send('Server Error');
     }
 });
-
-
-
-
 
 // Fetch semesters by academic year
 router.get('/semester', wrapAsync(async (req, res) => {
@@ -123,7 +114,6 @@ router.get('/branch', wrapAsync(async (req, res) => {
     try {
         const { year } = req.query;
         const branches = await Branch.find({ academicYear: year });
-        console.log(branches);
         res.json(branches);
     } catch (err) {
         res.status(500).send('Server Error');
@@ -145,54 +135,169 @@ router.get('/sections', wrapAsync(async (req, res) => {
 router.get('/logout', facultyController.logout);
 
 // Route to handle show attendance
-router.get('/showAttendance', wrapAsync(async (req, res) => {
+router.post('/showAttendance', wrapAsync(async (req, res) => {
     try {
-        const { section, date, acYear, branch, sem } = req.query;
-        const attendanceRecords = await Attendance.find({ date: new Date(date), section, semester: sem });
+        const { date, section, acYear, program, periods, branch, sem, subject, batch, periodsMatched } = req.body;
+        const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
 
-        const enabledPeriods = attendanceRecords.map(record => record.period.hour);
+        // Fetch periods information
+        const periodsData = await Period.find({
+            section: new mongoose.Types.ObjectId(section),
+            day: dayOfWeek,
+            year: new mongoose.Types.ObjectId(acYear),
+            branch: new mongoose.Types.ObjectId(branch),
+            semester: new mongoose.Types.ObjectId(sem),
+            hour: periods,
+            batch: batch ? new mongoose.Types.ObjectId(batch) : null
+        }).populate('subject');
 
-        res.json({ enabledPeriods });
+        if (periodsData.length === 0) {
+            req.flash('error', 'No periods data found for the selected criteria.');
+            return res.redirect('/faculty/attendance');
+        }
+
+        // Fetch attendance records
+        let attendance = await Attendance.find({
+            date: new Date(date),
+            section: new mongoose.Types.ObjectId(section),
+            year: new mongoose.Types.ObjectId(acYear),
+            branch: new mongoose.Types.ObjectId(branch),
+            semester: new mongoose.Types.ObjectId(sem),
+            period: { $in: periodsData.map(period => period._id) },
+            subject: periodsMatched ? { $in: periodsData.map(period => period.subject._id) } : new mongoose.Types.ObjectId(subject),
+            batch: batch ? new mongoose.Types.ObjectId(batch) : null,
+            created_by: req.user._id
+        }).populate('students.student');
+
+        if (attendance.length === 0) {
+            req.flash('error', 'No attendance records found for the selected criteria.');
+            return res.redirect('/faculty/attendance');
+        }
+
+        res.render('faculty/showAttendance.ejs', { attendance });
+
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Server Error');
+        console.error('Error fetching attendance records:', err);
+        req.flash('error', 'An internal server error occurred.');
+        res.redirect('/faculty/attendance');
     }
 }));
 
-// Route to handle modify attendance
-router.post('/modifyAttendance', isFacultyLoggedIn, canModifyAttendance, wrapAsync(async (req, res) => {
-    const { section, date, periods, acYear, branch, sem } = req.body;
-    console.log(req.body);
-    const facultyId = req.user._id;
+router.post('/modifyAttendance', isFacultyLoggedIn, wrapAsync(async (req, res) => {
+    let { date, section, acYear, program, periods, branch, sem, subject, batch, periodsMatched } = req.body;
+    const today = new Date();
+    const selectedDate = new Date(date);
+    
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
+    if (today.getTime() !== selectedDate.getTime()) {
+        req.flash('error', 'You can only modify attendance for today\'s date.');
+        return res.redirect('/faculty/attendance');
+    }
+    // Fetch periods information
+    const periodsData = await Period.find({
+        section: new mongoose.Types.ObjectId(section),
+        day: dayOfWeek,
+        year: new mongoose.Types.ObjectId(acYear),
+        branch: new mongoose.Types.ObjectId(branch),
+        semester: new mongoose.Types.ObjectId(sem),
+        hour: periods,
+        batch: batch ? batch : null
+    }).populate('subject');
+    console.log( new Date(date),
+    new mongoose.Types.ObjectId(section), new mongoose.Types.ObjectId(acYear),
+     new mongoose.Types.ObjectId(branch),
+    new mongoose.Types.ObjectId(sem),
+     periodsData[0]._id,
+ batch // Include batch if provided
+    ,req.user._id,periodsMatched?periodsData[0].subject._id:subject);
+    try {
+        let attendance = await Attendance.find({
+                date: new Date(date),
+                section: new mongoose.Types.ObjectId(section),
+                year: new mongoose.Types.ObjectId(acYear),
+                branch: new mongoose.Types.ObjectId(branch),
+                semester: new mongoose.Types.ObjectId(sem),
+                period: periodsData[0]._id,
+                subject: periodsMatched?periodsData[0].subject._id:subject,
+                batch: batch ? new mongoose.Types.ObjectId(batch) : null, // Include batch if provided
+                created_by: req.user._id
+        }).populate('students.student');
+        console.log(attendance);
+        if (attendance.length === 0) {
+            req.flash('error', 'No attendance records found for the selected criteria.');
+            return res.redirect('/faculty/attendance');
+        }
 
-    await Attendance.deleteMany({ section, date: new Date(date), semester: sem, created_by: facultyId });
+        res.render('faculty/modifyAttendance.ejs', { attendance });
+    } catch (error) {
+        console.error('Error finding attendance records:', error);
+        req.flash('error', 'An internal server error occurred.');
+        res.redirect('/faculty/attendance');
+    }
+}));
 
-    const attendanceRecords = periods.map(period => ({
-        section,
-        date: new Date(date),
-        period,
-        academicYear: acYear,
-        branch,
-        semester: sem,
-        created_by: facultyId
+router.post('/saveModifiedAttendance', isFacultyLoggedIn, wrapAsync(async (req, res) => {
+    const { attendanceId, updatedAttendance } = req.body;
+
+    const attendanceRecord = await Attendance.findById(attendanceId);
+
+    if (!attendanceRecord) {
+        return res.status(404).send('Attendance record not found1.');
+    }
+
+    // Update attendance statuses
+    attendanceRecord.students.forEach(studentRecord => {
+        if (updatedAttendance[studentRecord.student._id]) {
+            studentRecord.status = updatedAttendance[studentRecord.student._id] === 'true';
+        }
+    });
+
+    await attendanceRecord.save();
+
+    res.redirect('/faculty/attendance');  // Redirect back to the attendance form
+}));
+
+router.post('/confirmModification', isFacultyLoggedIn, wrapAsync(async (req, res) => {
+    const { attendanceId, updatedAttendance, section, date, period, subject, batch } = req.body;
+
+    const attendanceRecord = await Attendance.findById(attendanceId).populate('students.student');
+
+    if (!attendanceRecord) {
+        return res.status(404).send('Attendance record not found.');
+    }
+
+    // Prepare the data for review
+    const reviewData = attendanceRecord.students.map(studentRecord => ({
+        student: studentRecord.student,
+        originalStatus: studentRecord.status,
+        newStatus: updatedAttendance[studentRecord.student._id] === 'true'
     }));
 
-    await Attendance.insertMany(attendanceRecords);
-    res.redirect('/faculty/attendance');
-}));
+    // Calculate before and after modification counts
+    const beforeModification = attendanceRecord.students.reduce((acc, studentRecord) => {
+        studentRecord.status ? acc.present++ : acc.absent++;
+        return acc;
+    }, { present: 0, absent: 0 });
 
-// Route to display the view attendance form
-router.get('/attendanceView', wrapAsync(async (req, res) => {
-    try {
-        const { date, section } = req.query;
-        const students = await Student.find({ section });
-        const attendanceRecords = await Attendance.find({ date: new Date(date), section });
+    const afterModification = reviewData.reduce((acc, studentRecord) => {
+        studentRecord.newStatus ? acc.present++ : acc.absent++;
+        return acc;
+    }, { present: 0, absent: 0 });
 
-        res.render('faculty/attendanceView', { date, students, attendanceRecords });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Server Error');
-    }
+    res.render('faculty/ReviewModification', {
+        reviewData,
+        attendanceId,
+        beforeModification,
+        afterModification,
+        section,
+        date,
+        period,
+        subject,
+        batch,
+        updatedAttendance
+    });
 }));
 
 // Fetch periods based on section, date, and action (new or modify)
@@ -202,14 +307,12 @@ router.get('/fetchPeriods', isFacultyLoggedIn, async (req, res) => {
         let day = new Date(date).toLocaleString('en-US', { weekday: 'long' });
         // Fetch periods
         const periods = await Period.find({ section, semester: sem, branch, year: acYear,day,faculty: req.user._id }).populate('subject faculty branch year section batch');
-        console.log(req.query);
         let attendanceRecords = await Attendance.find({ section, semester: sem, branch, year: acYear, date: new Date(date)}).populate('period');
         let enabledPeriods = [1,2,3,4,5,6,7];
         if (action === 'markAttendance') {
             enabledPeriods=[];
             const attendedPeriodHours = attendanceRecords.map(record => record.period.hour);
             enabledPeriods = attendedPeriodHours;
-            console.log(attendedPeriodHours);
         } else if (action === 'modifyAttendance') {
             enabledPeriods = attendanceRecords
                 .filter(record => record.created_by.equals(facultyId))
@@ -217,9 +320,6 @@ router.get('/fetchPeriods', isFacultyLoggedIn, async (req, res) => {
         }
         // Fetch available batches for the section
         const batches = await Batch.find({ section });
-        console.log(periods.length);
-        console.log(enabledPeriods);
-        console.log(attendanceRecords);
         res.json({ periods, enabledPeriods, batches });
     } catch (err) {
         console.error('Error fetching periods:', err);
@@ -249,133 +349,173 @@ router.route("/download")
     .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm))
     .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download));
 
+
     async function generatePDFReport(data) {
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([600, 800]);
-  
-      page.drawText('Attendance Report', { x: 50, y: 750, size: 20 });
-  
-      const tableYStart = 700;
-      let tableY = tableYStart;
-      const rowHeight = 20;
-  
-      const headers = ['#', 'Username', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'];
-      const headerXPositions = [50, 100, 200, 300, 400, 500];
-  
-      headers.forEach((header, i) => {
-          page.drawText(header, { x: headerXPositions[i], y: tableY, size: 10 });
-      });
-  
-      tableY -= rowHeight;
-  
-      data.forEach((record, index) => {
-          const values = [index + 1, record.username, record.name, record.totalClasses, record.attendedClasses, record.percentage.toFixed(2)];
-  
-          values.forEach((value, i) => {
-              page.drawText(value.toString(), { x: headerXPositions[i], y: tableY, size: 10 });
-          });
-  
-          tableY -= rowHeight;
-      });
-  
-      const pdfBytes = await pdfDoc.save();
-      return pdfBytes;
-  }
-  
-  router.post('/downloadReport', isFacultyLoggedIn, async (req, res) => {
-      const {
-          program,
-          branch,
-          semester,
-          section,
-          fromDate,
-          toDate,
-          percentageCriteria,
-          otherCondition,
-          percentageValue,
-          percentageValue2,
-          format
-      } = req.body;
-  
-      try {
-          const filter = {
-              branch,
-              semester,
-              section,
-              created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) }
-          };
-  
-          const attendanceData = await Attendance.find(filter)
-              .populate({
-                  path: 'students.student',
-                  select: 'username name'
-              });
-  
-          if (!attendanceData.length) {
-              return res.status(404).send('No attendance data found for the given filters.');
-          }
-  
-          let reportData = calculateAttendancePercentage(attendanceData);
-  
-          // Apply percentage criteria filter
-          if (percentageCriteria) {
-              let percentageFilter;
-              switch (percentageCriteria) {
-                  case 'less_65':
-                      percentageFilter = (percentage) => percentage < 65;
-                      break;
-                  case 'less_75':
-                      percentageFilter = (percentage) => percentage < 75;
-                      break;
-                  case 'above_90':
-                      percentageFilter = (percentage) => percentage > 90;
-                      break;
-                  case 'other':
-                      if (otherCondition === 'between') {
-                          percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
-                      } else {
-                          percentageFilter = (percentage) => {
-                              switch (otherCondition) {
-                                  case '>':
-                                      return percentage > parseFloat(percentageValue);
-                                  case '<':
-                                      return percentage < parseFloat(percentageValue);
-                                  case '>=':
-                                      return percentage >= parseFloat(percentageValue);
-                                  case '<=':
-                                      return percentage <= parseFloat(percentageValue);
-                                  default:
-                                      return true;
-                              }
-                          };
-                      }
-                      break;
-                  default:
-                      percentageFilter = () => true;
-              }
-  
-              reportData = reportData.filter((record) => percentageFilter(record.percentage));
-          }
-  
-          if (format === 'excel') {
-              const workbook = generateExcelReport(reportData);
-              const buffer = await workbook.xlsx.writeBuffer();
-              res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-              res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.xlsx');
-              res.send(buffer);
-          } else if (format === 'pdf') {
-              const pdfBytes = await generatePDFReport(reportData);
-              res.setHeader('Content-Type', 'application/pdf');
-              res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.pdf');
-              res.send(pdfBytes);
-          } else {
-              res.status(400).send('Invalid format requested.');
-          }
-      } catch (error) {
-          console.error('Error generating report:', error);
-          res.status(500).send('Internal Server Error');
-      }
-  });
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const page = pdfDoc.addPage([600, 800]);
+    
+        const title = 'Attendance Report';
+        const titleFontSize = 20;
+        const contentFontSize = 10;
+    
+        // Draw title
+        page.drawText(title, {
+            x: 50,
+            y: 750,
+            size: titleFontSize,
+            font: font,
+            color: rgb(0, 0, 0)
+        });
+    
+        const tableYStart = 700;
+        let tableY = tableYStart;
+        const rowHeight = 20;
+    
+        const headers = ['#', 'Username', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'];
+        const headerXPositions = [50, 100, 200, 300, 400, 500];
+    
+        // Draw headers
+        headers.forEach((header, i) => {
+            page.drawText(header, {
+                x: headerXPositions[i],
+                y: tableY,
+                size: contentFontSize,
+                font: font,
+                color: rgb(0, 0, 0)
+            });
+        });
+    
+        tableY -= rowHeight;
+    
+        // Draw data rows
+        data.forEach((record, index) => {
+            if (tableY < 50) {
+                tableY = tableYStart;
+                page = pdfDoc.addPage([600, 800]);
+            }
+    
+            const values = [
+                index + 1,
+                record.username || 'N/A',
+                record.name || 'N/A',
+                record.totalClasses || '0',
+                record.attendedClasses || '0',
+                record.percentage ? record.percentage.toFixed(2) : '0.00'
+            ];
+    
+            values.forEach((value, i) => {
+                page.drawText(value.toString(), {
+                    x: headerXPositions[i],
+                    y: tableY,
+                    size: contentFontSize,
+                    font: font,
+                    color: rgb(0, 0, 0)
+                });
+            });
+    
+            tableY -= rowHeight;
+        });
+    
+        const pdfBytes = await pdfDoc.save();
+        return pdfBytes;
+    }
+    
+    router.post('/downloadReport', isFacultyLoggedIn, async (req, res) => {
+        const {
+            program,
+            branch,
+            semester,
+            section,
+            fromDate,
+            toDate,
+            percentageCriteria,
+            otherCondition,
+            percentageValue,
+            percentageValue2,
+            format
+        } = req.body;
+    
+        try {
+            const filter = {
+                branch,
+                semester,
+                section,
+                created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) }
+            };
+    
+            const attendanceData = await Attendance.find(filter)
+                .populate({
+                    path: 'students.student',
+                    select: 'username name'
+                });
+    
+            if (!attendanceData.length) {
+                return res.status(404).send('No attendance data found for the given filters.');
+            }
+    
+            let reportData = calculateAttendancePercentage(attendanceData);
+    
+            // Apply percentage criteria filter
+            if (percentageCriteria) {
+                let percentageFilter;
+                switch (percentageCriteria) {
+                    case 'less_65':
+                        percentageFilter = (percentage) => percentage < 65;
+                        break;
+                    case 'less_75':
+                        percentageFilter = (percentage) => percentage < 75;
+                        break;
+                    case 'above_90':
+                        percentageFilter = (percentage) => percentage > 90;
+                        break;
+                    case 'other':
+                        if (otherCondition === 'between') {
+                            percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
+                        } else {
+                            percentageFilter = (percentage) => {
+                                switch (otherCondition) {
+                                    case '>':
+                                        return percentage > parseFloat(percentageValue);
+                                    case '<':
+                                        return percentage < parseFloat(percentageValue);
+                                    case '>=':
+                                        return percentage >= parseFloat(percentageValue);
+                                    case '<=':
+                                        return percentage <= parseFloat(percentageValue);
+                                    default:
+                                        return true;
+                                }
+                            };
+                        }
+                        break;
+                    default:
+                        percentageFilter = () => true;
+                }
+    
+                reportData = reportData.filter((record) => percentageFilter(record.percentage));
+            }
+    
+            if (format === 'excel') {
+                const workbook = generateExcelReport(reportData);
+                const buffer = await workbook.xlsx.writeBuffer();
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.xlsx');
+                res.send(buffer);
+            } else if (format === 'pdf') {
+                const pdfBytes = await generatePDFReport(reportData);
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.pdf');
+                res.send(pdfBytes);
+            } else {
+                res.status(400).send('Invalid format requested.');
+            }
+        } catch (error) {
+            console.error('Error generating report:', error);
+            res.status(500).send('Internal Server Error');
+        }
+    });
+    
 
     function calculateAttendancePercentage(attendanceData) {
         const studentAttendance = {};

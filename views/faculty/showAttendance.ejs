@@ -1,0 +1,39 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+<body>
+    <div class="container">
+        <h2>Show Attendance</h2>
+
+        <% if (attendance.length > 0) { %>
+            <table class="table mt-4">
+                <thead>
+                    <tr>
+                        <th>Roll No.</th>
+                        <th>Student</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% attendance.forEach(record => { %>
+                        <% record.students.forEach(studentRecord => { %>
+                            <tr>
+                                <td><%= studentRecord.student.username %></td>
+                                <td><%= studentRecord.student.name %></td>
+                                <td>
+                                    <span class="<%= studentRecord.status ? 'text-success' : 'text-danger' %>">
+                                        <%= studentRecord.status ? 'Present' : 'Absent' %>
+                                    </span>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    <% }); %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <div class="alert alert-info" role="alert">
+                No attendance records found for the selected criteria.
+            </div>
+        <% } %>
+
+        <a href="/faculty/attendance" class="btn btn-secondary mt-4">Back to Attendance</a>
+    </div>
+</body>

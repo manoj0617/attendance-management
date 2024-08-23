@@ -1,0 +1,33 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+<body>
+    <div class="container">
+        <h2>Modify Attendance</h2>
+
+        <form id="modifyAttendanceForm" action="/faculty/confirmModification" method="post">
+            <table class="table mt-4">
+                <thead>
+                    <tr>
+                        <th>Roll NO.</th>
+                        <th>Student</th>
+                        <th>Present</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% attendance.forEach(att => { %>
+                        <% att.students.forEach(studentRecord => { %>
+                            <tr>
+                                <td><%= studentRecord.student.username %></td>
+                                <td><%= studentRecord.student.name %></td>
+                                <td>
+                                    <input type="checkbox" name="updatedAttendance[<%= studentRecord.student._id %>]" value="true" <%= studentRecord.status ? 'checked' : '' %>>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    <% }); %>
+                </tbody>
+            </table>
+            <input type="hidden" name="attendanceId" value="<%= attendance[0]._id %>">
+            <button type="submit" class="btn btn-primary">Next: Review Changes</button>
+        </form>
+    </div>
+</body>

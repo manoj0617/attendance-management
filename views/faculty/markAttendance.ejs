@@ -4,7 +4,7 @@
 </head>
 <body>
     <div class="container">
-        <h2>Mark Attendance for <%= new Date(date).toLocaleDateString() %></h2>
+        <h2>Mark Attendance for <%= new Date(date).toLocaleDateString() %><%= acYear.name %> <%= branch.name %> <%= section.name %></h2>
         <form id="markAttendanceForm" action="/faculty/submitAttendance" method="post">
             <input type="hidden" name="date" value="<%= date %>">
             <input type="hidden" name="section" value="<%= section %>">

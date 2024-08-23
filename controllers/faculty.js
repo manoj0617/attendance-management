@@ -132,7 +132,7 @@ module.exports.renderAttendanceForm = async (req, res) => {
 
 module.exports.markAttendance = async (req, res) => {
     try {
-        const { date, section, acYear, program, branch, sem, periods, subject, period, batch } = req.body;
+        const { date, section, acYear, program, branch, sem, periods, subject, period, batch, periodsMatched } = req.body;
 
         if (!section) {
             return res.status(400).send('Section is required');
@@ -185,7 +185,8 @@ module.exports.markAttendance = async (req, res) => {
             periods: uniquePeriods,
             students,
             subject,
-            period
+            period,
+            periodsMatched
         });
     } catch (err) {
         console.error(err);

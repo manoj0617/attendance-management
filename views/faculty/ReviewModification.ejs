@@ -1,0 +1,47 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <h1>Attendance Summary</h1>
+    <link rel="stylesheet" href="/path/to/your/styles.css">
+</head>
+<body>
+    <body>
+        <div class="container mt-4">
+    
+            <div id="summaryContainer" class="mb-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h2>Before Modification</h2>
+                        <div class="list-group">
+                            <li class="list-group-item">Present: <strong><%= beforeModification.present %></strong></li>
+                            <li class="list-group-item">Absent: <strong><%= beforeModification.absent %></strong></li>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h2>After Modification</h2>
+                        <div class="list-group">
+                            <li class="list-group-item">Present: <strong><%= afterModification.present %></strong></li>
+                            <li class="list-group-item">Absent: <strong><%= afterModification.absent %></strong></li>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <form action="/faculty/saveModifiedAttendance" method="post" class="mb-4">
+                <input type="hidden" name="attendanceId" value="<%= attendanceId %>">
+                <input type="hidden" name="section" value="<%= section %>">
+                <input type="hidden" name="date" value="<%= date %>">
+                <input type="hidden" name="period" value="<%= period %>">
+                <input type="hidden" name="subject" value="<%= subject %>">
+                <input type="hidden" name="batch" value="<%= batch %>">
+                <input type="hidden" name="updatedAttendance" value="<%= updatedAttendance %>">
+                <!-- Include other necessary hidden fields -->
+    
+                <button type="submit" class="btn btn-primary btn-lg btn-block">Confirm and Save</button>
+            </form>
+        </div>
+
+    <script src="/path/to/your/script.js"></script>
+</body>
+</html>

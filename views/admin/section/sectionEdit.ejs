@@ -1,0 +1,74 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body style="height: 100vh; width: 100%;">
+    <!-- Main Container -->
+    <div class="container text-center">
+        <!-- Section Edit Form Container -->
+        <div class="course-edit row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+            <!-- Section Edit Form -->
+            <form method="post" action="/admin/section/<%= section._id %>/edit" class="col needs-validation" novalidate>
+                <h2 class="col">Edit Section</h2>
+                
+                <!-- Academic Year Dropdown -->
+                <div class="mb-3">
+                    <label for="year" class="form-label">Academic Year</label>
+                    <select name="year" id="year" class="form-control" required disabled>
+                        <option value="<%= section.year._id %>" selected><%= section.year.name %></option>
+                    </select>
+                </div>
+
+                <!-- Branch Dropdown -->
+                <div class="mb-3">
+                    <label for="branch" class="form-label">Branch</label>
+                    <select name="branch" id="branch" class="form-control" required>
+                        <option value="<%= section.branch._id %>" selected><%= section.branch.name %></option>
+                    </select>
+                </div>
+                
+                <!-- Section Name Input -->
+                <div class="mb-3">
+                    <label for="name" class="form-label">Section Name</label>
+                    <input id="name" name="name" class="form-control" type="text" value="<%= section.name %>" required>
+                </div>
+
+                <!-- Class Teacher Search and Select -->
+                <div class="mb-3">
+                    <label for="class_teacher" class="form-label">Class Teacher</label>
+                    <input id="class_teacher_search" class="form-control" placeholder="Search Faculty by Username" type="text">
+                    <select id="class_teacher" name="class_teacher" class="form-control mt-2" required>
+                        <option value="<%= section.class_teacher._id %>" selected><%= section.class_teacher.name %></option>
+                    </select>
+                </div>
+
+                <!-- Room Number Input -->
+                <div class="mb-3">
+                    <label for="room_no" class="form-label">Room Number</label>
+                    <input id="room_no" name="room_no" class="form-control" type="text" value="<%= section.room_no %>">
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="button-container">
+                    <button type="submit" class="btn btn-dark btn-add mt-3">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // The faculty search script will be similar to the one in the creation form
+        document.getElementById('class_teacher_search').addEventListener('input', function() {
+            const query = this.value;
+            fetch(`/admin/faculty/search?username=${query}`)
+                .then(response => response.json())
+                .then(faculties => {
+                    const classTeacherSelect = document.getElementById('class_teacher');
+                    classTeacherSelect.innerHTML = '<option value="" disabled>Select Class Teacher</option>';
+                    faculties.forEach(faculty => {
+                        const option = document.createElement('option');
+                        option.value = faculty._id;
+                        option.textContent = `${faculty.username} - ${faculty.name}`;
+                        classTeacherSelect.appendChild(option);
+                    });
+                });
+        });
+    </script>
+</body>

@@ -47,7 +47,8 @@ const PeriodSchema = new Schema({
     day: {
         type: String,
         enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    }
+    },
+    specialPeriod: { type: String, default: null }
 });
 
 module.exports = mongoose.model('Period', PeriodSchema);

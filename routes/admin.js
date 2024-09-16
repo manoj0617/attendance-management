@@ -3,28 +3,307 @@ const passport = require('passport');
 const Admin = require('../models/admin');
 const { isAdminLoggedIn } = require('../middleware');
 const router = express.Router();
+const multer = require('multer');
+const { URLSearchParams } = require('url');
+let upload = multer({ dest: 'uploads/' }); // 'uploads/' is the directory where files will be stored temporarily
 const Batch = require('../models/batch');
 const Student=require('../models/student');
 const puppeteer = require('puppeteer');
+const path = require("path");
+const nodemailer = require('nodemailer');
 const Faculty=require('../models/faculty');
 const Section=require("../models/section");
 const Timetable = require('../models/timetable');
 const Period=require("../models/period");
 const Branch = require('../models/branch');
+const bodyParser = require('body-parser');
 const Semester = require('../models/semester');
 const AcademicYear = require('../models/academicYear');
 const Subject = require('../models/subject');
 const Attendance = require('../models/attendance');
-const multer = require('multer');
-const upload = multer();
 const mongoose = require('mongoose');
 const  {ObjectId}  = mongoose.Types;
+const xlsx = require('xlsx');
+const fs = require('fs');
+const moment=require('moment');
+const {google}=require('googleapis');
+const OAuth2 = google.auth.OAuth2;
 
 router.use(express.json()); // For parsing application/json
 router.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
-// Use multer middleware for multipart/form-data
-router.use(upload.none());
+
+// Route to handle the Excel file upload
+router.post('/upload-students', upload.single('file'), async (req, res) => {
+  try {
+      const file = req.file;
+      const workbook = xlsx.readFile(file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const studentsData = xlsx.utils.sheet_to_json(worksheet);
+
+      const errors = []; // To store error messages for each row
+
+      // Process each row in the Excel sheet
+      for (const [index, row] of studentsData.entries()) {
+          const { email, name,Rollno,password, branchName, yearName, gender, sectionName } = row;
+
+          // Find the corresponding branch, year, and section from the database
+          const branch = await Branch.findOne({ name: branchName });
+          const year = await AcademicYear.findOne({ name: yearName });
+          const section = await Section.findOne({ name: sectionName });
+
+          // Check for missing references
+          if (!branch) {
+              errors.push(`Row ${index + 1}: Branch "${branchName}" not found.`);
+              continue; // Skip this row
+          }
+          if (!year) {
+              errors.push(`Row ${index + 1}: Academic Year "${yearName}" not found.`);
+              continue; // Skip this row
+          }
+          if (!section) {
+              errors.push(`Row ${index + 1}: Section "${sectionName}" not found.`);
+              continue; // Skip this row
+          }
+
+          // Create a new student if all references are valid
+          const newStudent = new Student({
+              email,
+              name,
+              branch: branch._id,
+              year: year._id,
+              username:Rollno,
+              gender,
+              section: section._id
+          });
+
+          try {
+            let registeredStudent = await Student.register(newStudent, password);
+          } catch (saveError) {
+              errors.push(`Row ${index + 1}: Failed to save student "${name}". Error: ${saveError.message}`);
+          }
+      }
+
+      // Remove the file after processing
+      fs.unlinkSync(file.path);
+
+      if (errors.length > 0) {
+          res.status(400).json({ message: 'Some errors occurred during the upload.', errors });
+      } else {
+          res.status(200).send('Students uploaded and saved successfully.');
+      }
+  } catch (error) {
+      console.error('Error uploading students:', error);
+      res.status(500).send('An error occurred while uploading students.');
+  }
+});
+router.get('/download-template', async (req, res) => {
+  try {
+      // Fetch all branches with their academic year and sections
+      const branches = await Branch.find().populate('academicYear').lean();
+      const sections = await Section.find().populate('branch').lean();
+
+      // Create a new workbook
+      const workbook = xlsx.utils.book_new();
+
+      // Prepare the data for the student information sheet
+      const studentData = [
+          ['email', 'name', 'Roll no.', 'password', 'branchName', 'yearName', 'gender', 'sectionName'], // Header row
+          ['student1@mail.com', 'Student One', '23r11a67j2', '23R11A67J2', 'CSE', '2024', 'M', 'A'],  // Example row
+          ['student2@mail.com', 'Student Two', '23r11a05x4', '23R11A05X4', 'ECE', '2023', 'F', 'B'],  // Example row
+      ];
+
+      // Convert the student data to a sheet and append it to the workbook
+      const studentSheet = xlsx.utils.aoa_to_sheet(studentData);
+      xlsx.utils.book_append_sheet(workbook, studentSheet, 'Student Data');
+
+      // Prepare the data for the branch, academic year, and section sheet
+      const branchData = [
+          ['Branch Name', 'Academic Year', 'Section Name']
+      ];
+
+      branches.forEach(branch => {
+          const branchSections = sections.filter(section => section.branch._id.toString() === branch._id.toString());
+          branchSections.forEach(section => {
+              branchData.push([branch.name, branch.academicYear.name, section.name]);
+          });
+      });
+
+      // Convert the branch data to a sheet and append it to the workbook
+      const branchSheet = xlsx.utils.aoa_to_sheet(branchData);
+      xlsx.utils.book_append_sheet(workbook, branchSheet, 'all data');
+
+      // Generate the Excel file buffer
+      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      // Send the file to the client
+      res.setHeader('Content-Disposition', 'attachment; filename="StudentTemplate.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(excelBuffer);
+  } catch (error) {
+      console.error('Error generating template:', error);
+      res.status(500).send('An error occurred while generating the template.');
+  }
+});
+router.get('/download-timetable', async (req, res) => {
+  let { id } = req.query;
+  try {
+    const timetable = await Timetable.findById(id)
+      .populate('section semester year branch periods')
+      .populate({
+        path: 'periods',
+        populate: {
+          path: 'subject faculty',
+          select: 'name code'
+        }
+      })
+      .exec();
+      let section=await Section.findById(timetable.section._id)
+      .populate('class_teacher');
+      console.log(section);
+    if (!timetable) {
+      return res.status(404).send('Timetable not found');
+    }
+
+    const wb = xlsx.utils.book_new();
+
+    // Sort periods by hour
+    timetable.periods.sort((a, b) => a.hour - b.hour);
+
+    // Header Data
+    const ws_data = [
+      [{ v: "Geethanjali College of Engineering & Technology", s: { font: { bold: true, color: { rgb: "0000FF" }, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CCCCCC" } } } }],
+      [{ v: `Department of ${timetable.branch.name}`, s: { font: { bold: true, color: { rgb: "008000" }, sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "EEEEEE" } } } }],
+      [{ v: "ODD Semester", s: { font: { bold: true, color: { rgb: "000000" }, sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "DDDDDD" } } } }],
+      [
+        { v: `Year/Sem/Sec: B.Tech ${timetable.year.name} - Semester ${timetable.semester.name} - Section ${timetable.section.name}`, s: { alignment: { horizontal: "center" } } },
+        { v: `A.Y: ${new Date().getFullYear()}`, s: { alignment: { horizontal: "center" } } },
+        { v: `Class Teacher: ${section.class_teacher.name || ''}`, s: { alignment: { horizontal: "center" } } }
+      ],
+      [
+        { v: `Room No: ${timetable.section.room_no || ''}`, s: { font: { sz: 10 }, alignment: { horizontal: "center" } } }
+      ],
+      [
+        { v: "Time", s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "BBBBBB" } } } },
+        ...Array.from({ length: timetable.numPeriods }).map((_, i) => ({
+          v: `${timetable.periods.find(p => p.hour === i + 1)?.startTime || ''} - ${timetable.periods.find(p => p.hour === i + 1)?.endTime || ''}`,
+          s: { alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "BBBBBB" } } }
+        }))
+      ],
+      [
+        { v: "Period", s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "BBBBBB" } } } },
+        ...Array.from({ length: timetable.numPeriods }).map((_, i) => ({
+          v: `Period ${i + 1}`,
+          s: { alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "BBBBBB" } } }
+        }))
+      ],
+    ];
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // Timetable Rows
+    days.forEach(day => {
+      const periodsForDay = timetable.periods.filter(period => period.day === day);
+      if (periodsForDay.length > 0) {
+        const dayRow = [{ v: day, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "EEEEEE" } } } }];
+        
+        for (let i = 1; i <= timetable.numPeriods; i++) {
+          const matchingPeriods = periodsForDay.filter(p => p.hour === i);
+
+          if (matchingPeriods.length > 0) {
+            const cellValue = matchingPeriods.map(period => {
+              return `${period.subject.name || 'N/A'}${period.room ? ` (${period.room})` : ''}`;
+            }).join(' / ');
+
+            dayRow.push({ 
+              v: cellValue,
+              s: { alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "FFFFFF" } } } 
+            });
+          } else {
+            dayRow.push({ v: '', s: { fill: { fgColor: { rgb: "FFFFFF" } } } });
+          }
+        }
+        ws_data.push(dayRow);
+      }
+    });
+
+    // Faculty Details Section
+    ws_data.push([]);
+    ws_data.push([
+      { v: "S.No", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: { bottom: { style: "thin" } }, fill: { fgColor: { rgb: "CCCCCC" } } } },
+      { v: "Subject(T/P)", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: { bottom: { style: "thin" } }, fill: { fgColor: { rgb: "CCCCCC" } } } },
+      { v: "Course code", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: { bottom: { style: "thin" } }, fill: { fgColor: { rgb: "CCCCCC" } } } },
+      { v: "Faculty Name", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: { bottom: { style: "thin" } }, fill: { fgColor: { rgb: "CCCCCC" } } } },
+      { v: "No. of Periods", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: { bottom: { style: "thin" } }, fill: { fgColor: { rgb: "CCCCCC" } } } }
+    ]);
+
+    const facultyDetails = {};
+
+    timetable.periods.forEach(period => {
+      if (!facultyDetails[period.subject.name]) {
+        facultyDetails[period.subject.name] = {
+          subject: period.subject.name,
+          course_code: period.subject.code,
+          faculty_name: period.faculty ? period.faculty.name : '',
+          num_periods: 1
+        };
+      } else {
+        facultyDetails[period.subject.name].num_periods += 1;
+      }
+    });
+
+    Object.values(facultyDetails).forEach((detail, index) => {
+      ws_data.push([
+        { v: index + 1, s: { alignment: { horizontal: "center" } } },
+        { v: detail.subject, s: { alignment: { horizontal: "center" } } },
+        { v: detail.course_code, s: { alignment: { horizontal: "center" } } },
+        { v: detail.faculty_name, s: { alignment: { horizontal: "center" } } },
+        { v: detail.num_periods, s: { alignment: { horizontal: "center" } } }
+      ]);
+    });
+
+    // Signatures section
+    ws_data.push([]);
+    ws_data.push([
+      { v: "TT. Coord:_____________", s: { alignment: { horizontal: "center" }, border: { top: { style: "thin" } }, fill: { fgColor: { rgb: "EEEEEE" } } } },
+      { v: "HOD:__________________", s: { alignment: { horizontal: "center" }, border: { top: { style: "thin" } }, fill: { fgColor: { rgb: "EEEEEE" } } } },
+      { v: "Dean Academics:__________________", s: { alignment: { horizontal: "center" }, border: { top: { style: "thin" } }, fill: { fgColor: { rgb: "EEEEEE" } } } },
+      { v: "Principal:___________________", s: { alignment: { horizontal: "center" }, border: { top: { style: "thin" } }, fill: { fgColor: { rgb: "EEEEEE" } } } }
+    ]);
+
+    // Convert the ws_data to a worksheet
+    const ws = xlsx.utils.aoa_to_sheet(ws_data);
+
+    // Adjust column widths and row heights
+    ws['!cols'] = Array.from({ length: timetable.numPeriods + 1 }, () => ({ wch: 20 }));
+    ws['!rows'] = ws_data.map(() => ({ hpt: 20 }));
+
+    // Apply borders and styles to all cells
+    Object.keys(ws).forEach(cellRef => {
+      if (cellRef.startsWith('!')) return;
+      ws[cellRef].s = ws[cellRef].s || {};
+      ws[cellRef].s.border = {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } }
+      };
+    });
+
+    // Append worksheet to workbook
+    xlsx.utils.book_append_sheet(wb, ws, `Timetable_${timetable.section.name}`);
+
+    // Send the Excel file as response
+    const buffer = xlsx.write(wb, { bookType: 'xlsx', type: 'buffer' });
+    res.setHeader('Content-Disposition', `attachment; filename="Timetable_${timetable.section.name}.xlsx"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error generating timetable');
+  }
+});
 
 router.get('/login', (req, res) => {
   res.render('admin/login');
@@ -45,6 +324,212 @@ router.get('/logout', (req, res, next) => {
       res.redirect('/');
   });
 });
+router.get('/email', isAdminLoggedIn, async (req, res) => {
+  let academicYears = await AcademicYear.find({});
+  let client = process.env.CLIENT_ID;
+  let state = JSON.stringify({ year: req.query.year, branch: req.query.branch }); // Generate a state with some meaningful data
+  res.render('admin/sendEmail', { academicYears, client });
+});
+
+const axios = require('axios');
+// Create OAuth2 client
+const oauth2Client = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  'http://localhost:2000/admin/oauth2/callback' // Your redirect URL
+);
+
+// Function to send the email
+async function sendEmail({ accessToken, refreshToken, to, from, subject, text, attachments }) {
+  try {
+    console.log(accessToken, refreshToken, to, subject, text, attachments);
+    // Set credentials for OAuth2
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+
+    // Create Nodemailer transport with OAuth2
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: from,  // Use OAuth user's email dynamically
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: refreshToken,
+        accessToken: accessToken,
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from,                    // Use the dynamically fetched user email
+      to,                      // Recipient(s)
+      subject,                 // Email subject
+      text,                    // Email body (text)
+      attachments              // Attachments
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
+  }
+}
+
+upload = multer({ storage: multer.memoryStorage() });
+
+// Handle file upload
+router.post('/upload-file', upload.single('attachment'), (req, res) => {
+  try {
+    if (!req.file) {
+      console.error('File upload failed: No file received');
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Store the file in the session for later use
+    req.session.file = {
+      originalname: req.file.originalname,
+      buffer: req.file.buffer,
+      mimetype: req.file.mimetype,
+    };
+
+    // Respond with success
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error during file upload:', error);
+    res.status(500).json({ success: false, message: 'Internal server error during file upload' });
+  }
+});
+router.get('/oauth2/callback', async (req, res) => {
+  const { code, state } = req.query;
+
+  if (!code || !state) {
+    return res.status(400).send('Invalid request');
+  }
+
+  try {
+    // Fetch tokens with the authorization code
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: 'http://localhost:2000/admin/oauth2/callback' // Correct redirect URI
+    }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const { access_token, refresh_token } = tokenResponse.data;
+    req.session.accessToken = access_token;
+    req.session.refreshToken = refresh_token;
+
+    // Fetch user profile to get the email
+    const userInfoResponse = await axios.get('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const userEmail = userInfoResponse.data.email;
+
+    // Decode the state parameters
+    const formDetails = new URLSearchParams(state);
+    const year = formDetails.get('year');
+    const branch = formDetails.get('branch');
+    const section = formDetails.get('section');
+    const emailSubject = formDetails.get('emailSubject');
+    const emailBody = formDetails.get('emailBody');
+
+    // Fetch recipient emails from the database based on the parameters
+    const students = await Student.find({ year, branch, section });
+    const recipientEmails = students.map(student => student.email);
+
+    if (recipientEmails.length === 0) {
+      return res.status(400).send('No recipient emails found');
+    }
+
+    // Prepare email options
+    const emailOptions = {
+      to: recipientEmails.join(','), // Recipient list
+      subject: emailSubject,
+      text: emailBody,
+      attachments: [],
+      from: userEmail // Use authenticated user's email for the "from" field
+    };
+
+    // Attach the file from the session
+    if (req.session.file) {
+      emailOptions.attachments.push({
+        filename: req.session.file.originalname,
+        content: Buffer.from(req.session.file.buffer), // Ensure this is a Buffer
+        contentType: req.session.file.mimetype
+      });
+    }
+
+    // Send the email
+    await sendEmail({
+      accessToken: req.session.accessToken,
+      refreshToken: req.session.refreshToken,
+      ...emailOptions
+    });
+
+    req.flash('success', 'Email sent successfully');
+    res.redirect('/admin/email');
+  } catch (error) {
+    console.error('Error handling OAuth2 callback:', error);
+    res.status(500).send('Error processing authorization code');
+  }
+});
+
+router.post('/send-email', upload.single('emailAttachment'), async (req, res) => {
+  const { year, branch, section, emailSubject, emailBody } = req.body;
+  const file = req.file;  // This will be undefined if no file was attached
+
+  try {
+    // Fetch recipient emails based on year, branch, and section
+    const students = await Student.find({ year, branch, section });
+    const recipientEmails = students.map(student => student.email);
+
+    // If no recipient emails found, return an error
+    if (recipientEmails.length === 0) {
+      return res.status(400).json({ success: false, error: 'No recipient emails found' });
+    }
+
+    // Prepare state for OAuth2 redirect (without file, stored in session)
+    const state = new URLSearchParams({
+      year,
+      branch,
+      section,
+      emailSubject,
+      emailBody
+    }).toString();
+
+    // Store file in session (if exists)
+    if (file) {
+      req.session.file = {
+        originalname: file.originalname,
+        buffer: file.buffer,
+        mimetype: file.mimetype
+      };
+    } else {
+      req.session.file = null;
+    }
+    // Redirect to Google OAuth
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.send&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:2000/admin/oauth2/callback&client_id=${process.env.CLIENT_ID}&state=${encodeURIComponent(state)}&prompt=consent`;
+
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Error in send-email route:', error);
+    res.status(500).json({ success: false, error: 'Failed to send email' });
+  }
+});
+
+
+
+
+
 // Branch Management
 router.get('/branches', isAdminLoggedIn, async (req, res) => {
   const branches = await Branch.find({}).populate('academicYear');
@@ -158,20 +643,48 @@ router.delete('/academic-years/:id', isAdminLoggedIn, async (req, res) => {
   res.redirect('/admin/academic-years');
 });
 
-// Subject Management
+const ITEMS_PER_PAGE = 10;
+
 router.get('/subjects', isAdminLoggedIn, async (req, res) => {
   const searchTerm = req.query.search || '';
+  const page = parseInt(req.query.page) || 1;
+  const ITEMS_PER_PAGE = 10;
+
   const searchQuery = {
     $or: [
       { name: new RegExp(searchTerm, 'i') },
-      { short_name: new RegExp(searchTerm, 'i') },
+      { full_name: new RegExp(searchTerm, 'i') },
       { code: new RegExp(searchTerm, 'i') }
     ]
   };
-  const subjects = await Subject.find(searchQuery)
-    .populate('academicYear')
-    .populate('semester');
-  res.render('admin/subjects/index', { subjects, searchTerm });
+
+  // Calculate total number of subjects matching the search query
+  const totalSubjects = await Subject.countDocuments(searchQuery);
+
+  let query = Subject.find(searchQuery)
+    .skip((page - 1) * ITEMS_PER_PAGE)
+    .limit(ITEMS_PER_PAGE);
+
+  // Conditionally populate academicYear and semester fields if they exist
+  if (Subject.schema.paths.academicYear) {
+    query = query.populate('academicYear');
+  }
+  if (Subject.schema.paths.semester) {
+    query = query.populate('semester');
+  }
+
+  const subjects = await query.exec();
+
+  res.render('admin/subjects/index', {
+    subjects,
+    searchTerm,
+    currentPage: page,
+    hasNextPage: ITEMS_PER_PAGE * page < totalSubjects,
+    hasPreviousPage: page > 1,
+    nextPage: page + 1,
+    previousPage: page - 1,
+    lastPage: Math.ceil(totalSubjects / ITEMS_PER_PAGE)
+  });
 });
 
 
@@ -263,16 +776,18 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
 });
 
 router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
-  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails,subject,faculty,room } = req.body;
+  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject:subjectId, faculty, room } = req.body;
   console.log(req.body);
-  // Convert day number to day name if needed
+
+  // Convert day number to day name
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const dayName = dayNames[day - 1];
 
   try {
       // Find the semester document by ID
       const semesterDoc = await Semester.findById(semester);
-
+      const subject=await Subject.findById(subjectId);
+      console.log(subject);
       if (!semesterDoc) {
           req.flash('error', 'Invalid semester');
           return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
@@ -280,19 +795,69 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
 
       // Initialize an array to hold the period documents
       let periods = [];
-      if(batchDetails.length>0 && batchDetails){
-      // Create a period for each batch detail
-      for (const { batchId, subject, faculty } of batchDetails) {
-        if (!subject || !faculty) {
-          req.flash('error', 'Subject and Faculty must be selected for each batch.');
-          return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
-      }
-          const newPeriod = new Period({ hour, day: dayName, branch, year, section, subject,room, semester, startTime, endTime, faculty, batch: batchId });
+
+      // Check if the request is for a special period (like lunch, sports, or library)
+      if (subject.type=='Non-Academic') {
+          const newPeriod = new Period({
+              hour,
+              day: dayName,
+              branch,
+              year,
+              section,
+              subject,
+              room,
+              semester,
+              startTime,
+              endTime,
+              specialPeriod:subject.name,
+              faculty: null, // No faculty for special periods
+          });
+
           let period = await newPeriod.save();
-          period = await period.populate('subject faculty'); // Populate subject and faculty in the period
           periods.push(period._id);
-      }}else{
-        const newPeriod = new Period({ hour, day: dayName, branch, year, section, subject,room, semester, startTime, endTime, faculty });
+          console.log(newPeriod);
+      } else if (batchDetails && batchDetails.length > 0) {
+          // Create a period for each batch detail
+          for (const { batchId, subject, faculty } of batchDetails) {
+              if (!subject || !faculty) {
+                  req.flash('error', 'Subject and Faculty must be selected for each batch.');
+                  return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
+              }
+              const newPeriod = new Period({
+                  hour,
+                  day: dayName,
+                  branch,
+                  year,
+                  section,
+                  subject,
+                  room,
+                  semester,
+                  startTime,
+                  endTime,
+                  faculty,
+                  batch: batchId
+              });
+
+              let period = await newPeriod.save();
+              period = await period.populate('subject faculty'); // Populate subject and faculty in the period
+              periods.push(period._id);
+          }
+      } else {
+          // Create a standard period without batches
+          const newPeriod = new Period({
+              hour,
+              day: dayName,
+              branch,
+              year,
+              section,
+              subject,
+              room,
+              semester,
+              startTime,
+              endTime,
+              faculty
+          });
+
           let period = await newPeriod.save();
           period = await period.populate('subject faculty'); // Populate subject and faculty in the period
           periods.push(period._id);
@@ -308,12 +873,14 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
       timetable.periods.push(...periods);
       console.log(periods);
       await timetable.save();
-      if(batchDetails.length>0 && batchDetails){
-      // Update faculty with the new periods
-      for (const { faculty } of batchDetails) {
+
+      if (batchDetails && batchDetails.length > 0) {
+          // Update faculty with the new periods
+          for (const { faculty } of batchDetails) {
+              await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
+          }
+      } else if (faculty) {
           await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
-      }}else{
-        await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
       }
 
       req.flash('success', 'Period(s) added successfully');
@@ -324,6 +891,7 @@ router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
       res.json({ success: false, error: error.message });
   }
 });
+
 
 router.put('/timetable/period/:id', async (req, res) => {
   try {
@@ -385,42 +953,49 @@ router.get('/timetable/:id', async (req, res) => {
         path: 'periods',
         populate: {
           path: 'subject faculty',
-          select: 'name'
+          select: 'name type'
         }
       })
       .populate('branch section year semester')
       .exec();
-      const { section, year, branch, semester } = timetable;
-      // Fetch periods from the database
-      const periods = await Period.find({
-        section,
-        year,
-        branch,
-        semester
-    }).populate('batch').populate('subject').populate('faculty');
-    let groupedPeriods=[];
-    // Group periods by day and hour
-    groupedPeriods = periods.reduce((acc, period) => {
-        const day = period.day;
-        const hour = period.hour;
-        if (!acc[day]) acc[day] = {};
-        if (!acc[day][hour]) acc[day][hour] = [];
-        acc[day][hour].push(period);
-        return acc;
+
+    const { section, year, branch, semester } = timetable;
+
+    // Fetch all periods, including special (Non-Academic) periods
+    const periods = await Period.find({
+      section,
+      year,
+      branch,
+      semester
+    })
+    .populate('batch')
+    .populate('subject')
+    .populate('faculty');
+
+    // Group periods by day and hour, including special periods
+    let groupedPeriods = periods.reduce((acc, period) => {
+      const day = period.day;
+      const hour = period.hour;
+      if (!acc[day]) acc[day] = {};
+      if (!acc[day][hour]) acc[day][hour] = [];
+      acc[day][hour].push(period);
+      return acc;
     }, {});
-    console.log(timetable);
-    console.log(groupedPeriods);
+
+    console.log(timetable.periods);
+
     // Render the view and pass groupedPeriods to it
     res.render('admin/timetable/viewTimetable', {
-      timetable, // You should pass your actual timetable data here
-      groupedPeriods,
-  });
+      timetable, // Pass the timetable data
+      groupedPeriods, // Pass the grouped periods data including special periods
+    });
   } catch (error) {
     console.error('Error fetching timetable:', error);
     req.flash('error', 'Error fetching timetable');
     res.redirect('/admin/timetable');
   }
 });
+
 
 // Route to delete a period
 router.delete('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
@@ -701,12 +1276,38 @@ router.get('/faculties', async (req, res) => {
     res.status(500).json({ message: 'Error fetching faculties' });
   }
 });
+
+router.get('/faculty/search', async (req, res) => {
+  const { username } = req.query;
+  
+  try {
+      // Ensure you're querying by `username` and not `_id`
+      const faculties = await Faculty.find({ username: { $regex: username, $options: 'i' } }).select('_id username name');
+      res.json(faculties);
+  } catch (err) {
+      console.error('Error fetching faculty:', err);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
 router.get('/faculty/:id', async (req, res) => {
   try {
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const faculty = await Faculty.findById(req.params.id)
           .populate('branch')
           .populate('subjects');
-      res.render('admin/faculty/facultyView', { faculty });
+          let weeklyTimetable = {};
+
+          for (let day of daysOfWeek) {
+              let periods = await Period.find({ faculty: faculty._id, day: day })
+                  .populate('subject')
+                  .populate('year')
+                  .populate('branch')
+                  .populate('section');
+  
+              weeklyTimetable[day] = periods;
+              console.log(weeklyTimetable);
+          }
+      res.render('admin/faculty/facultyView', { faculty,weeklyTimetable });
   } catch (error) {
       console.error('Error fetching faculty:', error);
       res.status(500).send('Internal Server Error');
@@ -807,19 +1408,56 @@ router.post('/attendance', isAdminLoggedIn, async (req, res) => {
 router.get("/section/new",(req,res)=>{
   res.render("admin/section/createSection.ejs");
 });
+router.get('/section/:id/edit', isAdminLoggedIn, async (req, res) => {
+  try {
+      const section = await Section.findById(req.params.id).populate('year').populate('branch').populate('class_teacher');;
+      if (!section) {
+          req.flash('error', 'section not found');
+          return res.redirect('/admin/section');
+      }
+      console.log(section);
+      res.render('admin/section/sectionEdit.ejs', { section });
+  } catch (err) {
+      console.log(err);
+      req.flash('error', 'An error occurred');
+      res.redirect('/admin/section');
+  }
+});
+router.post('/section/:id/edit', async (req, res) => {
+  const { name, branch, class_teacher, room_no } = req.body;
+  try {
+      await Section.findByIdAndUpdate(req.params.id, {
+          name,
+          branch,
+          class_teacher,
+          room_no
+      });
+      res.redirect('/admin/section'); // Adjust this redirect as needed
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+  }
+});
 // Create New Section
 router.post('/section/new', async (req, res) => {
+  const { name, branch, class_teacher, room_no,year } = req.body;
   try {
-      const { branch, name } = req.body;
-      const existingSection = await Section.findOne({ branch, name });
+    const existingSection = await Section.findOne({ branch, name });
       if (existingSection) {
           return res.status(400).send('Section name must be unique within the branch');
       }
-      const newSection = new Section({ branch, name });
-      await newSection.save();
-      res.redirect('/admin/section');
+      const section = new Section({
+          name,
+          branch,
+          class_teacher,
+          room_no,
+          year
+      });
+      await section.save();
+      res.redirect('/admin/section'); // Adjust this redirect as needed
   } catch (err) {
-      res.status(500).send('Server Error');
+      console.error(err);
+      res.status(500).send('Internal Server Error');
   }
 });
 // Fetch faculties based on query
@@ -846,6 +1484,7 @@ router.get('/faculti', async (req, res) => {
     res.status(500).json({ message: 'Error fetching faculties' });
   }
 });
+
 router.get("/section/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -1199,6 +1838,14 @@ router.get('/section/:id/search-students-no-batch', async (req, res) => {
   res.json(studentsNoBatch);
 });
 
-
+router.get('/non-academic-subjects', async (req, res) => {
+  try {
+    const nonAcademicSubjects = await Subject.find({ type: 'Non-Academic' });
+    res.json(nonAcademicSubjects);
+  } catch (error) {
+    console.error('Error fetching non-academic subjects:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 module.exports = router;

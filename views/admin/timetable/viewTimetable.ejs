@@ -5,143 +5,185 @@
 
     <!-- Table for viewing and editing timetable -->
     <div id="timetableContainer">
-      <h2>Class Timetable</h2>
-      <table class="table table-bordered mt-5" style="display: block;overflow-x: auto;white-space:nowrap;">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <% for (let i = 1; i <= timetable.numPeriods; i++) { %>
-              <th>
-                Period <%= i %><br>
-                <input type="time" id="startTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i)?.startTime || '' %>">
-                <input type="time" id="endTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i)?.endTime || '' %>">
-              </th>
-            <% } %>
-          </tr>
-        </thead>
-        <tbody>
-          <% const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; %>
-          <% for (let i = 0; i < 7; i++) { %>
+        <h2>Class Timetable</h2>
+        <table class="table table-bordered mt-5" style="display: block; overflow-x: auto; white-space: nowrap;">
+          <thead>
             <tr>
-              <td><%= days[i] %></td>
-              <% for (let j = 1; j <= timetable.numPeriods; j++) { %>
-                <% 
-                  const groupedPeriodsForCell = groupedPeriods[days[i]] && groupedPeriods[days[i]][j] 
-                    ? groupedPeriods[days[i]][j] 
-                    : [];
-                  
-                  const normalPeriodForCell = timetable.periods.find(p => p.day === days[i] && p.hour === j);
-                %>
-                <td id="cell_<%= i %>_<%= j %>">
-                  <% if (groupedPeriodsForCell.length > 0) { %>
-                    <% groupedPeriodsForCell.forEach((groupedPeriod, index) => { %>
-                      <div style="display: flex; justify-content: space-between;">
-                        <div>
-                          Batch: <%= groupedPeriod.batch?.name || 'N/A' %><br>
-                          Subject: <%= groupedPeriod.subject?.name || 'N/A' %><br>
-                          Faculty: <%= groupedPeriod.faculty?.name || 'N/A' %><br>
-                          <%= groupedPeriod.startTime %> - <%= groupedPeriod.endTime %>
-                          Room:<%= groupedPeriod.room || 'N/A' %><br>
-                        </div>
-                        <div>
-                          <button onclick="editBatchPeriodForm('<%= groupedPeriod.room %>','<%= groupedPeriod._id %>', <%= i %>, <%= j %>, '<%= groupedPeriod.subject?._id || '' %>', '<%= groupedPeriod.faculty?._id || '' %>', '<%= groupedPeriod.startTime %>', '<%= groupedPeriod.endTime %>', '<%= groupedPeriod.batch?._id || '' %>')" class="btn btn-sm btn-warning">Edit</button>
-                          <button onclick="deletePeriod('<%= groupedPeriod._id %>')" class="btn btn-sm btn-danger">Delete</button>
-                        </div>
-                      </div>
-                      <% if (index < groupedPeriodsForCell.length - 1) { %><hr><% } %>
-                    <% }); %>
-                  <% } else if (normalPeriodForCell) { %>
-                    <div style="display: flex; justify-content: space-between;">
-                      <div>
-                        Subject: <%= normalPeriodForCell.subject?.name || 'N/A' %><br>
-                        Faculty: <%= normalPeriodForCell.faculty?.name || 'N/A' %><br>
-                        <%= normalPeriodForCell.startTime %> - <%= normalPeriodForCell.endTime %>
-                        <%= 'Room:'+normalPeriodForCell.room || 'N/A' %><br>
-                      </div>
-                      <div>
-                        <button onclick="editPeriodForm('<%= normalPeriodForCell._id %>', <%= i %>, <%= j %>, '<%= normalPeriodForCell.subject?._id || '' %>', '<%= normalPeriodForCell.faculty?._id || '' %>', '<%= normalPeriodForCell.startTime %>', '<%= normalPeriodForCell.endTime %>')" class="btn btn-sm btn-warning">Edit</button>
-                        <button onclick="deletePeriod('<%= normalPeriodForCell._id %>')" class="btn btn-sm btn-danger">Delete</button>
-                      </div>
-                    </div>
-                  <% } else { %>
-                    <button onclick="createPeriodForm(<%= i %>, <%= j %>)" class="btn btn-primary btn-sm">+</button>
-                  <% } %>
-                </td>
+              <th>Day</th>
+              <% for (let i = 1; i <= timetable.numPeriods; i++) { %>
+                <th>
+                  Period <%= i %><br>
+                  <input type="time" id="startTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i)?.startTime || '' %>">
+                  <input type="time" id="endTime_<%= i %>" value="<%= timetable.periods.find(p => p.hour === i)?.endTime || '' %>">
+                </th>
               <% } %>
             </tr>
-          <% } %>          
-        </tbody>
-      </table>
-    </div>
-
+          </thead>
+          <tbody>
+            <% const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; %>
+            <% for (let i = 0; i < 7; i++) { %>
+              <tr>
+                <td><%= days[i] %></td>
+                <% for (let j = 1; j <= timetable.numPeriods; j++) { %>
+                  <% 
+                    const groupedPeriodsForCell = groupedPeriods[days[i]] && groupedPeriods[days[i]][j] 
+                      ? groupedPeriods[days[i]][j] 
+                      : [];
+                    
+                    const normalPeriodForCell = timetable.periods.find(p => p.day === days[i] && p.hour === j);
+                  %>
+                  <td id="cell_<%= i %>_<%= j %>">
+                    <% if (groupedPeriodsForCell.length > 0) { %>
+                      <% groupedPeriodsForCell.forEach((groupedPeriod, index) => { %>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                          <div>
+                            <% if (groupedPeriod.subject.type === 'Non-Academic') { %>
+                              <!-- Special Period Display -->
+                              <strong><%= groupedPeriod.subject.name %></strong><br>
+                              Time: <%= groupedPeriod.startTime %> - <%= groupedPeriod.endTime %><br>
+                            <% } else { %>
+                              <!-- Regular Period Display -->
+                              Batch: <%= groupedPeriod.batch?.name || 'N/A' %><br>
+                              Subject: <%= groupedPeriod.subject?.name || 'N/A' %><br>
+                              Faculty: <%= groupedPeriod.faculty?.name || 'N/A' %><br>
+                              Time: <%= groupedPeriod.startTime %> - <%= groupedPeriod.endTime %><br>
+                              Room: <%= groupedPeriod.room || 'N/A' %><br>
+                            <% } %>
+                          </div>
+                          <div>
+                            <button onclick="editBatchPeriodForm('<%= groupedPeriod.room %>','<%= groupedPeriod._id %>', <%= i %>, <%= j %>, '<%= groupedPeriod.subject?._id || '' %>', '<%= groupedPeriod.faculty?._id || '' %>', '<%= groupedPeriod.startTime %>', '<%= groupedPeriod.endTime %>', '<%= groupedPeriod.batch?._id || '' %>')" class="btn btn-sm btn-warning">Edit</button>
+                            <button onclick="deletePeriod('<%= groupedPeriod._id %>')" class="btn btn-sm btn-danger">Delete</button>
+                          </div>
+                        </div>
+                        <% if (index < groupedPeriodsForCell.length - 1) { %><hr><% } %>
+                      <% }); %>
+                    <% } else if (normalPeriodForCell) { %>
+                      <div style="display: flex; justify-content: space-between;">
+                        <div>
+                          <% if (normalPeriodForCell.subject.type=='Non-Academic'){%>
+                            <!-- Special Period Display -->
+                            <strong><%= normalPeriodForCell.subject.name %></strong><br>
+                            Time: <%= normalPeriodForCell.startTime %> - <%= normalPeriodForCell.endTime %><br>
+                          <% } else { %>
+                            <!-- Regular Period Display -->
+                            Subject: <%= normalPeriodForCell.subject?.name || 'N/A' %><br>
+                            Faculty: <%= normalPeriodForCell.faculty?.name || 'N/A' %><br>
+                            Time: <%= normalPeriodForCell.startTime %> - <%= normalPeriodForCell.endTime %><br>
+                            Room: <%= normalPeriodForCell.room || 'N/A' %><br>
+                          <% } %>
+                        </div>
+                        <div>
+                          <button onclick="editPeriodForm('<%= normalPeriodForCell._id %>', <%= i %>, <%= j %>, '<%= normalPeriodForCell.subject?._id || '' %>', '<%= normalPeriodForCell.faculty?._id || '' %>', '<%= normalPeriodForCell.startTime %>', '<%= normalPeriodForCell.endTime %>')" class="btn btn-sm btn-warning">Edit</button>
+                          <button onclick="deletePeriod('<%= normalPeriodForCell._id %>')" class="btn btn-sm btn-danger">Delete</button>
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <button onclick="createPeriodForm(<%= i %>, <%= j %>)" class="btn btn-primary btn-sm">+</button>
+                    <% } %>
+                  </td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      
+    <a href="/admin/download-timetable?id=<%= timetable._id %>" class="btn btn-secondary ml-2">Download Time Table</a>
 
     <!-- Modal for creating/editing period -->
     <div class="modal fade" id="periodModal" tabindex="-1" aria-labelledby="periodModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="periodModalLabel">Add/Edit Period</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <form id="periodForm">
-              <input type="hidden" id="periodIdInput" name="periodId">
-              <input type="hidden" id="dayInput" name="day">
-              <input type="hidden" id="hourInput" name="hour">
-              <input type="hidden" id="sectionInput" name="section" value="<%= timetable.section._id %>">
-              <input type="hidden" id="yearInput" name="year" value="<%= timetable.year._id %>">
-              <input type="hidden" id="branchInput" name="branch" value="<%= timetable.branch._id %>">
-              <input type="hidden" id="semesterInput" name="semester" value="<%= timetable.semester._id %>">
-
-              <div class="mb-3" id="subjectPeriod">
-                <label for="subject" class="form-label">Subject</label>
-                <select id="subject" name="subject" class="form-control" >
-                  <option value="" disabled selected>Select Subject</option>
-                  <!-- Options will be populated dynamically based on branch and semester -->
-                </select>
-              </div>
-              <div class="mb-3" id="facultyPeriod">
-                <label for="faculty" class="form-label">Faculty</label>
-                <select id="faculty" name="faculty" class="form-control" >
-                  <option value="" disabled selected>Select Faculty</option>
-                  <!-- Options will be populated dynamically based on branch and semester -->
-                </select>
-              </div>
-              <div class="mb-3">
-                <label for="startTime" class="form-label">Start Time</label>
-                <input type="time" id="startTime" name="startTime" class="form-control" required>
-              </div>
-              <div class="mb-3">
-                <label for="endTime" class="form-label">End Time</label>
-                <input type="time" id="endTime" name="endTime" class="form-control" required>
-              </div>
-              <div class="mb-3">
-                <label for="room" class="form-label">Room</label>
-                <input type="text" id="room" name="room" class="form-control" required>
-            </div>            
-              <!-- Checkbox to include batches -->
-          <div class="mb-3 form-check">
-            <input type="checkbox" class="form-check-input" id="includeBatches" onchange="toggleBatchSelection()">
-            <label class="form-check-label" for="includeBatches">Include Batches</label>
-          </div>
-          <div id="batchFormContainer"></div>
-
-
-          <!-- Batch selection -->
-<div class="mb-3" id="batchSelection" style="display: none;">
-  <label for="batch" class="form-label">Batch</label>
-  <div id="batchCheckboxContainer">
-      <!-- Checkboxes will be populated dynamically -->
-  </div>
-</div>
-
-              <button type="submit" class="btn btn-primary">Save</button>
-            </form>
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="periodModalLabel">Add/Edit Period</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <form id="periodForm">
+                <input type="hidden" id="periodIdInput" name="periodId">
+                <input type="hidden" id="dayInput" name="day">
+                <input type="hidden" id="hourInput" name="hour">
+                <input type="hidden" id="sectionInput" name="section" value="<%= timetable.section._id %>">
+                <input type="hidden" id="yearInput" name="year" value="<%= timetable.year._id %>">
+                <input type="hidden" id="branchInput" name="branch" value="<%= timetable.branch._id %>">
+                <input type="hidden" id="semesterInput" name="semester" value="<%= timetable.semester._id %>">
+      
+                <div class="form-group">
+                  <label>Select Period Type:</label>
+                  <div>
+                    <label>
+                      <input type="radio" name="periodType" value="Special" onclick="handlePeriodTypeChange(this.value)"> Special Period
+                    </label>
+                  </div>
+                  <div>
+                    <label>
+                      <input type="radio" name="periodType" value="Regular" onclick="handlePeriodTypeChange(this.value)" checked> Regular Period
+                    </label>
+                  </div>
+                </div>
+      
+                <div class="mb-3" id="specialPeriodSelection" style="display: none;">
+                  <label for="specialPeriod" class="form-label">Special Period</label>
+                  <select id="specialPeriod" name="subject" class="form-control">
+                    <option value="" disabled selected>Select Special Period</option>
+                    <!-- Options will be populated dynamically -->
+                  </select>
+                </div>
+                
+      
+                <!-- Regular Period Fields -->
+                <div id="regularPeriodFields">
+                  <div class="mb-3">
+                    <label for="subject" class="form-label">Subject</label>
+                    <select id="subject" name="subject" class="form-control">
+                      <option value="" disabled selected>Select Subject</option>
+                      <!-- Options will be populated dynamically -->
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="faculty" class="form-label">Faculty</label>
+                    <select id="faculty" name="faculty" class="form-control">
+                      <option value="" disabled selected>Select Faculty</option>
+                      <!-- Options will be populated dynamically -->
+                    </select>
+                  </div>
+                </div>
+      
+                <!-- Start and End Time Fields -->
+                <div class="mb-3">
+                  <label for="startTime" class="form-label">Start Time</label>
+                  <input type="time" id="startTime" name="startTime" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                  <label for="endTime" class="form-label">End Time</label>
+                  <input type="time" id="endTime" name="endTime" class="form-control" required>
+                </div>
+      
+                <!-- Room Field (Not mandatory for Special Periods) -->
+                <div class="mb-3" id="roomField">
+                  <label for="room" class="form-label">Room</label>
+                  <input type="text" id="room" name="room" class="form-control">
+                </div>
+      
+                <!-- Batch Checkbox and Selection -->
+                <div class="mb-3 form-check" id="batchCheckbox">
+                  <input type="checkbox" class="form-check-input" id="includeBatches" onchange="toggleBatchSelection()">
+                  <label class="form-check-label" for="includeBatches">Include Batches</label>
+                </div>
+                <div id="batchSelection" style="display: none;">
+                  <label for="batch" class="form-label">Batch</label>
+                  <div id="batchCheckboxContainer">
+                    <!-- Checkboxes will be populated dynamically -->
+                  </div>
+                </div>
+      
+                <button type="submit" class="btn btn-primary">Save</button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
+      
 
   <script>
 // Function to display the period creation form
@@ -341,7 +383,13 @@ function toggleBatchSelection() {
     const subjectField = document.getElementById('subjectPeriod');
     const facultyField = document.getElementById('facultyPeriod');
     const batchFormContainer = document.getElementById('batchFormContainer');
+    const includeBatchesCheckbox = document.getElementById('includeBatches');
 
+    if (includeBatchesCheckbox.checked) {
+      batchSelection.style.display = 'block';
+    } else {
+      batchSelection.style.display = 'none';
+    }
     if (document.getElementById('includeBatches').checked) {
         batchSelection.style.display = 'block';
         subjectField.style.display = 'none';
@@ -711,6 +759,59 @@ document.getElementById('periodForm').addEventListener('submit', function(event)
         console.error('Error saving period:', error);
         alert('Error saving period');
     });
+});
+
+function handlePeriodTypeChange(type) {
+    const specialPeriodSelection = document.getElementById('specialPeriodSelection');
+    const regularPeriodFields = document.getElementById('regularPeriodFields');
+    const batchCheckbox = document.getElementById('batchCheckbox');
+    const roomField = document.getElementById('roomField');
+
+    if (type === 'Special') {
+        specialPeriodSelection.style.display = 'block';
+        regularPeriodFields.style.display = 'none';
+        batchCheckbox.style.display = 'none'; // Hide batch option for special periods
+        roomField.style.display = 'block';
+        specialPeriodSelect.disabled = false;
+        loadNonAcademicSubjects();
+    } else {
+        specialPeriodSelection.style.display = 'none';
+        regularPeriodFields.style.display = 'block';
+        batchCheckbox.style.display = 'block'; // Show batch option for regular periods
+        roomField.style.display = 'block'; // Show room for regular periods
+    }
+}
+
+function loadNonAcademicSubjects() {
+    fetch('/admin/non-academic-subjects')
+      .then(response => response.json())
+      .then(data => {
+        const specialPeriodSelect = document.getElementById('specialPeriod');
+        specialPeriodSelect.innerHTML = '<option value="" disabled selected>Select Special Period</option>';
+        
+        data.forEach(subject => {
+          const option = document.createElement('option');
+          option.value = subject._id;
+          option.textContent = subject.name;
+          specialPeriodSelect.appendChild(option);
+        });
+      })
+      .catch(error => console.error('Error loading non-academic subjects:', error));
+  }
+
+  // Call this function when the form/modal is shown
+  loadNonAcademicSubjects();
+
+// Form Submission Logic
+document.getElementById('periodForm').addEventListener('submit', function(event) {
+  const periodType = document.querySelector('input[name="periodType"]:checked').value;
+  if (periodType === 'Special') {
+    const specialPeriod = document.getElementById('specialPeriod').value;
+    if (!specialPeriod) {
+      event.preventDefault(); // Prevent submission
+      alert('Please select a valid special period.');
+    }
+  }
 });
 
 </script>

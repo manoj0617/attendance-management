@@ -19,9 +19,6 @@
         </button>
         <a href="/" style="text-decoration: none; color: white;">Attendance dashboard</a>
     </h1>
-    <div class="container">
-        <%-include("../includes/flash.ejs")%>
-    </div>
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title" id="offcanvasExampleLabel"></h5>
@@ -48,6 +45,9 @@
             </div>
             <div class="nav-element">
                 <a href="/admin/subjects">Subjects</a>
+            </div>
+            <div class="nav-element">
+                <a href="/admin/email">Send Email</a>
             </div>
             <div class="nav-element">
                 <a href="/admin/semesters">Semesters</a>

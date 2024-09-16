@@ -1,85 +1,100 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
     <div class="container mt-5">
-        <h1>Manage Students</h1>
+        <h1 class="mb-4 text-center">Manage Students</h1>
 
         <!-- Search and Filter Section -->
-        <div class="mb-4">
-            <form id="searchForm" method="get" action="/admin/student/search">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <input type="text" name="username" class="form-control" placeholder="Username">
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="searchForm" method="get" action="/admin/student/search">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <input type="text" name="username" class="form-control" placeholder="Username">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <select name="year" id="year" class="form-control">
+                                <option value="" disabled selected>Select Year</option>
+                                <% academicYears.forEach(function(year) { %>
+                                    <option value="<%= year._id %>"><%= year.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <select name="branch" id="branch" class="form-control" disabled>
+                                <option value="" disabled selected>Select Branch</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <select name="section" id="section" class="form-control" disabled>
+                                <option value="" disabled selected>Select Section</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <select name="year" id="year" class="form-control">
-                            <option value="" disabled selected>Select Year</option>
-                            <% academicYears.forEach(function(year) { %>
-                                <option value="<%= year._id %>"><%= year.name %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="branch" id="branch" class="form-control" disabled>
-                            <option value="" disabled selected>Select Branch</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="section" id="section" class="form-control" disabled>
-                            <option value="" disabled selected>Select Section</option>
-                        </select>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary">Search</button>
-            </form>
+                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                </form>
+            </div>
         </div>
-
-        <!-- Add New Student Button -->
-        <form method="get" action="/admin/student/new">
-            <button class="btn btn-success mb-3">Add New Student</button>
-        </form>
+        
+        <a href="/admin/student/new" class="btn btn-success">Add New Student</a>
+        <!-- Add New Student and Upload Buttons -->
+        <div class="d-flex justify-content-between mb-3">
+            <div>
+                <form action="/admin/upload-students" method="POST" enctype="multipart/form-data" class="d-inline-block">
+                    <div class="form-group">
+                        <input type="file" name="file" id="file" class="form-control-file d-inline-block" accept=".xlsx,.xls" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload Students</button>
+                </form>
+                <a href="/admin/download-template" class="btn btn-secondary ml-2">Download Template</a>
+            </div>
+        </div>
 
         <!-- Student Table -->
         <% if (students && students.length > 0) { %>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th scope="col">S.no</th>
-                        <th scope="col">Name</th>
-                        <th scope="col">Roll No.</th>
-                        <th scope="col">Email</th>
-                        <th scope="col">Department</th>
-                        <th scope="col">Year</th>
-                        <th scope="col">Gender</th>
-                        <th scope="col">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% students.forEach(function(student, index) { %>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-dark">
                         <tr>
-                            <td><%= index + 1 %></td>
-                            <td><%= student.name %></td>
-                            <td><%= student.username %></td>
-                            <td><%= student.email %></td>
-                            <td><%= student.branch.name %></td>
-                            <td><%= student.year.name %></td>
-                            <td><%= student.gender === 'M' ? 'Male' : 'Female' %></td>
-                            <td>
-                                <form method="get" action="/admin/student/<%= student._id %>">
-                                    <button type="submit" class="btn btn-info btn-sm">View</button>
-                                </form>
-                                <form method="get" action="/admin/student/<%= student._id %>/edit">
-                                    <button type="submit" class="btn btn-warning btn-sm">Edit</button>
-                                </form>
-                                <form method="post" action="/admin/student/<%= student._id %>?_method=DELETE" onsubmit="return confirmDeletion(event)">
-                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                </form>
-                            </td>
+                            <th scope="col">S.no</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Roll No.</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">Department</th>
+                            <th scope="col">Year</th>
+                            <th scope="col">Gender</th>
+                            <th scope="col">Actions</th>
                         </tr>
-                    <% }) %>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <% students.forEach(function(student, index) { %>
+                            <tr>
+                                <td><%= index + 1 %></td>
+                                <td><%= student.name %></td>
+                                <td><%= student.username %></td>
+                                <td><%= student.email %></td>
+                                <td><%= student.branch.name %></td>
+                                <td><%= student.year.name %></td>
+                                <td><%= student.gender === 'M' ? 'Male' : 'Female' %></td>
+                                <td class="d-flex">
+                                    <form method="get" action="/admin/student/<%= student._id %>" class="mr-1">
+                                        <button type="submit" class="btn btn-info btn-sm">View</button>
+                                    </form>
+                                    <form method="get" action="/admin/student/<%= student._id %>/edit" class="mr-1">
+                                        <button type="submit" class="btn btn-warning btn-sm">Edit</button>
+                                    </form>
+                                    <form method="post" action="/admin/student/<%= student._id %>?_method=DELETE" onsubmit="return confirmDeletion(event)">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
         <% } else { %>
-            <p>No student data available. Please use the search form above to find students.</p>
+            <div class="alert alert-warning text-center">
+                No student data available. Please use the search form above to find students.
+            </div>
         <% } %>
     </div>
 

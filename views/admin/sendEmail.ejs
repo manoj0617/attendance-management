@@ -1,0 +1,163 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+
+<body>
+  <div class="container mt-5">
+    <h1>Send Email to Students</h1>
+
+    <!-- Flash messages for success or error -->
+    <% if (success && success.length) { %>
+      <div class="alert alert-success"><%= success %></div>
+    <% } %>
+    <% if (error && error.length) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <!-- Form to select Year, Branch, Section, and Semester -->
+    <div class="selection-form mb-5">
+      <h2>Select Recipients</h2>
+      <form id="adminEmailForm" method="post" action="/admin/send-email" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="year">Academic Year</label>
+          <select id="year" name="year" class="form-control" required>
+            <option value="" disabled selected>Select Academic Year</option>
+            <% academicYears.forEach(year => { %>
+              <option value="<%= year._id %>"><%= year.name %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="branch">Branch</label>
+          <select id="branch" name="branch" class="form-control" required disabled>
+            <option value="" disabled selected>Select Branch</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="semester">Semester</label>
+          <select id="semester" name="semester" class="form-control" required disabled>
+            <option value="" disabled selected>Select Semester</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="section">Section</label>
+          <select id="section" name="section" class="form-control" required disabled>
+            <option value="" disabled selected>Select Section</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="emailSubject">Email Subject</label>
+          <input type="text" id="emailSubject" name="emailSubject" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="emailBody">Email Body</label>
+          <textarea id="emailBody" name="emailBody" class="form-control" rows="5" required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="attachment">Attach File</label>
+            <input type="file" id="attachment" name="attachment" class="form-control">
+          </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Send Email</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('year').addEventListener('change', function() {
+            const year = this.value;
+            fetch(`/admin/branch?year=${year}`)
+                .then(response => response.json())
+                .then(branches => {
+                    const branchSelect = document.getElementById('branch');
+                    branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+                    branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch._id;
+                        option.textContent = branch.name;
+                        branchSelect.appendChild(option);
+                    });
+                    branchSelect.disabled = false;
+                });
+        });
+
+        document.getElementById('branch').addEventListener('change', function() {
+            fetch(`/admin/semester`)
+                .then(response => response.json())
+                .then(semesters => {
+                    const semesterSelect = document.getElementById('semester');
+                    semesterSelect.innerHTML = '<option value="" disabled selected>Select Semester</option>';
+                    semesters.forEach(semester => {
+                        const option = document.createElement('option');
+                        option.value = semester._id;
+                        option.textContent = semester.name;
+                        semesterSelect.appendChild(option);
+                    });
+                    semesterSelect.disabled = false;
+                });
+        });
+
+    document.getElementById('semester').addEventListener('change', function() {
+    const semester = this.value;
+    const branch = document.getElementById('branch').value; // Corrected this line
+    fetch(`/admin/sections?branch=${branch}&semester=${semester}`)
+        .then(response => response.json())
+        .then(sections => {
+            const sectionSelect = document.getElementById('section');
+            sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+            sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section._id;
+                option.textContent = section.name;
+                sectionSelect.appendChild(option);
+            });
+            sectionSelect.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error fetching sections:', error);
+            alert('An error occurred while fetching sections.');
+        });
+});
+
+document.getElementById('adminEmailForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const formData = new FormData(this);
+
+    try {
+      // Step 1: Upload file to the server first
+      const fileUploadResponse = await fetch('/admin/upload-file', {
+        method: 'POST',
+        body: formData,
+      });
+
+      // Check if the response is OK and parse the JSON response
+      if (fileUploadResponse.ok) {
+        const result = await fileUploadResponse.json();
+        const client = "<%= client %>";
+        if (result.success) {
+          // Step 2: Start OAuth flow after file upload
+          const formParams = new URLSearchParams(formData).toString();
+
+          // Redirect user to OAuth2 with form data and state
+          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.send&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:2000/admin/oauth2/callback&client_id=${client}&state=${encodeURIComponent(formParams)}&prompt=consent`;
+
+          window.location.href = authUrl;
+        } else {
+          console.error('File upload failed:', result.message);
+        }
+      } else {
+        console.error('Error: Failed to upload file');
+      }
+    } catch (error) {
+      console.error('Error during file upload:', error);
+    }
+  });
+  
+  
+  </script>
+</body>

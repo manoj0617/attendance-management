@@ -21,7 +21,8 @@
                 </div>
                 <div class="col">
                     <label for="date">Date:</label>
-                    <input type="date" id="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" class="form-control" required>
+                    <input type="date" id="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" class="form-control" max="<%= new Date().toISOString().split('T')[0] %>" required>
+
                 </div>
                 <div class="col">
                     <label for="program">Program:</label>
@@ -204,6 +205,14 @@
                                 checkbox.removeAttr('disabled');
                             }
                         } else if (action.split('/').pop() == 'modifyAttendance') {
+                            if (data.enabledPeriods.includes(i)) {
+                                periodCell.addClass('attendance-entered');
+                                checkbox.removeAttr('disabled');
+                            } else {
+                                periodCell.addClass('attendance-not-entered');
+                                checkbox.attr('disabled', 'disabled');
+                            }
+                        } else if (action.split('/').pop() == 'showAttendance') {
                             if (data.enabledPeriods.includes(i)) {
                                 periodCell.addClass('attendance-entered');
                                 checkbox.removeAttr('disabled');

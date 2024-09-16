@@ -28,15 +28,15 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="section">Section</label>
-                    <select id="section" name="section" class="form-control" required disabled>
-                        <option value="" disabled selected>Select Section</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="semester">Semester</label>
                     <select id="semester" name="semester" class="form-control" required disabled>
                         <option value="" disabled selected>Select Semester</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="section">Section</label>
+                    <select id="section" name="section" class="form-control" required disabled>
+                        <option value="" disabled selected>Select Section</option>
                     </select>
                 </div>
                 <button type="button" id="viewTimetable" class="btn btn-primary mt-3" disabled>View Timetable</button>
@@ -77,25 +77,7 @@
         });
 
         document.getElementById('branch').addEventListener('change', function() {
-            const branch = this.value;
-            fetch(`/admin/sections?branch=${branch}`)
-                .then(response => response.json())
-                .then(sections => {
-                    const sectionSelect = document.getElementById('section');
-                    sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
-                    sections.forEach(section => {
-                        const option = document.createElement('option');
-                        option.value = section._id;
-                        option.textContent = section.name;
-                        sectionSelect.appendChild(option);
-                    });
-                    sectionSelect.disabled = false;
-                });
-        });
-
-        document.getElementById('section').addEventListener('change', function() {
-            const section = this.value;
-            fetch(`/admin/semester?section=${section}`)
+            fetch(`/admin/semester`)
                 .then(response => response.json())
                 .then(semesters => {
                     const semesterSelect = document.getElementById('semester');
@@ -110,7 +92,29 @@
                 });
         });
 
-        document.getElementById('semester').addEventListener('change', function() {
+    document.getElementById('semester').addEventListener('change', function() {
+    const semester = this.value;
+    const branch = document.getElementById('branch').value; // Corrected this line
+    fetch(`/admin/sections?branch=${branch}&semester=${semester}`)
+        .then(response => response.json())
+        .then(sections => {
+            const sectionSelect = document.getElementById('section');
+            sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+            sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section._id;
+                option.textContent = section.name;
+                sectionSelect.appendChild(option);
+            });
+            sectionSelect.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error fetching sections:', error);
+            alert('An error occurred while fetching sections.');
+        });
+});
+
+        document.getElementById('section').addEventListener('change', function() {
             document.getElementById('viewTimetable').disabled = false;
             document.getElementById('createTimetable').disabled = false;
         });

@@ -3,29 +3,39 @@
     <div class="container mt-5">
         <h1>Create New Subject</h1>
         <form action="/admin/subjects" method="POST">
-            <!-- Subject Name -->
-            <div class="form-group">
-                <label for="name">Subject Short Name:</label>
-                <input type="text" name="name" id="name" class="form-control" required>
+            <!-- Subject Type -->
+            <div class="form-group mt-3">
+                <label for="type">Subject Type:</label>
+                <select name="type" id="type" class="form-control" required>
+                    <option value="Theory">Theory</option>
+                    <option value="Practical">Practical</option>
+                    <option value="Non-Academic">Non-Academic</option>
+                </select>
             </div>
 
             <!-- Subject Short Name -->
             <div class="form-group mt-3">
-                <label for="full_name">Subject full Name:</label>
+                <label for="name">Subject Short Name:</label>
+                <input type="text" name="name" id="name" class="form-control" required>
+            </div>
+
+            <!-- Subject Full Name -->
+            <div class="form-group mt-3">
+                <label for="full_name">Subject Full Name:</label>
                 <input type="text" name="full_name" id="full_name" class="form-control" required>
             </div>
 
             <!-- Subject Code -->
             <div class="form-group mt-3">
                 <label for="code">Subject Code:</label>
-                <input type="text" name="code" id="code" class="form-control" required>
+                <input type="text" name="code" id="code" class="form-control">
             </div>
 
             <!-- Academic Year -->
             <div class="form-group mt-3">
                 <label for="academicYear">Academic Year:</label>
                 <select name="academicYear" id="academicYear" class="form-control">
-                  <option value="" selected>select year</option>
+                    <option value="" selected>Select year</option>
                     <% academicYears.forEach(year => { %>
                         <option value="<%= year._id %>"><%= year.name %></option>
                     <% }) %>
@@ -42,18 +52,40 @@
                 </select>
             </div>
 
-            <!-- Subject Type -->
-            <div class="form-group mt-3">
-                <label for="type">Subject Type:</label>
-                <select name="type" id="type" class="form-control" required>
-                    <option value="Theory">Theory</option>
-                    <option value="Practical">Practical</option>
-                    <option value="Leisure">Leisure</option>
-                </select>
-            </div>
-
             <!-- Submit Button -->
             <button type="submit" class="btn btn-primary mt-4">Create Subject</button>
         </form>
     </div>
+
+    <script>
+        document.getElementById('type').addEventListener('change', function() {
+            const type = this.value;
+            const codeField = document.querySelector('.form-group.mt-3:nth-of-type(4)'); // Subject Code
+            const academicYearField = document.querySelector('.form-group.mt-3:nth-of-type(5)'); // Academic Year
+            const semesterField = document.querySelector('.form-group.mt-3:nth-of-type(6)'); // Semester
+            
+            if (type === 'Non-Academic') {
+                codeField.style.display = 'none';
+                academicYearField.style.display = 'none';
+                semesterField.style.display = 'none';
+                
+                // Remove required attribute
+                document.getElementById('code').removeAttribute('required');
+                document.getElementById('academicYear').removeAttribute('required');
+                document.getElementById('semester').removeAttribute('required');
+            } else {
+                codeField.style.display = 'block';
+                academicYearField.style.display = 'block';
+                semesterField.style.display = 'block';
+                
+                // Add required attribute
+                document.getElementById('code').setAttribute('required', true);
+                document.getElementById('academicYear').setAttribute('required', true);
+                document.getElementById('semester').setAttribute('required', true);
+            }
+        });
+
+        // Trigger change event on page load to set the initial state
+        document.getElementById('type').dispatchEvent(new Event('change'));
+    </script>
 </body>

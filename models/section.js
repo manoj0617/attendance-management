@@ -6,6 +6,11 @@ const sectionSchema = new Schema({
         type: String,
         required: true,
     },
+    year: {
+        type: Schema.Types.ObjectId,
+        ref: 'AcademicYear',  // Reference to academic year model
+        required: true
+    },
     branch: {
         type: Schema.Types.ObjectId,
         ref: 'Branch',
@@ -14,6 +19,9 @@ const sectionSchema = new Schema({
     class_teacher:{
         type: Schema.Types.ObjectId,
         ref: 'Faculty',
+    },
+    room_no:{
+        type: String,
     },
     students: [
         {

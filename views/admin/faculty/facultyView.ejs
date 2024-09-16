@@ -1,4 +1,5 @@
 <%- layout("../layouts/adminBoilerplate") -%>
+
 <body>
     <div class="container mt-5">
         <h1>Faculty Details</h1>
@@ -26,6 +27,44 @@
                 </tr>
             </tbody>
         </table>
+
+        <h2>Weekly Timetable</h2>
+        <table class="timetable table table-bordered">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                    <th>4</th>
+                    <th>5</th>
+                    <th>6</th>
+                    <th>7</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% for (let day in weeklyTimetable) { %>
+                    <tr>
+                        <td><%= day %></td>
+                        <% for (let i = 1; i <= 7; i++) { %>
+                            <% let period = weeklyTimetable[day].find(p => p.hour === i); %>
+                            <% if (period) { %>
+                                <td class="attendance-entered">
+                                    <div><%= period.subject.name %></div>
+                                    <div><%= period.branch.name %></div>
+                                    <div><%= period.year.name %> SEM</div>
+                                    <div>Sec: <%= period.section.name %></div>
+                                    <div><%= period.startTime %> - <%= period.endTime %></div>
+                                </td>
+                            <% } else { %>
+                                <td></td>
+                            <% } %>
+                        <% } %>
+                    </tr>
+                <% } %>
+            </tbody>
+        </table>
+
         <a href="/admin/faculty" class="btn btn-primary">Back</a>
     </div>
 </body>

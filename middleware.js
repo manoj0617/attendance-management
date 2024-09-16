@@ -1,6 +1,26 @@
 const downloadSchema=require("./schema.js");
 const ExpressError=require("./utils/ExpressError");
 const Attendance = require('./models/attendance.js');
+
+module.exports.sendEmail = async (emails, subject, body) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',  // Or any other SMTP service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD,
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: emails, // Array of student emails
+        subject: subject,
+        text: body,
+    };
+
+    return transporter.sendMail(mailOptions);
+};
+
 module.exports.isFacultyLoggedIn=((req,res,next)=>{
     console.log("Authenticated:", req.isAuthenticated());
     if(!req.isAuthenticated()){

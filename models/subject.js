@@ -10,20 +10,14 @@ const SubjectSchema = new Schema({
     type: String,
     required: true
   },
-  academicYear: {
-    type: Schema.Types.ObjectId,
-    ref: 'AcademicYear',
-    required: true
-  },
   semester: {
     type: Schema.Types.ObjectId,
     ref: 'Semester',
-    required: true
   },
   type:{
     type: String,
     required: true,
-    enum:['Theory','Practical','Leisure'],
+    enum:['Theory','Practical','Non-Academic'],
   },
   code: {
     type: String,

@@ -5,6 +5,8 @@ const router = express.Router({ mergeParams: true });
 const { isFacultyLoggedIn, saveRedirectUrl, validateDownload, canModifyAttendance } = require('../middleware.js');
 const wrapAsync = require('../utils/wrapAsync.js');
 const fs = require('fs');
+const path = require('path');
+const nodemailer = require('nodemailer');
 const exceljs = require('exceljs');
 const { PDFDocument, rgb,StandardFonts } = require('pdf-lib');
 const facultyController = require("../controllers/faculty.js");
@@ -134,12 +136,14 @@ router.get('/sections', wrapAsync(async (req, res) => {
 // Logout route
 router.get('/logout', facultyController.logout);
 
-// Route to handle show attendance
+// Route to handle showing attendance
 router.post('/showAttendance', wrapAsync(async (req, res) => {
     try {
-        const { date, section, acYear, program, periods, branch, sem, subject, batch, periodsMatched } = req.body;
-        const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
+        let { date, section, acYear, periods, branch, sem, subject, batch, periodsMatched } = req.body;
+        const selectedDate = new Date(date);
 
+        const dayOfWeek = selectedDate.toLocaleString('en-US', { weekday: 'long' });
+        console.log(req.body);
         // Fetch periods information
         const periodsData = await Period.find({
             section: new mongoose.Types.ObjectId(section),
@@ -150,21 +154,32 @@ router.post('/showAttendance', wrapAsync(async (req, res) => {
             hour: periods,
             batch: batch ? new mongoose.Types.ObjectId(batch) : null
         }).populate('subject');
-
+        console.log(periodsData);
         if (periodsData.length === 0) {
             req.flash('error', 'No periods data found for the selected criteria.');
             return res.redirect('/faculty/attendance');
         }
-
-        // Fetch attendance records
-        let attendance = await Attendance.find({
-            date: new Date(date),
+        console.log({
+            date: selectedDate,
             section: new mongoose.Types.ObjectId(section),
             year: new mongoose.Types.ObjectId(acYear),
             branch: new mongoose.Types.ObjectId(branch),
             semester: new mongoose.Types.ObjectId(sem),
-            period: { $in: periodsData.map(period => period._id) },
-            subject: periodsMatched ? { $in: periodsData.map(period => period.subject._id) } : new mongoose.Types.ObjectId(subject),
+            period: periodsData[0]._id,
+            subject: periodsMatched ? new mongoose.Types.ObjectId(subject) : periodsData[0].subject._id,
+            batch: batch ? new mongoose.Types.ObjectId(batch) : null,
+            created_by: req.user._id
+        });
+
+        // Fetch attendance records
+        let attendance = await Attendance.find({
+            date: selectedDate,
+            section: new mongoose.Types.ObjectId(section),
+            year: new mongoose.Types.ObjectId(acYear),
+            branch: new mongoose.Types.ObjectId(branch),
+            semester: new mongoose.Types.ObjectId(sem),
+            period: periodsData[0]._id,
+            subject: periodsMatched ? new mongoose.Types.ObjectId(subject) : periodsData[0].subject._id,
             batch: batch ? new mongoose.Types.ObjectId(batch) : null,
             created_by: req.user._id
         }).populate('students.student');
@@ -176,12 +191,13 @@ router.post('/showAttendance', wrapAsync(async (req, res) => {
 
         res.render('faculty/showAttendance.ejs', { attendance });
 
-    } catch (err) {
-        console.error('Error fetching attendance records:', err);
+    } catch (error) {
+        console.error('Error fetching attendance records:', error);
         req.flash('error', 'An internal server error occurred.');
         res.redirect('/faculty/attendance');
     }
 }));
+
 
 router.post('/modifyAttendance', isFacultyLoggedIn, wrapAsync(async (req, res) => {
     let { date, section, acYear, program, periods, branch, sem, subject, batch, periodsMatched } = req.body;
@@ -211,7 +227,7 @@ router.post('/modifyAttendance', isFacultyLoggedIn, wrapAsync(async (req, res) =
     new mongoose.Types.ObjectId(sem),
      periodsData[0]._id,
  batch // Include batch if provided
-    ,req.user._id,periodsMatched?periodsData[0].subject._id:subject);
+    ,req.user._id,periodsMatched?subject:periodsData[0].subject._id);
     try {
         let attendance = await Attendance.find({
                 date: new Date(date),
@@ -220,7 +236,7 @@ router.post('/modifyAttendance', isFacultyLoggedIn, wrapAsync(async (req, res) =
                 branch: new mongoose.Types.ObjectId(branch),
                 semester: new mongoose.Types.ObjectId(sem),
                 period: periodsData[0]._id,
-                subject: periodsMatched?periodsData[0].subject._id:subject,
+                subject: periodsMatched?new mongoose.Types.ObjectId(subject):periodsData[0].subject._id,
                 batch: batch ? new mongoose.Types.ObjectId(batch) : null, // Include batch if provided
                 created_by: req.user._id
         }).populate('students.student');
@@ -317,6 +333,10 @@ router.get('/fetchPeriods', isFacultyLoggedIn, async (req, res) => {
             enabledPeriods = attendanceRecords
                 .filter(record => record.created_by.equals(facultyId))
                 .map(record => record.period.hour);
+        }else if (action === 'showAttendance') {
+            enabledPeriods = attendanceRecords
+                .filter(record => record.created_by.equals(facultyId))
+                .map(record => record.period.hour);
         }
         // Fetch available batches for the section
         const batches = await Batch.find({ section });
@@ -349,209 +369,216 @@ router.route("/download")
     .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm))
     .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download));
 
+// Your existing function to generate the PDF report
+async function generatePDFReport(data) {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const page = pdfDoc.addPage([600, 800]);
 
-    async function generatePDFReport(data) {
-        const pdfDoc = await PDFDocument.create();
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        const page = pdfDoc.addPage([600, 800]);
-    
-        const title = 'Attendance Report';
-        const titleFontSize = 20;
-        const contentFontSize = 10;
-    
-        // Draw title
-        page.drawText(title, {
-            x: 50,
-            y: 750,
-            size: titleFontSize,
+    const title = 'Attendance Report';
+    const titleFontSize = 20;
+    const contentFontSize = 10;
+
+    // Draw title
+    page.drawText(title, {
+        x: 50,
+        y: 750,
+        size: titleFontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+    });
+
+    const tableYStart = 700;
+    let tableY = tableYStart;
+    const rowHeight = 20;
+
+    const headers = ['#', 'Username', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'];
+    const headerXPositions = [50, 100, 200, 300, 400, 500];
+
+    // Draw headers
+    headers.forEach((header, i) => {
+        page.drawText(header, {
+            x: headerXPositions[i],
+            y: tableY,
+            size: contentFontSize,
             font: font,
-            color: rgb(0, 0, 0)
+            color: rgb(0, 0, 0),
         });
-    
-        const tableYStart = 700;
-        let tableY = tableYStart;
-        const rowHeight = 20;
-    
-        const headers = ['#', 'Username', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'];
-        const headerXPositions = [50, 100, 200, 300, 400, 500];
-    
-        // Draw headers
-        headers.forEach((header, i) => {
-            page.drawText(header, {
+    });
+
+    tableY -= rowHeight;
+
+    // Draw data rows
+    data.forEach((record, index) => {
+        if (tableY < 50) {
+            tableY = tableYStart;
+            page = pdfDoc.addPage([600, 800]);
+        }
+
+        const values = [
+            index + 1,
+            record.username || 'N/A',
+            record.name || 'N/A',
+            record.totalClasses || '0',
+            record.attendedClasses || '0',
+            record.percentage ? record.percentage.toFixed(2) : '0.00'
+        ];
+
+        values.forEach((value, i) => {
+            page.drawText(value.toString(), {
                 x: headerXPositions[i],
                 y: tableY,
                 size: contentFontSize,
                 font: font,
-                color: rgb(0, 0, 0)
+                color: rgb(0, 0, 0),
             });
         });
-    
+
         tableY -= rowHeight;
-    
-        // Draw data rows
-        data.forEach((record, index) => {
-            if (tableY < 50) {
-                tableY = tableYStart;
-                page = pdfDoc.addPage([600, 800]);
-            }
-    
-            const values = [
-                index + 1,
-                record.username || 'N/A',
-                record.name || 'N/A',
-                record.totalClasses || '0',
-                record.attendedClasses || '0',
-                record.percentage ? record.percentage.toFixed(2) : '0.00'
-            ];
-    
-            values.forEach((value, i) => {
-                page.drawText(value.toString(), {
-                    x: headerXPositions[i],
-                    y: tableY,
-                    size: contentFontSize,
-                    font: font,
-                    color: rgb(0, 0, 0)
-                });
-            });
-    
-            tableY -= rowHeight;
-        });
-    
-        const pdfBytes = await pdfDoc.save();
-        return pdfBytes;
-    }
-    
-    router.post('/downloadReport', isFacultyLoggedIn, async (req, res) => {
-        const {
-            program,
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    return pdfBytes;
+}
+
+// Route to handle PDF report download
+router.post('/downloadReport', isFacultyLoggedIn, async (req, res) => {
+    const {
+        program,
+        branch,
+        semester,
+        section,
+        fromDate,
+        toDate,
+        percentageCriteria,
+        otherCondition,
+        percentageValue,
+        percentageValue2,
+        format
+    } = req.body;
+
+    try {
+        const filter = {
             branch,
             semester,
             section,
-            fromDate,
-            toDate,
-            percentageCriteria,
-            otherCondition,
-            percentageValue,
-            percentageValue2,
-            format
-        } = req.body;
-    
-        try {
-            const filter = {
-                branch,
-                semester,
-                section,
-                created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) }
-            };
-    
-            const attendanceData = await Attendance.find(filter)
-                .populate({
-                    path: 'students.student',
-                    select: 'username name'
-                });
-    
-            if (!attendanceData.length) {
-                return res.status(404).send('No attendance data found for the given filters.');
-            }
-    
-            let reportData = calculateAttendancePercentage(attendanceData);
-    
-            // Apply percentage criteria filter
-            if (percentageCriteria) {
-                let percentageFilter;
-                switch (percentageCriteria) {
-                    case 'less_65':
-                        percentageFilter = (percentage) => percentage < 65;
-                        break;
-                    case 'less_75':
-                        percentageFilter = (percentage) => percentage < 75;
-                        break;
-                    case 'above_90':
-                        percentageFilter = (percentage) => percentage > 90;
-                        break;
-                    case 'other':
-                        if (otherCondition === 'between') {
-                            percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
-                        } else {
-                            percentageFilter = (percentage) => {
-                                switch (otherCondition) {
-                                    case '>':
-                                        return percentage > parseFloat(percentageValue);
-                                    case '<':
-                                        return percentage < parseFloat(percentageValue);
-                                    case '>=':
-                                        return percentage >= parseFloat(percentageValue);
-                                    case '<=':
-                                        return percentage <= parseFloat(percentageValue);
-                                    default:
-                                        return true;
-                                }
-                            };
-                        }
-                        break;
-                    default:
-                        percentageFilter = () => true;
-                }
-    
-                reportData = reportData.filter((record) => percentageFilter(record.percentage));
-            }
-    
-            if (format === 'excel') {
-                const workbook = generateExcelReport(reportData);
-                const buffer = await workbook.xlsx.writeBuffer();
-                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.xlsx');
-                res.send(buffer);
-            } else if (format === 'pdf') {
-                const pdfBytes = await generatePDFReport(reportData);
-                res.setHeader('Content-Type', 'application/pdf');
-                res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.pdf');
-                res.send(pdfBytes);
-            } else {
-                res.status(400).send('Invalid format requested.');
-            }
-        } catch (error) {
-            console.error('Error generating report:', error);
-            res.status(500).send('Internal Server Error');
-        }
-    });
-    
+            created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) }
+        };
 
-    function calculateAttendancePercentage(attendanceData) {
-        const studentAttendance = {};
-        const unpopulatedStudents = [];
-      
-        attendanceData.forEach(record => {
-          record.students.forEach(studentRecord => {
+        const attendanceData = await Attendance.find(filter)
+            .populate({
+                path: 'students.student',
+                select: 'username name'
+            });
+
+        if (!attendanceData.length) {
+            return res.status(404).send('No attendance data found for the given filters.');
+        }
+
+        let reportData = calculateAttendancePercentage(attendanceData);
+
+        // Apply percentage criteria filter
+        if (percentageCriteria) {
+            let percentageFilter;
+            switch (percentageCriteria) {
+                case 'less_65':
+                    percentageFilter = (percentage) => percentage < 65;
+                    break;
+                case 'less_75':
+                    percentageFilter = (percentage) => percentage < 75;
+                    break;
+                case 'above_90':
+                    percentageFilter = (percentage) => percentage > 90;
+                    break;
+                case 'other':
+                    if (otherCondition === 'between') {
+                        percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
+                    } else {
+                        percentageFilter = (percentage) => {
+                            switch (otherCondition) {
+                                case '>':
+                                    return percentage > parseFloat(percentageValue);
+                                case '<':
+                                    return percentage < parseFloat(percentageValue);
+                                case '>=':
+                                    return percentage >= parseFloat(percentageValue);
+                                case '<=':
+                                    return percentage <= parseFloat(percentageValue);
+                                default:
+                                    return true;
+                            }
+                        };
+                    }
+                    break;
+                default:
+                    percentageFilter = () => true;
+            }
+
+            reportData = reportData.filter((record) => percentageFilter(record.percentage));
+        }
+
+        if (format === 'excel') {
+            const workbook = generateExcelReport(reportData);
+            const buffer = await workbook.xlsx.writeBuffer();
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.xlsx');
+            res.send(buffer);
+        } else if (format === 'pdf') {
+            const pdfBytes = await generatePDFReport(reportData);
+            const filePath = path.join(__dirname, 'attendance-report.pdf');
+            fs.writeFileSync(filePath, pdfBytes);
+
+            res.download(filePath, 'attendance-report.pdf', (err) => {
+                if (err) {
+                    console.error('Error sending the file:', err);
+                    res.status(500).send('Failed to send PDF');
+                }
+                fs.unlinkSync(filePath); // Optional: Clean up the file after sending
+            });
+        } else {
+            res.status(400).send('Invalid format requested.');
+        }
+    } catch (error) {
+        console.error('Error generating report:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+function calculateAttendancePercentage(attendanceData) {
+    const studentAttendance = {};
+    const unpopulatedStudents = [];
+
+    attendanceData.forEach(record => {
+        record.students.forEach(studentRecord => {
             const student = studentRecord.student; // The populated student document
             if (student) { // Ensure the student is not null
-              if (!studentAttendance[student._id]) {
-                studentAttendance[student._id] = {
-                  username: student.username,
-                  name: student.name,
-                  totalClasses: 0,
-                  attendedClasses: 0
-                };
-              }
-              studentAttendance[student._id].totalClasses++;
-              if (studentRecord.status) {
-                studentAttendance[student._id].attendedClasses++;
-              }
+                if (!studentAttendance[student._id]) {
+                    studentAttendance[student._id] = {
+                        username: student.username,
+                        name: student.name,
+                        totalClasses: 0,
+                        attendedClasses: 0
+                    };
+                }
+                studentAttendance[student._id].totalClasses++;
+                if (studentRecord.status) {
+                    studentAttendance[student._id].attendedClasses++;
+                }
             } else {
-              unpopulatedStudents.push(studentRecord);
+                unpopulatedStudents.push(studentRecord);
             }
-          });
         });
-      
-        const reportData = Object.keys(studentAttendance).map(studentId => {
-          const data = studentAttendance[studentId];
-          data.percentage = (data.attendedClasses / data.totalClasses) * 100;
-          return data;
-        });
-      
-        return reportData;
-      }
-      
+    });
+
+    const reportData = Object.keys(studentAttendance).map(studentId => {
+        const data = studentAttendance[studentId];
+        data.percentage = (data.attendedClasses / data.totalClasses) * 100;
+        return data;
+    });
+
+    return reportData;
+}
+     
 
 function generateExcelReport(reportData) {
     const workbook = new exceljs.Workbook();

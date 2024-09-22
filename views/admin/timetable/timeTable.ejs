@@ -1,63 +1,87 @@
 <%- layout("../layouts/adminBoilerplate") -%>
 <body>
     <div class="container mt-5">
-        <h1>Timetable Management</h1>
-
+        <h1 class="mb-4 text-center">Timetable Management</h1>
+    
         <!-- Flash messages for success or error -->
         <% if (success && success.length) { %>
-            <div class="alert alert-success"><%= success %></div>
+          <div class="alert alert-success"><%= success %></div>
         <% } %>
         <% if (error && error.length) { %>
-            <div class="alert alert-danger"><%= error %></div>
+          <div class="alert alert-danger"><%= error %></div>
         <% } %>
-
+    
         <!-- Form to select Year, Branch, Section, and Semester -->
         <div class="selection-form mb-5">
-            <h2>Select Timetable</h2>
-            <form id="timetableForm">
-                <div class="form-group">
-                    <label for="year">Year</label>
-                    <select id="year" name="year" class="form-control" required>
-                        <option value="" disabled selected>Select Year</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="branch">Branch</label>
-                    <select id="branch" name="branch" class="form-control" required disabled>
-                        <option value="" disabled selected>Select Branch</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="semester">Semester</label>
-                    <select id="semester" name="semester" class="form-control" required disabled>
-                        <option value="" disabled selected>Select Semester</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="section">Section</label>
-                    <select id="section" name="section" class="form-control" required disabled>
-                        <option value="" disabled selected>Select Section</option>
-                    </select>
-                </div>
-                <button type="button" id="viewTimetable" class="btn btn-primary mt-3" disabled>View Timetable</button>
-                <button type="button" id="createTimetable" class="btn btn-success mt-3" disabled>Create New Timetable</button>
-            </form>
+          <h2>Select Timetable</h2>
+          <form id="timetableForm">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="year" class="form-label">Academic Year</label>
+                <select id="year" name="year" class="form-select" required>
+                    <option value="" disabled selected>Select Academic Year</option>
+                    <% academicYears.forEach(year => { %>
+                      <option value="<%= year._id %>"><%= year.name %></option>
+                    <% }); %>
+                  </select>
+                  
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="branch" class="form-label">Branch</label>
+                <select id="branch" name="branch" class="form-select" required disabled>
+                  <option value="" disabled selected>Select Branch</option>
+                </select>
+              </div>
+            </div>
+    
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="semester" class="form-label">Semester</label>
+                <select id="semester" name="semester" class="form-select" required disabled>
+                  <option value="" disabled selected>Select Semester</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="section" class="form-label">Section</label>
+                <select id="section" name="section" class="form-select" required disabled>
+                  <option value="" disabled selected>Select Section</option>
+                </select>
+              </div>
+            </div>
+    
+            <div class="d-flex justify-content-between mt-4">
+              <button type="button" id="viewTimetable" class="btn btn-primary" disabled>View Timetable</button>
+              <button type="button" id="createTimetable" class="btn btn-success" disabled>Create New Timetable</button>
+            </div>
+          </form>
         </div>
-    </div>
-
+      </div>
     <script>
-        // Fetch academic years and populate the year dropdown
         fetch('/admin/academic-year')
-            .then(response => response.json())
-            .then(academicYears => {
-                const yearSelect = document.getElementById('year');
-                academicYears.forEach(year => {
+        .then(response => response.json())
+        .then(academicYears => {
+            const yearSelect = document.getElementById('year');
+            yearSelect.innerHTML = ''; // Clear existing options to avoid duplication
+
+            // Create the "Select Academic Year" option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select Academic Year';
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            yearSelect.appendChild(defaultOption);
+
+            // Populate with academic years
+            academicYears.forEach(year => {
+                if (year && year.name) { // Ensure the year object and name exist
                     const option = document.createElement('option');
                     option.value = year._id;
                     option.textContent = year.name;
                     yearSelect.appendChild(option);
-                });
+                }
             });
+        })
+        .catch(error => console.error('Error fetching academic years:', error));
 
         document.getElementById('year').addEventListener('change', function() {
             const year = this.value;

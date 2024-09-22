@@ -7,6 +7,7 @@ const wrapAsync = require('../utils/wrapAsync.js');
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const Resource = require('../models/Resource');
 const exceljs = require('exceljs');
 const { PDFDocument, rgb,StandardFonts } = require('pdf-lib');
 const facultyController = require("../controllers/faculty.js");
@@ -22,6 +23,37 @@ const Subject = require('../models/subject');
 const Attendance = require('../models/attendance');
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
+const { google } = require('googleapis');
+const { OAuth2 } = google.auth;
+
+// OAuth2 client setup
+const oauth2Client = new OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  'http://localhost:2000/admin/oauth2/callback'  // Replace with your redirect URL
+);
+
+// Drive file upload function
+async function uploadToGoogleDrive(fileBuffer, fileName, mimeType) {
+  try {
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        mimeType: mimeType,
+      },
+      media: {
+        mimeType: mimeType,
+        body: fileBuffer
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading file to Google Drive:', error);
+    throw error;
+  }
+}
+
 
 router.get('/subject',async(req,res)=>{
   try {
@@ -667,4 +699,33 @@ router.get('/getAttendanceData', async (req, res) => {
     }
   });
   
+// Faculty view for uploading resources
+router.get('/resources', isFacultyLoggedIn, async (req, res) => {
+    const sections = await Section.find({ faculty: req.user._id });  // Fetch sections the faculty teaches
+    res.render('faculty/resource/resources', { sections });
+  });
+  
+  // Faculty uploads a resource
+  router.post('/resources/upload', isFacultyLoggedIn, async (req, res) => {
+    try {
+      const { title, description, fileId, fileLink, section } = req.body;
+  
+      const newResource = new Resource({
+        title,
+        description,
+        fileId,
+        fileLink,
+        uploader: req.user._id,  // Faculty ID
+        sharedWith: { section }
+      });
+  
+      await newResource.save();
+      req.flash('success', 'Resource uploaded successfully.');
+      res.redirect('/faculty/resources');
+    } catch (err) {
+      console.error(err);
+      req.flash('error', 'Failed to upload resource.');
+      res.redirect('/faculty/resources');
+    }
+  });
 module.exports = router;

@@ -1,0 +1,130 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+  <div class="container mt-5">
+    <h2>Resources</h2>
+    <!-- Button to upload new resource -->
+    <a href="/admin/resources/upload" class="btn btn-primary mt-4">Upload New Resource</a>
+
+    <!-- Filter Form -->
+    <form id="filterForm">
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label for="year">Select Academic Year</label>
+          <select class="form-control" id="year">
+            <option value="">All Years</option>
+            <% academicYears.forEach(year => { %>
+              <option value="<%= year._id %>"><%= year.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label for="branch">Select Branch</label>
+          <select class="form-control" id="branch" disabled>
+            <option value="">All Branches</option>
+          </select>
+        </div>
+        <div class="form-group col-md-4">
+          <label for="semester">Semester</label>
+          <select id="semester" name="semester" class="form-control" required disabled>
+              <option value="" disabled selected>Select Semester</option>
+          </select>
+      </div>
+        <div class="form-group col-md-4">
+          <label for="section">Select Section</label>
+          <select class="form-control" id="section" disabled>
+            <option value="">All Sections</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+
+    <!-- Table to display resources -->
+    <table class="table mt-4">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Description</th>
+          <th>Year</th>
+          <th>Branch</th>
+          <th>Section</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% resources.forEach(resource => { %>
+          <tr>
+            <td><%= resource.title %></td>
+            <td><%= resource.description %></td>
+            <td><%= resource.sharedWith.year.name %></td>
+            <td><%= resource.sharedWith.branch.name %></td>
+            <td><%= resource.sharedWith.section.name %></td>
+            <td>
+              <a href="<%= resource.fileLink %>" target="_blank" class="btn btn-info btn-sm">View</a>
+              <form action="/admin/resources/delete/<%= resource._id %>" method="POST" style="display:inline-block;">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+  document.getElementById('year').addEventListener('change', function() {
+    const year = this.value;
+    fetch(`/admin/branch?year=${year}`)
+        .then(response => response.json())
+        .then(branches => {
+            const branchSelect = document.getElementById('branch');
+            branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+            branches.forEach(branch => {
+                const option = document.createElement('option');
+                option.value = branch._id;
+                option.textContent = branch.name;
+                branchSelect.appendChild(option);
+            });
+            branchSelect.disabled = false;
+        });
+});
+
+document.getElementById('branch').addEventListener('change', function() {
+    fetch(`/admin/semester`)
+        .then(response => response.json())
+        .then(semesters => {
+            const semesterSelect = document.getElementById('semester');
+            semesterSelect.innerHTML = '<option value="" disabled selected>Select Semester</option>';
+            semesters.forEach(semester => {
+                const option = document.createElement('option');
+                option.value = semester._id;
+                option.textContent = semester.name;
+                semesterSelect.appendChild(option);
+            });
+            semesterSelect.disabled = false;
+        });
+});
+
+document.getElementById('semester').addEventListener('change', function() {
+const semester = this.value;
+const branch = document.getElementById('branch').value; // Corrected this line
+fetch(`/admin/sections?branch=${branch}&semester=${semester}`)
+.then(response => response.json())
+.then(sections => {
+    const sectionSelect = document.getElementById('section');
+    sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+    sections.forEach(section => {
+        const option = document.createElement('option');
+        option.value = section._id;
+        option.textContent = section.name;
+        sectionSelect.appendChild(option);
+    });
+    sectionSelect.disabled = false;
+})
+.catch(error => {
+    console.error('Error fetching sections:', error);
+    alert('An error occurred while fetching sections.');
+});
+});
+</script>
+</body>

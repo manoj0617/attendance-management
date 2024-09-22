@@ -19,6 +19,9 @@ const SubjectSchema = new Schema({
     required: true,
     enum:['Theory','Practical','Non-Academic'],
   },
+  credits:{
+    type:Number
+  },
   code: {
     type: String,
   }

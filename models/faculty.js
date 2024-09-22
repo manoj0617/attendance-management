@@ -33,6 +33,7 @@ const facultySchema=mongoose.Schema({
     fatherName:{
         type:String,
     },
+    sections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Section' }], // Store sections directly
     subjects:
         [
         {

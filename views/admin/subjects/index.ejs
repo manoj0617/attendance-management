@@ -1,55 +1,83 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">Subjects</h1>
+  <div class="container mt-5">
+    <h1 class="mb-4 text-center">Subjects</h1>
 
-        <!-- Search Form -->
-        <form action="/admin/subjects" method="GET" class="form-inline mb-4">
-            <input type="text" name="search" class="form-control mr-2" placeholder="Search by subject name or code" value="<%= searchTerm %>">
-            <button type="submit" class="btn btn-primary">Search</button>
-        </form>
+    <!-- Search Form -->
+    <form action="/admin/subjects" method="GET" class="row g-3 mb-4">
+      <div class="col-md-9">
+        <input type="text" name="search" class="form-control" placeholder="Search by subject name or code" value="<%= searchTerm %>">
+      </div>
+      <div class="col-md-3 text-end">
+        <button type="submit" class="btn btn-primary w-100">Search</button>
+      </div>
+    </form>
 
-        <!-- Create New Subject Button -->
-        <a href="/admin/subjects/new" class="btn btn-success mb-3">Create New Subject</a>
-
-        <!-- Subjects List -->
-        <ul class="list-group">
-            <% subjects.forEach(subject => { %>
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5><%= subject.name %> (<%= subject.full_name %>)</h5>
-                        <p>Code: <%= subject.code %></p>
-                        <% if (subject.academicYear) { %>
-                            <p>Academic Year: <%= subject.academicYear.name %></p>
-                        <% } %>
-                        <% if (subject.semester) { %>
-                            <p>Semester: <%= subject.semester.name %></p>
-                        <% } %>
-                    </div>
-                    <div>
-                        <a href="/admin/subjects/<%= subject._id %>/edit" class="btn btn-info mr-2">Edit</a>
-                        <form action="/admin/subjects/<%= subject._id %>?_method=DELETE" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-danger">Delete</button>
-                        </form>
-                    </div>
-                </li>
-            <% }) %>
-        </ul>
-
-        <!-- Pagination Controls -->
-        <nav aria-label="Page navigation">
-            <ul class="pagination justify-content-center mt-4">
-                <% if (hasPreviousPage) { %>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= previousPage %>&search=<%= searchTerm %>">Previous</a>
-                    </li>
-                <% } %>
-                <% if (hasNextPage) { %>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= nextPage %>&search=<%= searchTerm %>">Next</a>
-                    </li>
-                <% } %>
-            </ul>
-        </nav>
+    <!-- Create New Subject Button -->
+    <div class="d-flex justify-content-end mb-4">
+      <a href="/admin/subjects/new" class="btn btn-success btn-lg">Create New Subject</a>
     </div>
+
+    <!-- Subjects List -->
+    <div class="card shadow-sm mb-4">
+      <ul class="list-group list-group-flush">
+        <% subjects.forEach(subject => { %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="mb-1 fw-bold"><%= subject.name %> (<%= subject.full_name %>)</h5>
+              <small class="text-muted">Code: <%= subject.code %></small>
+              <% if (subject.academicYear) { %>
+                <p class="mb-0"><span class="badge bg-info">Academic Year: <%= subject.academicYear.name %></span></p>
+              <% } %>
+              <% if (subject.semester) { %>
+                <p class="mb-0"><span class="badge bg-secondary">Semester: <%= subject.semester.name %></span></p>
+              <% } %>
+            </div>
+            <div>
+              <a href="/admin/subjects/<%= subject._id %>/edit" class="btn btn-outline-info btn-sm me-2">Edit</a>
+              <form action="/admin/subjects/<%= subject._id %>?_method=DELETE" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+
+    <!-- Pagination Controls -->
+    <nav aria-label="Subjects pagination">
+      <ul class="pagination justify-content-center">
+        <% if (hasPreviousPage) { %>
+          <li class="page-item">
+            <a class="page-link" href="?page=<%= previousPage %>&search=<%= searchTerm %>">Previous</a>
+          </li>
+        <% } %>
+        <% if (hasNextPage) { %>
+          <li class="page-item">
+            <a class="page-link" href="?page=<%= nextPage %>&search=<%= searchTerm %>">Next</a>
+          </li>
+        <% } %>
+      </ul>
+    </nav>
+  </div>
+
+  <style>
+    /* Additional Styling */
+    .btn {
+      border-radius: 5px;
+    }
+    .list-group-item {
+      transition: background-color 0.3s ease;
+    }
+    .list-group-item:hover {
+      background-color: #f8f9fa;
+    }
+    .page-item .page-link {
+      color: #007bff;
+    }
+    .page-item .page-link:hover {
+      background-color: #e9ecef;
+      color: #007bff;
+    }
+  </style>
 </body>

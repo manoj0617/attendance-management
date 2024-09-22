@@ -11,6 +11,10 @@ const sectionSchema = new Schema({
         ref: 'AcademicYear',  // Reference to academic year model
         required: true
     },
+    currentSemester: {
+        type: Schema.Types.ObjectId,
+        ref: 'Semester', // Reference the current semester
+    },
     branch: {
         type: Schema.Types.ObjectId,
         ref: 'Branch',

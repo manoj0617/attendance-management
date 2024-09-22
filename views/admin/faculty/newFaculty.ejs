@@ -4,7 +4,7 @@
         <h1>Create New Faculty</h1>
 
         <!-- Form to create new faculty -->
-        <form id="facultyForm" class="mt-3" method="post" enctype="multipart/form-data">
+        <form id="facultyForm" class="mt-3" method="post" action="/admin/faculty/new" enctype="multipart/form-data">
             <div class="mb-3">
                 <label for="name" class="form-label">Name</label>
                 <input type="text" class="form-control" id="name" name="name" required>
@@ -13,7 +13,6 @@
                 <label for="email" class="form-label">Email</label>
                 <input type="email" class="form-control" id="email" name="email" required>
             </div>          
-            
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>
@@ -74,32 +73,40 @@
                 }
             });
 
-            // Handle form submission
             document.getElementById('facultyForm').addEventListener('submit', function (event) {
-                event.preventDefault();
-                const formData = new FormData(this);
-                const selectedSubjects = document.getElementById('selectedSubjects').querySelectorAll('.subject-item');
-                selectedSubjects.forEach(item => {
-                    formData.append('subjects', item.dataset.subjectId);
-                });
+    event.preventDefault();
+    const formData = new FormData(this);
 
-                fetch('/admin/faculty/new', {
-                    method: 'POST',
-                    body: formData,
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert('Faculty saved successfully');
-                            this.reset();
-                            document.getElementById('selectedSubjects').innerHTML = '';
-                            document.getElementById('subjectSearch').value = '';
-                            document.getElementById('subjectResults').innerHTML = '';
-                        } else {
-                            alert('Error saving faculty');
-                        }
-                    });
-            });
+    // Log form data to ensure correct values are appended
+    for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+    }
+
+    const selectedSubjects = document.getElementById('selectedSubjects').querySelectorAll('.subject-item');
+    selectedSubjects.forEach(item => {
+        formData.append('subjects', item.dataset.subjectId);
+    });
+
+    fetch('/admin/faculty/new', {
+        method: 'POST',
+        body: formData,
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Server Response:', data); // Log the server response for debugging
+            if (data.success) {
+                alert(data.message);
+                this.reset();
+                document.getElementById('selectedSubjects').innerHTML = '';
+                document.getElementById('subjectSearch').value = '';
+                document.getElementById('subjectResults').innerHTML = '';
+            } else {
+                alert(data.message);  // Display error message
+            }
+        })
+        .catch(err => console.error('Error in fetch:', err));  // Catch and log fetch errors
+});
+
         });
 
         // Add selected subject to the list

@@ -1,0 +1,33 @@
+<% layout("../layouts/studentBoilerplate") -%>
+<body>
+<div class="container mt-5">
+  <h2>Available Resources</h2>
+
+  <div class="list-group">
+    <% if (resources.length === 0) { %>
+      <p class="alert alert-warning">No resources available for your section.</p>
+    <% } else { %>
+      <% resources.forEach(resource => { %>
+        <a href="<%= resource.fileLink %>" class="list-group-item list-group-item-action">
+          <h5 class="mb-1"><%= resource.title %></h5>
+          <p class="mb-1"><%= resource.description %></p>
+          <small>Uploaded by: <%= resource.uploader.name %></small>
+        </a>
+      <% }) %>
+    <% } %>
+  </div>
+</div>
+<script>
+    $(document).ready(function () {
+      $('form').on('submit', function (e) {
+        const fileInput = $('#file');
+        const file = fileInput[0].files[0];
+  
+        if (!file) {
+          alert('Please select a file.');
+          e.preventDefault();
+        }
+      });
+    });
+  </script>
+</body>  

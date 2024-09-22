@@ -2,71 +2,62 @@
 
 <body>
   <div class="container mt-5">
-    <h1>Send Email to Students</h1>
+    <h1 class="mb-4 text-center">Send Email to Students</h1>
 
-    <!-- Flash messages for success or error -->
-    <% if (success && success.length) { %>
-      <div class="alert alert-success"><%= success %></div>
-    <% } %>
-    <% if (error && error.length) { %>
-      <div class="alert alert-danger"><%= error %></div>
-    <% } %>
-
-    <!-- Form to select Year, Branch, Section, and Semester -->
-    <div class="selection-form mb-5">
-      <h2>Select Recipients</h2>
-      <form id="adminEmailForm" method="post" action="/admin/send-email" enctype="multipart/form-data">
-        <div class="form-group">
-          <label for="year">Academic Year</label>
-          <select id="year" name="year" class="form-control" required>
+    <form id="adminEmailForm" method="post" action="/admin/send-email" enctype="multipart/form-data">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="year" class="form-label">Academic Year</label>
+          <select id="year" name="year" class="form-select" required>
             <option value="" disabled selected>Select Academic Year</option>
             <% academicYears.forEach(year => { %>
               <option value="<%= year._id %>"><%= year.name %></option>
             <% }); %>
           </select>
         </div>
-
-        <div class="form-group">
-          <label for="branch">Branch</label>
-          <select id="branch" name="branch" class="form-control" required disabled>
+        <div class="col-md-6 mb-3">
+          <label for="branch" class="form-label">Branch</label>
+          <select id="branch" name="branch" class="form-select" required disabled>
             <option value="" disabled selected>Select Branch</option>
           </select>
         </div>
+      </div>
 
-        <div class="form-group">
-          <label for="semester">Semester</label>
-          <select id="semester" name="semester" class="form-control" required disabled>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="semester" class="form-label">Semester</label>
+          <select id="semester" name="semester" class="form-select" required disabled>
             <option value="" disabled selected>Select Semester</option>
           </select>
         </div>
-
-        <div class="form-group">
-          <label for="section">Section</label>
-          <select id="section" name="section" class="form-control" required disabled>
+        <div class="col-md-6 mb-3">
+          <label for="section" class="form-label">Section</label>
+          <select id="section" name="section" class="form-select" required disabled>
             <option value="" disabled selected>Select Section</option>
           </select>
         </div>
+      </div>
 
-        <div class="form-group">
-          <label for="emailSubject">Email Subject</label>
-          <input type="text" id="emailSubject" name="emailSubject" class="form-control" required>
-        </div>
+      <div class="form-group mb-3">
+        <label for="emailSubject" class="form-label">Email Subject</label>
+        <input type="text" id="emailSubject" name="emailSubject" class="form-control" required>
+      </div>
 
-        <div class="form-group">
-          <label for="emailBody">Email Body</label>
-          <textarea id="emailBody" name="emailBody" class="form-control" rows="5" required></textarea>
-        </div>
+      <div class="form-group mb-3">
+        <label for="emailBody" class="form-label">Email Body</label>
+        <textarea id="emailBody" name="emailBody" class="form-control" rows="5" required></textarea>
+      </div>
 
-        <div class="form-group">
-            <label for="attachment">Attach File</label>
-            <input type="file" id="attachment" name="attachment" class="form-control">
-          </div>
+      <div class="form-group mb-3">
+        <label for="attachment" class="form-label">Attach File</label>
+        <input type="file" id="attachment" name="attachment" class="form-control">
+      </div>
 
-        <button type="submit" class="btn btn-primary mt-3">Send Email</button>
-      </form>
-    </div>
+      <div class="d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary">Send Email</button>
+      </div>
+    </form>
   </div>
-
   <script>
     document.getElementById('year').addEventListener('change', function() {
             const year = this.value;
@@ -124,12 +115,17 @@
 });
 
 document.getElementById('adminEmailForm').addEventListener('submit', async function(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    const formData = new FormData(this);
+  const formData = new FormData(this);
+  const fileInput = document.querySelector('input[type="file"]'); // Adjust the selector to match your file input field
+  const file = fileInput.files[0]; // Get the uploaded file (if any)
 
-    try {
-      // Step 1: Upload file to the server first
+  try {
+    let result;
+
+    if (file) {
+      // Step 1: If a file is uploaded, upload it to the server first
       const fileUploadResponse = await fetch('/admin/upload-file', {
         method: 'POST',
         body: formData,
@@ -137,27 +133,34 @@ document.getElementById('adminEmailForm').addEventListener('submit', async funct
 
       // Check if the response is OK and parse the JSON response
       if (fileUploadResponse.ok) {
-        const result = await fileUploadResponse.json();
-        const client = "<%= client %>";
-        if (result.success) {
-          // Step 2: Start OAuth flow after file upload
-          const formParams = new URLSearchParams(formData).toString();
-
-          // Redirect user to OAuth2 with form data and state
-          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.send&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:2000/admin/oauth2/callback&client_id=${client}&state=${encodeURIComponent(formParams)}&prompt=consent`;
-
-          window.location.href = authUrl;
-        } else {
+        result = await fileUploadResponse.json();
+        if (!result.success) {
           console.error('File upload failed:', result.message);
+          return;
         }
       } else {
         console.error('Error: Failed to upload file');
+        return;
       }
-    } catch (error) {
-      console.error('Error during file upload:', error);
+    } else {
+      // If no file was uploaded, proceed without file upload
+      result = { success: true };
     }
-  });
-  
-  
+
+    // Step 2: Start OAuth flow after file upload or when no file is uploaded
+    if (result.success) {
+      const client = "<%= client %>";
+      const formParams = new URLSearchParams(formData).toString();
+
+      // Redirect user to OAuth2 with form data and state
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.send&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:2000/admin/oauth2/callback&client_id=${client}&state=${encodeURIComponent(formParams)}&prompt=consent`;
+
+      window.location.href = authUrl;
+    }
+  } catch (error) {
+    console.error('Error during form submission:', error);
+  }
+});
+
   </script>
 </body>

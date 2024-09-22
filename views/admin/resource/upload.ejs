@@ -1,0 +1,114 @@
+<% layout("../layouts/adminBoilerplate") -%>
+<body>
+  <div class="container mt-5">
+    <h2>Share Resource</h2>
+    <form action="/admin/resources/upload" method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" class="form-control" name="title" id="title" required>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" name="description" id="description"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-3">
+          <label for="year">Select Academic Year</label>
+          <select class="form-control" id="year" name="year" required>
+            <option value="">Select Year</option>
+            <% academicYears.forEach(year => { %>
+              <option value="<%= year._id %>"><%= year.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label for="branch">Select Branch</label>
+          <select class="form-control" id="branch" name="branch" disabled required>
+            <option value="">Select Branch</option>
+          </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label for="semester">Semester</label>
+          <select id="semester" name="semester" class="form-control" disabled required>
+            <option value="" disabled selected>Select Semester</option>
+          </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label for="section">Select Section</label>
+          <select class="form-control" id="section" name="section" disabled required>
+            <option value="">Select Section</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="file">Select File</label>
+        <input type="file" class="form-control-file" name="file" id="file" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Share Resource</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('year').addEventListener('change', function() {
+      const year = this.value;
+      fetch(`/admin/branch?year=${year}`)
+        .then(response => response.json())
+        .then(branches => {
+          const branchSelect = document.getElementById('branch');
+          branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
+          branches.forEach(branch => {
+            const option = document.createElement('option');
+            option.value = branch._id;
+            option.textContent = branch.name;
+            branchSelect.appendChild(option);
+          });
+          branchSelect.disabled = false;
+        });
+    });
+
+    document.getElementById('branch').addEventListener('change', function() {
+      fetch(`/admin/semester`)
+        .then(response => response.json())
+        .then(semesters => {
+          const semesterSelect = document.getElementById('semester');
+          semesterSelect.innerHTML = '<option value="" disabled selected>Select Semester</option>';
+          semesters.forEach(semester => {
+            const option = document.createElement('option');
+            option.value = semester._id;
+            option.textContent = semester.name;
+            semesterSelect.appendChild(option);
+          });
+          semesterSelect.disabled = false;
+        });
+    });
+
+    document.getElementById('semester').addEventListener('change', function() {
+      const semester = this.value;
+      const branch = document.getElementById('branch').value;
+      fetch(`/admin/sections?branch=${branch}&semester=${semester}`)
+        .then(response => response.json())
+        .then(sections => {
+          const sectionSelect = document.getElementById('section');
+          sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+          sections.forEach(section => {
+            const option = document.createElement('option');
+            option.value = section._id;
+            option.textContent = section.name;
+            sectionSelect.appendChild(option);
+          });
+          sectionSelect.disabled = false;
+        })
+        .catch(error => {
+          console.error('Error fetching sections:', error);
+          alert('An error occurred while fetching sections.');
+        });
+    });
+  </script>
+</body>

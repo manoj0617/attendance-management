@@ -16,6 +16,7 @@ const Semester = require('../models/semester');
 const AcademicYear = require('../models/academicYear');
 const Subject = require('../models/subject');
 const Attendance = require('../models/attendance');
+const Resource = require('../models/Resource');
 let studentController = require("../controllers/student.js"); // Importing student controller
 
 // Routes for student authentication
@@ -115,4 +116,21 @@ router.route("/download")
   .get(isStudentLoggedIn, wrapAsync(studentController.renderDownloadForm)) // Render download form
   .post(isStudentLoggedIn,validateDownload, wrapAsync(studentController.download)); // Process downloading attendance
 
+
+  // View resources shared with the student
+router.get('/resources', isStudentLoggedIn, async (req, res) => {
+    try {
+      const resources = await Resource.find({
+        'sharedWith.year': req.user.year,
+        'sharedWith.branch': req.user.branch,
+        'sharedWith.section': req.user.section,
+      }).populate('uploader', 'name');  // Assuming uploader is Faculty and we want to show their name
+  
+      res.render('student/resource/resources', { resources });
+    } catch (err) {
+      console.error(err);
+      req.flash('error', 'Failed to load resources.');
+      res.redirect('/student');
+    }
+  });
 module.exports = router; // Exporting the router configuration

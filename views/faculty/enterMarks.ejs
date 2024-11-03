@@ -1,0 +1,429 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2>Enter Marks - <%= section.branch.name %> <%= section.name %></h2>
+            <p><strong>Semester:</strong> <%= section.currentSemester ? section.currentSemester.name : 'N/A'%></p>
+            
+            <!-- Subject Selection -->
+            <div class="form-group mb-4">
+                <label for="subjectSelect">Select Subject:</label>
+                <select class="form-control" id="subjectSelect" onchange="loadMarkingScheme()">
+                    <option value="">Select a subject...</option>
+                    <% facultySubjects.forEach(facSub => { %>
+                        <option value="<%= facSub.subject._id %>">
+                            <%= facSub.subject.name %> (<%= facSub.subject.code %>)
+                        </option>
+                    <% }); %>
+                </select>
+            </div>
+
+            <!-- Marking Type Selection -->
+            <div class="form-group mb-4" id="markingTypeDiv" style="display: none;">
+                <label for="markingType">Select Marking Type:</label>
+                <select class="form-control" id="markingType" onchange="loadComponents()">
+                    <option value="">Select type...</option>
+                    <option value="internal">Internal</option>
+                    <option value="external">External</option>
+                </select>
+            </div>
+
+            <!-- Component Selection -->
+            <div class="form-group mb-4" id="componentDiv" style="display: none;">
+                <label for="componentSelect">Select Component:</label>
+                <select class="form-control" id="componentSelect" onchange="loadStudentMarks()">
+                    <option value="">Select component...</option>
+                </select>
+            </div>
+            
+            <div id="loadingIndicator" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Marks Entry Form -->
+            <form id="marksForm" style="display: none;">
+                <div class="form-group">
+                    <label for="marks">Enter Marks</label>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Roll No</th>
+                                <th>Student Name</th>
+                                <th>Max Marks</th>
+                                <th>Marks</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="marksTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit Marks</button>
+            </form>
+            <div class="mt-3">
+                <button type="button" 
+                        class="btn btn-success" 
+                        onclick="downloadMarksSheet()"
+                        id="downloadBtn" 
+                        style="display: none;">
+                    Download Marks Sheet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMarkingScheme = null;
+let currentSubject = null;
+
+async function loadMarkingScheme() {
+    const subjectId = document.getElementById('subjectSelect').value;
+    const markingTypeDiv = document.getElementById('markingTypeDiv');
+    const componentDiv = document.getElementById('componentDiv');
+    const marksForm = document.getElementById('marksForm');
+
+    if (!subjectId) {
+        markingTypeDiv.style.display = 'none';
+        componentDiv.style.display = 'none';
+        marksForm.style.display = 'none';
+        return;
+    }
+
+    try {
+        showLoading();
+        const response = await fetch(`/faculty/subjects/${subjectId}/marking-scheme`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message);
+        }
+
+        currentMarkingScheme = data.markingScheme;
+        currentSubject = data.subject;
+        markingTypeDiv.style.display = 'block';
+        componentDiv.style.display = 'none';
+        marksForm.style.display = 'none';
+    } catch (error) {
+        showError('Error loading marking scheme: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function validateMarks(input) {
+    const value = parseFloat(input.value);
+    const max = parseFloat(input.max);
+    
+    if (isNaN(value) || value < 0 || value > max) {
+        input.classList.add('is-invalid');
+        return false;
+    }
+    input.classList.remove('is-invalid');
+    return true;
+}
+
+function calculateTheoryInternalMaxMarks(components) {
+    if (!components || components.length === 0) return 0;
+    
+    // Find mid-term components
+    const mid1 = components.find(c => c.name === 'Mid1');
+    const mid2 = components.find(c => c.name === 'Mid2');
+    const midMaxMarks = mid1 && mid2 ? (mid1.maxMarks + mid2.maxMarks) / 2 : 0;
+    
+    // Find other components
+    const assignment = components.find(c => c.name === 'Assignment')?.maxMarks || 0;
+    const presentation = components.find(c => c.name === 'Presentation')?.maxMarks || 0;
+    
+    return midMaxMarks + assignment + presentation;
+}
+
+
+async function loadStudentMarks() {
+    const subjectId = document.getElementById('subjectSelect').value;
+    const markingType = document.getElementById('markingType').value;
+    const componentSelect = document.getElementById('componentSelect');
+    const componentName = componentSelect.value;
+    const marksForm = document.getElementById('marksForm');
+    const tableBody = document.getElementById('marksTableBody');
+
+    if (!subjectId || !markingType) {
+        marksForm.style.display = 'none';
+        return;
+    }
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (subjectId) {
+        downloadBtn.style.display = 'block';
+    } else {
+        downloadBtn.style.display = 'none';
+    }
+
+    try {
+        showLoading();
+        
+        // Construct URL with component name if selected
+        let url = `/faculty/sections/<%= section._id %>/marks/${subjectId}?type=${markingType}`;
+        if (componentName) {
+            url = `/faculty/sections/<%= section._id %>/marks/${subjectId}/component/${componentName}?type=${markingType}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to load student marks');
+        }
+
+        // Clear existing table content
+        tableBody.innerHTML = '';
+        
+        // Get max marks from component select if available
+        const selectedOption = componentSelect.selectedOptions[0];
+        let maxMarks = 100; // Default value
+        if (componentName && selectedOption?.dataset?.maxMarks) {
+            maxMarks = parseFloat(selectedOption.dataset.maxMarks);
+        } else if (currentMarkingScheme) {
+            const components = currentSubject?.type === 'Theory' ? 
+                currentMarkingScheme.theoryComponents[markingType] : 
+                currentMarkingScheme.labComponents[markingType];
+            
+            if (components?.length > 0) {
+                if (currentSubject?.type === 'Theory' && markingType === 'internal') {
+                    maxMarks = calculateTheoryInternalMaxMarks(components);
+                } else {
+                    maxMarks = components.reduce((sum, comp) => sum + comp.maxMarks, 0);
+                }
+            }
+        }
+        // Create a map of student marks for easier lookup
+        const marksMap = new Map();
+        data.marks.forEach(mark => {
+            if (mark[markingType] && mark[markingType].componentMarks) {
+                marksMap.set(mark.student.toString(), mark[markingType].componentMarks);
+            }
+        });
+
+        // Render student marks
+        data.students.forEach(student => {
+            const componentMarks = marksMap.get(student._id.toString()) || [];
+            let currentMark = '';
+            
+            if (componentName) {
+                // Find mark for specific component
+                const markEntry = componentMarks.find(cm => cm.componentName === componentName);
+                currentMark = markEntry ? markEntry.marks : '';
+            }
+
+            const row = `
+                <tr>
+                    <td>${student.rollNo || 'N/A'}</td>
+                    <td>${student.name}</td>
+                    <td>${maxMarks}</td>
+                    <td>
+                        <input type="number" 
+                               class="form-control"
+                               name="marks[${student._id}]"
+                               value="${currentMark}"
+                               min="0"
+                               max="${maxMarks}"
+                               step="0.5"
+                               ${!componentName ? 'disabled' : 'required'}
+                               onchange="validateMarks(this)">
+                    </td>
+                    <td id="status-${student._id}">
+                        ${currentMark ? '<span class="text-success">Saved</span>' : 'Not Entered'}
+                    </td>
+                </tr>
+            `;
+            tableBody.insertAdjacentHTML('beforeend', row);
+        });
+
+        marksForm.style.display = 'block';
+
+    } catch (error) {
+        console.error('Error loading student marks:', error);
+        showError('Error loading student marks: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function loadComponents() {
+    const markingType = document.getElementById('markingType').value;
+    const componentSelect = document.getElementById('componentSelect');
+    const componentDiv = document.getElementById('componentDiv');
+    const marksForm = document.getElementById('marksForm');
+
+    // Reset and hide form when changing components
+    marksForm.style.display = 'none';
+
+    if (!markingType) {
+        componentDiv.style.display = 'none';
+        return;
+    }
+
+    // Get correct components based on subject type
+    const components = currentSubject?.type === 'Theory' ? 
+        currentMarkingScheme?.theoryComponents?.[markingType] : 
+        currentMarkingScheme?.labComponents?.[markingType];
+
+    // Clear previous options
+    componentSelect.innerHTML = '<option value="">Select component...</option>';
+    
+    // Add components if they exist
+    if (components && components.length > 0) {
+        components.forEach(comp => {
+            if (comp.isActive) {
+                componentSelect.innerHTML += `
+                    <option value="${comp.name}" data-max-marks="${comp.maxMarks}">
+                        ${comp.name} (Max: ${comp.maxMarks})
+                    </option>
+                `;
+            }
+        });
+        componentDiv.style.display = 'block';
+    } else {
+        componentDiv.style.display = 'none';
+    }
+
+    // Load marks with just the marking type (no component selected)
+    loadStudentMarks();
+}
+
+function showLoading() {
+    document.getElementById('loadingIndicator').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loadingIndicator').style.display = 'none';
+}
+
+function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').prepend(alertDiv);
+}
+
+document.getElementById('marksForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const inputs = document.querySelectorAll('input[name^="marks["]');
+    let isValid = true;
+    
+    inputs.forEach(input => {
+        if (!validateMarks(input)) {
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        showError('Please check the entered marks');
+        return;
+    }
+
+    const subjectId = document.getElementById('subjectSelect').value;
+    const markingType = document.getElementById('markingType').value;
+    const componentName = document.getElementById('componentSelect').value;
+
+    const marksData = {};
+    inputs.forEach(input => {
+        const studentId = input.name.match(/\[(.*?)\]/)[1];
+        marksData[studentId] = parseFloat(input.value);
+    });
+
+    try {
+        showLoading();
+        const response = await fetch('/faculty/marks/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sectionId: '<%= section._id %>',
+                subjectId,
+                markingType,
+                componentName,
+                marks: marksData
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message);
+        }
+
+        // Update status for all saved marks
+        Object.keys(marksData).forEach(studentId => {
+            const statusCell = document.getElementById(`status-${studentId}`);
+            statusCell.innerHTML = '<span class="text-success">Saved</span>';
+        });
+
+        showError('Marks saved successfully!');
+    } catch (error) {
+        showError('Error saving marks: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+});
+
+// Initialize event listeners
+document.getElementById('componentSelect').addEventListener('change', loadStudentMarks);
+document.getElementById('markingType').addEventListener('change', loadComponents);
+
+function resetForm() {
+    document.getElementById('subjectSelect').value = '';
+    document.getElementById('markingType').value = '';
+    document.getElementById('componentSelect').value = '';
+    document.getElementById('markingTypeDiv').style.display = 'none';
+    document.getElementById('componentDiv').style.display = 'none';
+    document.getElementById('marksForm').style.display = 'none';
+}
+
+async function downloadMarksSheet() {
+    const subjectId = document.getElementById('subjectSelect').value;
+    if (!subjectId) {
+        showError('Please select a subject first');
+        return;
+    }
+
+    try {
+        showLoading();
+        const response = await fetch(`/faculty/sections/<%= section._id %>/marks/${subjectId}/download`, {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download marks sheet');
+        }
+
+        // Create blob from response and download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'marks-sheet.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error) {
+        showError('Error downloading marks sheet: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+</script>

@@ -1,0 +1,56 @@
+<%- layout("../layouts/facultyBoilerplate") -%>
+
+<div class="container mt-4">
+    <!-- Section Information -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h2 class="card-title">Section: <%= section.branch.name %> - <%= section.name %></h2>
+            <p><strong>Room No:</strong> <%= section.room_no %></p>
+            <p><strong>Class Teacher:</strong> <%= section.class_teacher.name %></p>
+            <p><strong>Current Semester:</strong> <%= section.currentSemester ? section.currentSemester.name : 'N/A' %></p>
+            <p><strong>Number of Students:</strong> <%= section.students.length %></p>
+        </div>
+    </div>
+
+    <!-- Students List -->
+    <h3>Students</h3>
+    <ul class="list-group mb-4">
+        <% section.students.forEach(studentObj => { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><%= studentObj.student.name %> (<%= studentObj.student.email %>)</span>
+            </li>
+        <% }) %>
+    </ul>
+
+    <!-- Actions -->
+    <h3>Actions</h3>
+    <div class="btn-group" role="group" aria-label="Actions">
+        <button class="btn btn-primary mt-2" onclick="enterMarks('<%= section._id %>')">Enter Marks</button>
+        <button class="btn btn-secondary mt-2" onclick="markAttendance('<%= section._id %>')">Mark Attendance</button>
+        <button class="btn btn-success mt-2" onclick="shareResources('<%= section._id %>')">Share Resources</button>
+        <button class="btn btn-info mt-2" onclick="downloadReport('<%= section._id %>')">Download Report</button>
+        <button class="btn btn-warning mt-2" onclick="sendAnnouncement('<%= section._id %>')">Send Announcement</button>
+    </div>
+</div>
+
+<script>
+    function enterMarks(sectionId) {
+        window.location.href = `/faculty/sections/${sectionId}/enterMarks`;
+    }
+
+    function markAttendance(sectionId) {
+        window.location.href = `/faculty/attendance?sectionId=${sectionId}`;
+    }
+
+    function shareResources(sectionId) {
+        window.location.href = `/faculty/resources?sectionId=${sectionId}`;
+    }
+
+    function downloadReport(sectionId) {
+        window.location.href = `/faculty/download?sectionId=${sectionId}`;
+    }
+
+    function sendAnnouncement(sectionId) {
+        window.location.href = `/faculty/sections/${sectionId}/announcements`; // Route for announcements
+    }
+</script>

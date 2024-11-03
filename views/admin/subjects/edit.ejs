@@ -1,8 +1,8 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
   <div class="container mt-5">
-    <h1>Edit Subject</h1>
-    <form action="/admin/subjects/<%= subject._id %>?_method=PUT" method="POST">
+    <h1 class="text-center mb-4">Edit Subject</h1>
+    <form action="/admin/subjects/<%= subject._id %>?_method=PUT" method="POST" class="needs-validation" novalidate>
       <div class="row">
         <!-- Subject Type -->
         <div class="form-group col-md-6 mt-3">
@@ -12,12 +12,14 @@
             <option value="Practical" <%= subject.type === 'Practical' ? 'selected' : '' %>>Practical</option>
             <option value="Non-Academic" <%= subject.type === 'Non-Academic' ? 'selected' : '' %>>Non-Academic</option>
           </select>
+          <div class="invalid-feedback">Please select a subject type.</div>
         </div>
 
         <!-- Subject Short Name -->
         <div class="form-group col-md-6 mt-3">
           <label for="name" class="form-label">Subject Short Name:</label>
           <input type="text" name="name" id="name" value="<%= subject.name %>" class="form-control" required>
+          <div class="invalid-feedback">Please enter the subject short name.</div>
         </div>
       </div>
 
@@ -26,6 +28,7 @@
         <div class="form-group col-md-6 mt-3">
           <label for="full_name" class="form-label">Subject Full Name:</label>
           <input type="text" name="full_name" id="full_name" value="<%= subject.full_name %>" class="form-control" required>
+          <div class="invalid-feedback">Please enter the subject full name.</div>
         </div>
 
         <!-- Subject Code -->
@@ -36,16 +39,6 @@
       </div>
 
       <div class="row">
-        <!-- Academic Year -->
-        <div class="form-group col-md-6 mt-3">
-          <label for="academicYear" class="form-label">Academic Year:</label>
-          <select name="academicYear" id="academicYear" class="form-select">
-            <% academicYears.forEach(year => { %>
-              <option value="<%= year._id %>" <%= subject.academicYear && subject.academicYear.equals(year._id) ? 'selected' : '' %>><%= year.name %></option>
-            <% }) %>
-          </select>
-        </div>
-
         <!-- Semester -->
         <div class="form-group col-md-6 mt-3">
           <label for="semester" class="form-label">Semester:</label>
@@ -55,7 +48,18 @@
             <% }) %>
           </select>
         </div>
-      </div>
+
+        <!-- Regulation -->
+        <div class="form-group col-md-6 mt-3">
+          <label for="regulation" class="form-label">Regulation:</label>
+          <select name="regulation" id="regulation" class="form-select" required>
+            <% regulations.forEach(reg => { %>
+              <option value="<%= reg._id %>" <%= subject.regulation && subject.regulation._id.equals(reg._id) ? 'selected' : '' %>><%= reg.regulation %></option>
+            <% }) %>
+          </select>
+          <div class="invalid-feedback">Please select a regulation.</div>
+        </div>
+            </div>
 
       <!-- Credits -->
       <div class="form-group mt-3">
@@ -64,7 +68,26 @@
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" class="btn btn-primary mt-4">Update Subject</button>
+      <button type="submit" class="btn btn-primary mt-4 w-100">Update Subject</button>
     </form>
   </div>
+
+  <script>
+    // Bootstrap form validation
+    (function() {
+      'use strict';
+      window.addEventListener('load', function() {
+        const forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+          form.addEventListener('submit', function(event) {
+            if (form.checkValidity() === false) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      }, false);
+    })();
+  </script>
 </body>

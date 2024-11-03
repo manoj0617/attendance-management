@@ -3,12 +3,20 @@
   <div class="container mt-5">
     <h1 class="mb-4 text-center">Subjects</h1>
 
-    <!-- Search Form -->
+    <!-- Search and Filter Form -->
     <form action="/admin/subjects" method="GET" class="row g-3 mb-4">
-      <div class="col-md-9">
+      <div class="col-md-8">
         <input type="text" name="search" class="form-control" placeholder="Search by subject name or code" value="<%= searchTerm %>">
       </div>
-      <div class="col-md-3 text-end">
+      <div class="col-md-3">
+        <select name="semester" class="form-select" aria-label="Filter by Semester">
+          <option value="">All Semesters</option>
+          <% semesters.forEach(sem => { %>
+            <option value="<%= sem._id %>" <%= selectedSemester == sem._id ? 'selected' : '' %>><%= sem.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-1 text-end">
         <button type="submit" class="btn btn-primary w-100">Search</button>
       </div>
     </form>
@@ -49,12 +57,17 @@
       <ul class="pagination justify-content-center">
         <% if (hasPreviousPage) { %>
           <li class="page-item">
-            <a class="page-link" href="?page=<%= previousPage %>&search=<%= searchTerm %>">Previous</a>
+            <a class="page-link" href="?page=<%= previousPage %>&search=<%= searchTerm %>&semester=<%= selectedSemester %>">Previous</a>
+          </li>
+        <% } %>
+        <% for (let i = 1; i <= lastPage; i++) { %>
+          <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+            <a class="page-link" href="?page=<%= i %>&search=<%= searchTerm %>&semester=<%= selectedSemester %>"><%= i %></a>
           </li>
         <% } %>
         <% if (hasNextPage) { %>
           <li class="page-item">
-            <a class="page-link" href="?page=<%= nextPage %>&search=<%= searchTerm %>">Next</a>
+            <a class="page-link" href="?page=<%= nextPage %>&search=<%= searchTerm %>&semester=<%= selectedSemester %>">Next</a>
           </li>
         <% } %>
       </ul>
@@ -73,11 +86,19 @@
       background-color: #f8f9fa;
     }
     .page-item .page-link {
-      color: #007bff;
+      color: #007bff; /* Ensure pagination numbers are visible */
     }
     .page-item .page-link:hover {
-      background-color: #e9ecef;
-      color: #007bff;
+      color: #0056b3; /* Darker blue on hover for visibility */
+      text-decoration: none;
+    }
+    .page-item.active .page-link {
+      background-color: #007bff; /* Highlight active page */
+      border-color: #007bff;
+      color: #fff;
+    }
+    .pagination {
+      margin-top: 20px;
     }
   </style>
 </body>

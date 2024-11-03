@@ -8,23 +8,23 @@ const sectionSchema = new Schema({
     },
     year: {
         type: Schema.Types.ObjectId,
-        ref: 'AcademicYear',  // Reference to academic year model
+        ref: 'AcademicYear',
         required: true
     },
     currentSemester: {
         type: Schema.Types.ObjectId,
-        ref: 'Semester', // Reference the current semester
+        ref: 'Semester',
     },
     branch: {
         type: Schema.Types.ObjectId,
         ref: 'Branch',
         required: true
     },
-    class_teacher:{
+    class_teacher: {
         type: Schema.Types.ObjectId,
         ref: 'Faculty',
     },
-    room_no:{
+    room_no: {
         type: String,
     },
     students: [
@@ -34,12 +34,29 @@ const sectionSchema = new Schema({
                 ref: "Student",
                 required: true
             },
-            batch: 
-                {
-                    type: Schema.Types.ObjectId,
-                    ref: "Batch"
-                }
-            
+            batch: {
+                type: Schema.Types.ObjectId,
+                ref: "Batch"
+            }
+        }
+    ],
+    facultySubjects: [
+        {
+            faculty: {
+                type: Schema.Types.ObjectId,
+                ref: 'Faculty',
+                required: true
+            },
+            subject: {
+                type: Schema.Types.ObjectId,
+                ref: 'Subject',
+                required: true
+            },
+            semester: {
+                type: Schema.Types.ObjectId,
+                ref: 'Semester',
+                required: true
+            }
         }
     ]
 }, { timestamps: true });

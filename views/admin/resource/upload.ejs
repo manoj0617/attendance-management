@@ -1,114 +1,930 @@
-<% layout("../layouts/adminBoilerplate") -%>
+<%layout("../layouts/adminBoilerplate") -%>
 <body>
   <div class="container mt-5">
-    <h2>Share Resource</h2>
-    <form action="/admin/resources/upload" method="POST" enctype="multipart/form-data">
-      <div class="form-group">
-        <label for="title">Title</label>
-        <input type="text" class="form-control" name="title" id="title" required>
+    <div class="card shadow">
+      <div class="card-header bg-primary text-white">
+        <h2 class="card-title">Share Resource</h2>
       </div>
-
-      <div class="form-group">
-        <label for="description">Description</label>
-        <textarea class="form-control" name="description" id="description"></textarea>
+      <div class="card-body">
+        <!-- Debug info section -->
+        <div id="debugInfo" class="alert alert-info mb-3 d-none">
+          <pre id="debugText" class="mb-0"></pre>
+        </div>
+        
+        <!-- Error alert -->
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+        
+        <form id="resourceForm" action="/admin/save-resource" method="POST">
+          <!-- Resource Details Section -->
+          <div class="mb-4">
+            <h4 class="mb-3">Resource Details</h4>
+            
+            <div class="mb-3">
+              <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="description" class="form-label">Description</label>
+              <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+          </div>
+          
+          <!-- File Selection Section -->
+          <div class="mb-4">
+            <h4 class="mb-3">File Selection</h4>
+            
+            <div class="form-group">
+              <label for="filePicker" class="form-label">Select File from Google Drive <span class="text-danger">*</span></label>
+              <div class="d-flex align-items-center">
+                <button type="button" id="pickerButton" class="btn btn-secondary" disabled>
+                  <span id="pickerButtonText">Select File</span>
+                  <span id="pickerSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                </button>
+                <span id="selectedFileName" class="ms-3 text-success"></span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Access Permissions Section -->
+          <div class="mb-4">
+            <h4 class="mb-3">Access Permissions</h4>
+            
+            <div id="permissionsContainer">
+              <!-- Template for permission set -->
+              <div class="permission-set border rounded p-3 mb-3">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Academic Year <span class="text-danger">*</span></label>
+                    <select class="form-select" id="year" name="year">
+                      <option value="">All Years</option>
+                      <% academicYears.forEach(year => { %>
+                        <option value="<%= year._id %>"><%= year.name %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                  
+                  <div class="col-md-4">
+                    <label class="form-label">Branch <span class="text-danger">*</span></label>
+                    <select class="form-select branch-select" name="sharedWith[0][branch]" required>
+                      <option value="">Select Branch</option>
+                    </select>
+                  </div>
+                  
+                  <div class="col-md-3">
+                    <label class="form-label">Section <span class="text-danger">*</span></label>
+                    <select class="form-select section-select" name="sharedWith[0][section]" required>
+                      <option value="">Select Section</option>
+                    </select>
+                  </div>
+                  
+                  <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger remove-permission">×</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button type="button" id="addPermissionBtn" class="btn btn-outline-primary">
+              <i class="bi bi-plus-circle me-2"></i>Add More Permissions
+            </button>
+          </div>
+  
+          <!-- Hidden inputs for file data -->
+          <input type="hidden" id="fileId" name="fileId">
+          <input type="hidden" id="fileLink" name="fileLink">
+          <input type="hidden" id="fileName" name="fileName">
+  
+          <!-- Submit Button -->
+          <div class="text-end">
+            <button type="submit" id="saveButton" class="btn btn-primary" disabled>Save Resource</button>
+          </div>
+        </form>
       </div>
-
-      <div class="form-row">
-        <div class="form-group col-md-3">
-          <label for="year">Select Academic Year</label>
-          <select class="form-control" id="year" name="year" required>
-            <option value="">Select Year</option>
-            <% academicYears.forEach(year => { %>
-              <option value="<%= year._id %>"><%= year.name %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="form-group col-md-3">
-          <label for="branch">Select Branch</label>
-          <select class="form-control" id="branch" name="branch" disabled required>
-            <option value="">Select Branch</option>
-          </select>
-        </div>
-
-        <div class="form-group col-md-3">
-          <label for="semester">Semester</label>
-          <select id="semester" name="semester" class="form-control" disabled required>
-            <option value="" disabled selected>Select Semester</option>
-          </select>
-        </div>
-
-        <div class="form-group col-md-3">
-          <label for="section">Select Section</label>
-          <select class="form-control" id="section" name="section" disabled required>
-            <option value="">Select Section</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="file">Select File</label>
-        <input type="file" class="form-control-file" name="file" id="file" required>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Share Resource</button>
-    </form>
+    </div>
   </div>
 
+  <!-- Load required Google APIs -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
   <script>
-    document.getElementById('year').addEventListener('change', function() {
-      const year = this.value;
-      fetch(`/admin/branch?year=${year}`)
-        .then(response => response.json())
-        .then(branches => {
-          const branchSelect = document.getElementById('branch');
-          branchSelect.innerHTML = '<option value="" disabled selected>Select Branch</option>';
-          branches.forEach(branch => {
-            const option = document.createElement('option');
-            option.value = branch._id;
-            option.textContent = branch.name;
-            branchSelect.appendChild(option);
-          });
-          branchSelect.disabled = false;
+  // DOM Elements
+const elements = {
+  pickerButton: document.getElementById('pickerButton'),
+  pickerButtonText: document.getElementById('pickerButtonText'),
+  pickerSpinner: document.getElementById('pickerSpinner'),
+  selectedFileName: document.getElementById('selectedFileName'),
+  errorAlert: document.getElementById('errorAlert'),
+  successAlert: document.getElementById('successAlert'),
+  debugInfo: document.getElementById('debugInfo'),
+  debugText: document.getElementById('debugText'),
+  saveButton: document.getElementById('saveButton'),
+  fileId: document.getElementById('fileId'),
+  fileLink: document.getElementById('fileLink'),
+  fileName: document.getElementById('fileName'),
+  permissionsContainer: document.getElementById('permissionsContainer'),
+  addPermissionBtn: document.getElementById('addPermissionBtn'),
+  resourceForm: document.getElementById('resourceForm')
+};
+
+// Google API Configuration
+const API_KEY = '<%= process.env.GOOGLE_DEVELOPER_KEY %>';
+const CLIENT_ID = '<%= process.env.CLIENT_ID %>';
+const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
+
+let pickerApiLoaded = false;
+let tokenClient;
+let accessToken = null;
+
+// Form Data Cache
+let formDataCache = {
+  years: window.academicYears || [],
+  branches: {},
+  sections: {}
+};
+
+// Debug logging
+function debug(message, object = null) {
+  const timestamp = new Date().toISOString();
+  let debugMessage = `[${timestamp}] ${message}`;
+  if (object) {
+    debugMessage += '\n' + JSON.stringify(object, null, 2);
+  }
+  elements.debugText.textContent += debugMessage + '\n';
+  elements.debugInfo.classList.remove('d-none');
+  console.log(debugMessage, object);
+}
+
+// Error handling
+function showError(message, isRetryable = false) {
+  const errorMessage = isRetryable ? 
+    `${message} Please try again or refresh the page.` : 
+    message;
+  
+  if (elements.errorAlert) {
+    elements.errorAlert.textContent = errorMessage;
+    elements.errorAlert.classList.remove('d-none');
+    
+    // Hide success alert if it exists
+    if (elements.successAlert) {
+      elements.successAlert.classList.add('d-none');
+    }
+  }
+  debug('Error: ' + errorMessage);
+}
+
+// Success message handling
+function showSuccess(message) {
+  if (elements.successAlert) {
+    elements.successAlert.textContent = message;
+    elements.successAlert.classList.remove('d-none');
+    
+    // Hide error alert
+    if (elements.errorAlert) {
+      elements.errorAlert.classList.add('d-none');
+    }
+  }
+  debug('Success: ' + message);
+}
+
+// Loading state management
+function setLoading(isLoading) {
+  if (elements.pickerButton) {
+    elements.pickerButton.disabled = isLoading;
+    elements.pickerSpinner.classList.toggle('d-none', !isLoading);
+    elements.pickerButtonText.textContent = isLoading ? 'Loading...' : 'Select File';
+  }
+}
+
+// Google API Configuration Validation
+function validateConfig() {
+  debug('Starting configuration validation');
+
+  if (!API_KEY || API_KEY === 'undefined' || API_KEY.trim() === '') {
+    throw new Error('Google API Key is missing or invalid');
+  }
+
+  if (!CLIENT_ID || CLIENT_ID === 'undefined' || CLIENT_ID.trim() === '') {
+    throw new Error('Google Client ID is missing or invalid');
+  }
+
+  debug('Configuration validated successfully');
+}
+
+// Initialize the Google Picker API with improved error handling
+async function initializeGooglePicker() {
+  try {
+    validateConfig();
+
+    // Load the Google Picker API with timeout and error handling
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout loading Picker API'));
+      }, 10000);
+
+      gapi.load('picker', {
+        callback: () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+        onerror: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        }
+      });
+    });
+    
+    // Initialize token client with retry logic
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES.join(' '),
+          callback: (tokenResponse) => {
+            if (tokenResponse.error !== undefined) {
+              debug('Token error:', tokenResponse.error);
+              if (tokenResponse.error === 'popup_closed_by_user') {
+                showError('Authentication cancelled. Please try again.');
+              } else {
+                showError(`Authorization error: ${tokenResponse.error}`, true);
+              }
+              return;
+            }
+            accessToken = tokenResponse.access_token;
+            debug('Token obtained successfully');
+          }
         });
+        break;
+      } catch (error) {
+        retryCount++;
+        if (retryCount === maxRetries) {
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+
+    pickerApiLoaded = true;
+    if (elements.pickerButton) {
+      elements.pickerButton.disabled = false;
+    }
+    debug('Picker API initialized successfully');
+    
+  } catch (error) {
+    showError(`Failed to initialize Google Picker: ${error.message}`, true);
+    debug('Initialization error:', error);
+  }
+}
+const pickerErrorConfig = {
+  // Known non-critical errors that should be silently logged
+  ignoredErrors: [
+    {
+      endpoint: 'logImpressions',
+      codes: [400, 404]
+    }
+  ],
+  
+  // Error handler for picker iframe
+  handlePickerError: (event, debugFn) => {
+    // Extract error details
+    const errorDetails = {
+      source: event.target?.src || 'unknown',
+      message: event.message || 'No error message',
+      type: event.type,
+      timestamp: new Date().toISOString()
+    };
+
+    // Check if error is from ignored endpoints
+    const isIgnoredError = pickerErrorConfig.ignoredErrors.some(ignored => 
+      errorDetails.source.includes(ignored.endpoint) && 
+      (ignored.codes ? ignored.codes.includes(event.status) : true)
+    );
+
+    // Only log ignored errors if debug mode is enabled
+    if (isIgnoredError) {
+      debugFn?.('Non-critical Picker error:', errorDetails);
+      return;
+    }
+
+    // Handle critical errors
+    debugFn?.('Critical Picker error:', errorDetails);
+    return errorDetails;
+  },
+
+  // Setup error listeners for picker iframe
+  setupPickerErrorListeners: (picker, debugFn, errorHandler) => {
+    // Wait for iframe to be created
+    setTimeout(() => {
+      const pickerFrame = document.querySelector('iframe[src*="docs.google.com/picker"]');
+      if (pickerFrame) {
+        pickerFrame.addEventListener('error', (event) => {
+          const errorDetails = pickerErrorConfig.handlePickerError(event, debugFn);
+          if (errorDetails) {
+            errorHandler?.(`Error loading file picker: ${errorDetails.message}`);
+          }
+        });
+        
+        // Add load event listener to verify iframe loaded correctly
+        pickerFrame.addEventListener('load', () => {
+          debugFn?.('Picker iframe loaded successfully');
+        });
+      } else {
+        debugFn?.('Picker iframe not found');
+      }
+    }, 100);
+  }
+};
+
+// Modified showPicker function with enhanced error handling
+async function showPicker() {
+  try {
+    setLoading(true);
+    
+    if (!accessToken) {
+      await new Promise((resolve, reject) => {
+        tokenClient.callback = (response) => {
+          if (response.error !== undefined) {
+            reject(new Error(response.error));
+          } else {
+            accessToken = response.access_token;
+            resolve();
+          }
+        };
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      });
+    }
+
+    const picker = new google.picker.PickerBuilder()
+      .addView(new google.picker.DocsView()
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(false)
+        .setMimeTypes('application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation')
+      )
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(API_KEY)
+      .setCallback((data) => {
+        try {
+          pickerCallback(data);
+        } catch (error) {
+          const errorDetails = pickerErrorConfig.handlePickerError(error, debug);
+          if (errorDetails) {
+            showError('Error processing file selection');
+          }
+        }
+      })
+      .setOrigin(window.location.protocol + '//' + window.location.host)
+      .setSize(800, 600)
+      .setTitle('Select a file')
+      .build();
+      
+    picker.setVisible(true);
+    
+    // Setup error listeners with enhanced handling
+    pickerErrorConfig.setupPickerErrorListeners(picker, debug, showError);
+    
+    setLoading(false);
+    
+  } catch (error) {
+    setLoading(false);
+    const errorDetails = pickerErrorConfig.handlePickerError(error, debug);
+    if (errorDetails) {
+      showError(`Error showing file picker: ${errorDetails.message}`, true);
+    }
+  }
+}
+
+// Update global error handler to use enhanced error handling
+window.addEventListener('error', (event) => {
+  const errorDetails = pickerErrorConfig.handlePickerError(event, debug);
+  if (errorDetails) {
+    showError('An unexpected error occurred. Please try again.', true);
+  }
+});
+// Modified picker callback with additional error handling
+function pickerCallback(data) {
+  if (data.action === google.picker.Action.PICKED) {
+    try {
+      const file = data.docs[0];
+      
+      if (!file || !file.id) {
+        throw new Error('Invalid file selection');
+      }
+      
+      // Validate file type
+      const allowedMimeTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ];
+
+      if (!allowedMimeTypes.includes(file.mimeType)) {
+        throw new Error('Please select a document file (PDF, Word, Excel, or PowerPoint)');
+      }
+      
+      elements.fileId.value = file.id;
+      elements.fileLink.value = file.url || `https://drive.google.com/file/d/${file.id}/view`;
+      elements.fileName.value = file.name;
+      elements.selectedFileName.textContent = `Selected: ${file.name}`;
+      elements.saveButton.disabled = false;
+      
+      debug('File selected successfully', {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType
+      });
+      
+    } catch (error) {
+      showError(error.message, true);
+      debug('File processing error:', error);
+    }
+  } else if (data.action === google.picker.Action.CANCEL) {
+    debug('File selection cancelled by user');
+  }
+}
+// Form Data Management
+async function fetchFormData() {
+  try {
+    const [yearsResponse, branchesResponse, sectionsResponse] = await Promise.all([
+      fetch('/admin/academic-years'),
+      fetch('/admin/branch'),
+      fetch('/admin/sections')
+    ]);
+    
+    if (!yearsResponse.ok || !branchesResponse.ok || !sectionsResponse.ok) {
+      throw new Error('Failed to fetch form data');
+    }
+    
+    formDataCache.years = await yearsResponse.json();
+    const branches = await branchesResponse.json();
+    const sections = await sectionsResponse.json();
+    
+    // Initialize caches
+    formDataCache.branches = branches.reduce((acc, branch) => {
+      if (!acc[branch.year]) acc[branch.year] = [];
+      acc[branch.year].push(branch);
+      return acc;
+    }, {});
+    
+    formDataCache.sections = sections.reduce((acc, section) => {
+      if (!acc[section.branch]) acc[section.branch] = [];
+      acc[section.branch].push(section);
+      return acc;
+    }, {});
+    
+    return formDataCache;
+  } catch (error) {
+    showError('Failed to load form data: ' + error.message);
+    throw error;
+  }
+}
+// Form Data Management with Dynamic Loading
+const formDataManager = {
+  cache: {
+    years: [],
+    branches: {},
+    sections: {}
+  },
+
+  // Fetch academic years
+  async fetchYears() {
+    try {
+      const response = await fetch('/admin/academic-years');
+      if (!response.ok) throw new Error('Failed to fetch academic years');
+      this.cache.years = await response.json();
+      return this.cache.years;
+    } catch (error) {
+      debug('Error fetching years:', error);
+      throw error;
+    }
+  },
+
+  // Fetch branches for a specific year
+  async fetchBranches(yearId) {
+    try {
+      if (!yearId) throw new Error('Year ID is required');
+      
+      // Check cache first
+      if (this.cache.branches[yearId]) {
+        return this.cache.branches[yearId];
+      }
+
+      const response = await fetch(`/admin/branch?year=${yearId}`);
+      if (!response.ok) throw new Error('Failed to fetch branches');
+      
+      const branches = await response.json();
+      this.cache.branches[yearId] = branches;
+      return branches;
+    } catch (error) {
+      debug('Error fetching branches:', error);
+      throw error;
+    }
+  },
+
+  // Fetch sections for a specific branch
+  async fetchSections(branchId) {
+    try {
+      if (!branchId) throw new Error('Branch ID is required');
+      
+      // Check cache first
+      if (this.cache.sections[branchId]) {
+        return this.cache.sections[branchId];
+      }
+
+      const response = await fetch(`/admin/sections?branch=${branchId}`);
+      if (!response.ok) throw new Error('Failed to fetch sections');
+      
+      const sections = await response.json();
+      this.cache.sections[branchId] = sections;
+      return sections;
+    } catch (error) {
+      debug('Error fetching sections:', error);
+      throw error;
+    }
+  }
+};
+
+// Initialize permission sets with enhanced dropdown handling
+function initializePermissionSets() {
+  // Clear existing permission sets
+  elements.permissionsContainer.innerHTML = '';
+  
+  // Add initial permission set
+  addPermissionSet(0);
+  
+  // Add button handler
+  elements.addPermissionBtn.addEventListener('click', () => {
+    const currentCount = elements.permissionsContainer.querySelectorAll('.permission-set').length;
+    addPermissionSet(currentCount);
+  });
+}
+
+// Add Permission Set with enhanced cascade logic
+function addPermissionSet(index) {
+  const permissionSet = document.createElement('div');
+  permissionSet.className = 'permission-set border rounded p-3 mb-3';
+  
+  permissionSet.innerHTML = `
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Academic Year <span class="text-danger">*</span></label>
+        <select class="form-select year-select" name="sharedWith[${index}][year]" required>
+          <option value="">Select Year</option>
+          ${formDataManager.cache.years.map(year => 
+            `<option value="${year._id}">${year.name}</option>`
+          ).join('')}
+        </select>
+      </div>
+      
+      <div class="col-md-4">
+        <label class="form-label">Branch <span class="text-danger">*</span></label>
+        <select class="form-select branch-select" name="sharedWith[${index}][branch]" required disabled>
+          <option value="">Select Branch</option>
+        </select>
+        <div class="spinner-border spinner-border-sm d-none branch-loader" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <label class="form-label">Section <span class="text-danger">*</span></label>
+        <select class="form-select section-select" name="sharedWith[${index}][section]" required disabled>
+          <option value="">Select Section</option>
+        </select>
+        <div class="spinner-border spinner-border-sm d-none section-loader" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+      
+      <div class="col-md-1 d-flex align-items-end">
+        <button type="button" class="btn btn-danger remove-permission">×</button>
+      </div>
+    </div>
+  `;
+
+  setupPermissionSetHandlers(permissionSet);
+  elements.permissionsContainer.appendChild(permissionSet);
+  updatePermissionIndexes();
+}
+
+// Setup Permission Set Event Handlers with loading states
+async function setupPermissionSetHandlers(permissionSet) {
+  const yearSelect = permissionSet.querySelector('.year-select');
+  const branchSelect = permissionSet.querySelector('.branch-select');
+  const sectionSelect = permissionSet.querySelector('.section-select');
+  const removeButton = permissionSet.querySelector('.remove-permission');
+  const branchLoader = permissionSet.querySelector('.branch-loader');
+  const sectionLoader = permissionSet.querySelector('.section-loader');
+
+  yearSelect.addEventListener('change', async () => {
+    try {
+      const yearId = yearSelect.value;
+      
+      // Reset branch and section selects
+      branchSelect.disabled = !yearId;
+      branchSelect.innerHTML = '<option value="">Select Branch</option>';
+      sectionSelect.disabled = true;
+      sectionSelect.innerHTML = '<option value="">Select Section</option>';
+      
+      if (!yearId) return;
+
+      // Show branch loader
+      branchLoader.classList.remove('d-none');
+      branchSelect.disabled = true;
+
+      // Fetch and populate branches
+      const branches = await formDataManager.fetchBranches(yearId);
+      populateSelect(branchSelect, branches);
+      
+      // Enable branch select
+      branchSelect.disabled = false;
+    } catch (error) {
+      showError('Failed to load branches: ' + error.message);
+      debug('Branch loading error:', error);
+    } finally {
+      branchLoader.classList.add('d-none');
+    }
+  });
+
+  branchSelect.addEventListener('change', async () => {
+    try {
+      const branchId = branchSelect.value;
+      
+      // Reset section select
+      sectionSelect.disabled = !branchId;
+      sectionSelect.innerHTML = '<option value="">Select Section</option>';
+      
+      if (!branchId) return;
+
+      // Show section loader
+      sectionLoader.classList.remove('d-none');
+      sectionSelect.disabled = true;
+
+      // Fetch and populate sections
+      const sections = await formDataManager.fetchSections(branchId);
+      populateSelect(sectionSelect, sections);
+      
+      // Enable section select
+      sectionSelect.disabled = false;
+    } catch (error) {
+      showError('Failed to load sections: ' + error.message);
+      debug('Section loading error:', error);
+    } finally {
+      sectionLoader.classList.add('d-none');
+    }
+  });
+
+  removeButton.addEventListener('click', () => {
+    permissionSet.remove();
+    updatePermissionIndexes();
+  });
+}
+
+// Initialize form data with enhanced error handling
+async function initializeFormData() {
+  try {
+    debug('Fetching initial form data...');
+    await formDataManager.fetchYears();
+    debug('Initial form data loaded successfully');
+    
+    // Initialize permission sets after years are loaded
+    initializePermissionSets();
+  } catch (error) {
+    showError('Failed to initialize form: ' + error.message);
+    debug('Form initialization error:', error);
+  }
+}
+
+// Update window.load event handler to use new initialization
+window.addEventListener('load', async () => {
+  try {
+    debug('Starting application initialization');
+    
+    // Initialize Google APIs
+    await initializeGooglePicker();
+    
+    // Setup Google Picker button
+    if (elements.pickerButton) {
+      elements.pickerButton.addEventListener('click', showPicker);
+      debug('Picker button handler initialized');
+    }
+    
+    // Initialize form data with new manager
+    await initializeFormData();
+    debug('Form data initialized successfully');
+    
+    // Setup form submission handler
+    if (elements.resourceForm) {
+      elements.resourceForm.addEventListener('submit', handleFormSubmit);
+      debug('Form submission handler initialized');
+    }
+    
+    // Enable save button if file is already selected
+    if (elements.fileId && elements.fileId.value) {
+      elements.saveButton.disabled = false;
+      debug('Save button enabled - file already selected');
+    }
+    
+    debug('Application initialized successfully');
+    
+  } catch (error) {
+    showError('Failed to initialize application. Please refresh the page.', true);
+    debug('Critical initialization error:', error);
+    
+    // Disable interactive elements
+    if (elements.pickerButton) elements.pickerButton.disabled = true;
+    if (elements.saveButton) elements.saveButton.disabled = true;
+    if (elements.addPermissionBtn) elements.addPermissionBtn.disabled = true;
+  }
+});
+// Populate Select Elements
+function populateSelect(select, options) {
+  select.innerHTML = '<option value="">Select option</option>';
+  options.forEach(option => {
+    const optElement = document.createElement('option');
+    optElement.value = option._id;
+    optElement.textContent = option.name;
+    select.appendChild(optElement);
+  });
+}
+
+// Update permission set indexes
+function updatePermissionIndexes() {
+  const permissionSets = elements.permissionsContainer.querySelectorAll('.permission-set');
+  permissionSets.forEach((set, index) => {
+    set.querySelectorAll('select').forEach(select => {
+      const name = select.getAttribute('name');
+      const newName = name.replace(/\[\d+\]/, `[${index}]`);
+      select.setAttribute('name', newName);
+    });
+  });
+}
+
+// Form submission handler
+async function handleFormSubmit(event) {
+  event.preventDefault();
+  
+  try {
+    const submitButton = elements.saveButton;
+    submitButton.disabled = true;
+    submitButton.innerHTML = `
+      <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+      Saving...
+    `;
+
+    const formData = new FormData(event.target);
+    const data = {
+      title: formData.get('title'),
+      description: formData.get('description'),
+      fileId: formData.get('fileId'),
+      fileLink: formData.get('fileLink'),
+      fileName: formData.get('fileName'),
+      sharedWith: []
+    };
+
+    // Get permission sets
+    const permissionSets = elements.permissionsContainer.querySelectorAll('.permission-set');
+    
+    if (permissionSets.length === 0) {
+      throw new Error('Please add at least one permission set');
+    }
+
+    permissionSets.forEach((set, index) => {
+      const yearSelect = set.querySelector('.year-select');
+      const branchSelect = set.querySelector('.branch-select');
+      const sectionSelect = set.querySelector('.section-select');
+
+      if (yearSelect && branchSelect && sectionSelect) {
+        if (!yearSelect.value || !branchSelect.value || !sectionSelect.value) {
+          throw new Error(`Please complete all fields in permission set ${index + 1}`);
+        }
+
+        data.sharedWith.push({
+          year: yearSelect.value,
+          branch: branchSelect.value,
+          section: sectionSelect.value
+        });
+      }
     });
 
-    document.getElementById('branch').addEventListener('change', function() {
-      fetch(`/admin/semester`)
-        .then(response => response.json())
-        .then(semesters => {
-          const semesterSelect = document.getElementById('semester');
-          semesterSelect.innerHTML = '<option value="" disabled selected>Select Semester</option>';
-          semesters.forEach(semester => {
-            const option = document.createElement('option');
-            option.value = semester._id;
-            option.textContent = semester.name;
-            semesterSelect.appendChild(option);
-          });
-          semesterSelect.disabled = false;
-        });
+    // Validate form data
+    if (!data.title?.trim()) {
+      throw new Error('Please enter a title for the resource');
+    }
+
+    if (!data.fileId || !data.fileLink || !data.fileName) {
+      throw new Error('Please select a file from Google Drive');
+    }
+
+    debug('Submitting form data:', data);
+
+    const response = await fetch('/admin/save-resource', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
     });
 
-    document.getElementById('semester').addEventListener('change', function() {
-      const semester = this.value;
-      const branch = document.getElementById('branch').value;
-      fetch(`/admin/sections?branch=${branch}&semester=${semester}`)
-        .then(response => response.json())
-        .then(sections => {
-          const sectionSelect = document.getElementById('section');
-          sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
-          sections.forEach(section => {
-            const option = document.createElement('option');
-            option.value = section._id;
-            option.textContent = section.name;
-            sectionSelect.appendChild(option);
-          });
-          sectionSelect.disabled = false;
-        })
-        .catch(error => {
-          console.error('Error fetching sections:', error);
-          alert('An error occurred while fetching sections.');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to save resource');
+    }
+
+    await response.json();
+    showSuccess('Resource saved successfully!');
+    
+    setTimeout(() => {
+      window.location.href = '/admin/resources';
+    }, 1500);
+
+  } catch (error) {
+    showError(error.message);
+    debug('Form submission error:', error);
+  } finally {
+    const submitButton = elements.saveButton;
+    submitButton.disabled = false;
+    submitButton.innerHTML = 'Save Resource';
+  }
+}
+window.addEventListener('load', async () => {
+  try {
+    debug('Starting application initialization');
+    
+    // Initialize Google APIs
+    await initializeGooglePicker();
+    
+    // Setup Google Picker button
+    if (elements.pickerButton) {
+      elements.pickerButton.addEventListener('click', showPicker);
+      debug('Picker button handler initialized');
+    }
+    
+    // Initialize form data
+    await fetchFormData();
+    debug('Form data fetched successfully');
+    
+    // Initialize permission sets
+    if (elements.permissionsContainer) {
+      initializePermissionSets();
+      debug('Permission sets initialized');
+      
+      // Add permission button handler
+      if (elements.addPermissionBtn) {
+        elements.addPermissionBtn.addEventListener('click', () => {
+          const currentCount = elements.permissionsContainer.querySelectorAll('.permission-set').length;
+          addPermissionSet(currentCount);
+          debug(`Added new permission set. Total sets: ${currentCount + 1}`);
         });
+      }
+    }
+    
+    // Setup form submission handler
+    if (elements.resourceForm) {
+      elements.resourceForm.addEventListener('submit', handleFormSubmit);
+      debug('Form submission handler initialized');
+    }
+    
+    // Enable save button if file is already selected
+    if (elements.fileId && elements.fileId.value) {
+      elements.saveButton.disabled = false;
+      debug('Save button enabled - file already selected');
+    }
+    
+    // Initialize error handling
+    window.addEventListener('error', (event) => {
+      debug('Global error caught:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+      showError('An unexpected error occurred. Please try again.', true);
     });
-  </script>
+
+    window.addEventListener('unhandledrejection', (event) => {
+      debug('Unhandled promise rejection:', event.reason);
+      showError('An unexpected error occurred. Please try again.', true);
+    });
+    
+    debug('Application initialized successfully');
+    
+  } catch (error) {
+    showError('Failed to initialize application. Please refresh the page.', true);
+    debug('Critical initialization error:', error);
+    
+    // Disable interactive elements
+    if (elements.pickerButton) elements.pickerButton.disabled = true;
+    if (elements.saveButton) elements.saveButton.disabled = true;
+    if (elements.addPermissionBtn) elements.addPermissionBtn.disabled = true;
+  }
+});
+</script>
 </body>

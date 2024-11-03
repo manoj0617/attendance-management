@@ -28,6 +28,8 @@ const dbUrl = process.env.ATLASDB_URL;
 const studentRouter = require('./routes/student.js');
 const facultyRouter = require('./routes/faculty.js');
 const adminRouter = require('./routes/admin.js');
+//require scheduler.js
+const scheduler = require('./public/js/scheduler.js');
 
 // Configure views and static files
 app.set("views", path.join(__dirname, "views"));

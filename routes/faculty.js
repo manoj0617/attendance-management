@@ -9,6 +9,7 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const Resource = require('../models/Resource');
 const exceljs = require('exceljs');
+const Marks = require('../models/studentMarks'); // Adjust the path as necessary
 const { PDFDocument, rgb,StandardFonts } = require('pdf-lib');
 const facultyController = require("../controllers/faculty.js");
 const Student = require('../models/student');
@@ -25,6 +26,13 @@ const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const { google } = require('googleapis');
 const { OAuth2 } = google.auth;
+const {xlsx} = require('xlsx');
+const { 
+    getMarkingScheme, 
+    getSectionMarks, 
+    saveMarks,
+    downloadMarksSheet
+} = require("../controllers/marks.js");
 
 // OAuth2 client setup
 const oauth2Client = new OAuth2(
@@ -391,14 +399,28 @@ router.get("/dashboard", isFacultyLoggedIn, wrapAsync(facultyController.facultyD
 
 // Attendance routes
 router.route("/attendance")
-    .get(isFacultyLoggedIn, wrapAsync(facultyController.renderAttendanceForm));
+    .get(isFacultyLoggedIn, wrapAsync(async (req, res) => {
+        const { sectionId } = req.query;
+        if (!sectionId) {
+            req.flash('error', 'Section ID is required.');
+            return res.redirect('/faculty/dashboard');
+        }
+        await facultyController.renderAttendanceForm(req, res);
+    }));
 
 router.route("/markAttendance")
     .post(isFacultyLoggedIn, wrapAsync(facultyController.markAttendance));
 
 // Download routes
 router.route("/download")
-    .get(isFacultyLoggedIn, wrapAsync(facultyController.renderDownloadForm))
+    .get(isFacultyLoggedIn, wrapAsync(async (req, res) => {
+        const { sectionId } = req.query;
+        if (!sectionId) {
+            req.flash('error', 'Section ID is required.');
+            return res.redirect('/faculty/dashboard');
+        }
+        await facultyController.renderDownloadForm(req, res);
+    }))
     .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download));
 
 // Your existing function to generate the PDF report
@@ -701,9 +723,10 @@ router.get('/getAttendanceData', async (req, res) => {
   
 // Faculty view for uploading resources
 router.get('/resources', isFacultyLoggedIn, async (req, res) => {
-    const sections = await Section.find({ faculty: req.user._id });  // Fetch sections the faculty teaches
-    res.render('faculty/resource/resources', { sections });
-  });
+    const { sectionId } = req.query;
+    const section = await Section.findById(sectionId).populate('year branch class_teacher');
+    res.render('faculty/resource/resources', { section });
+});
   
   // Faculty uploads a resource
   router.post('/resources/upload', isFacultyLoggedIn, async (req, res) => {
@@ -728,4 +751,88 @@ router.get('/resources', isFacultyLoggedIn, async (req, res) => {
       res.redirect('/faculty/resources');
     }
   });
+
+router.get('/section', async (req, res) => {
+    try {
+        const sections = await Section.find({}).populate('year branch class_teacher');
+        const academicYears = await AcademicYear.find({});
+        res.render('faculty/section/section.ejs', { sections, academicYears });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
+router.post('/sections/getSections', async (req, res) => {
+    const { yearId } = req.body;
+    console.log('Received yearId:', yearId);
+
+    try {
+        const sections = await Section.find({ year: yearId })
+            .populate('branch')
+            .populate('class_teacher')
+            .populate('currentSemester')
+            .populate('students.student')
+            .populate('students.batch');
+        res.json(sections);
+    } catch (error) {
+        console.error('Error fetching sections:', error);
+        res.status(500).send('Server error');
+    }
+});
+
+router.get('/sections/:sectionId', async (req, res) => {
+    const { sectionId } = req.params;
+
+    try {
+        const section = await Section.findById(sectionId)
+            .populate('branch')
+            .populate('class_teacher')
+            .populate('currentSemester')
+            .populate('students.student')
+            .populate('students.batch');
+        
+        res.render('faculty/section/sectionDetails', { section });
+    } catch (error) {
+        console.error('Error fetching section details:', error);
+        res.status(500).send('Server error');
+    }
+});
+
+router.get('/sections/:sectionId/enterMarks', 
+     isFacultyLoggedIn, 
+    facultyController.renderEnterMarks
+);
+
+// Announcements (Send Emails)
+router.get('/sections/:sectionId/announcements', isFacultyLoggedIn, async (req, res) => {
+    const section = await Section.findById(req.params.sectionId).populate('students');
+    res.render('faculty/announcements', { section });
+});
+
+// Get marking scheme for a subject
+router.get('/subjects/:subjectId/marking-scheme',
+  isFacultyLoggedIn,
+  getMarkingScheme
+);
+
+// Get section marks without component - THIS ROUTE MUST COME FIRST
+router.get('/sections/:sectionId/marks/:subjectId',
+  isFacultyLoggedIn,
+  getSectionMarks
+);
+
+// Get section marks with component - THIS ROUTE MUST COME SECOND
+router.get('/sections/:sectionId/marks/:subjectId/component/:componentName',
+  isFacultyLoggedIn,
+  getSectionMarks
+);
+
+// Save marks for students
+router.post('/marks/save',
+  isFacultyLoggedIn,
+  saveMarks
+);
+
+router.get('/sections/:sectionId/marks/:subjectId/download', downloadMarksSheet);
+
 module.exports = router;

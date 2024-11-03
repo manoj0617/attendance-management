@@ -1,5 +1,4 @@
 const Student = require('../models/student');
-const Course = require('../models/course.js');
 const Attendance = require("../models/attendance.js");
 const moment = require('moment');
 const { Parser } = require('json2csv');

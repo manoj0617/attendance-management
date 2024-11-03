@@ -6,11 +6,6 @@ const BranchSchema = new Schema({
     type: String,
     required: true,
     unique: true
-  },
-  academicYear: {
-    type: Schema.Types.ObjectId,
-    ref: 'AcademicYear',
-    required: true
   }
 });
 

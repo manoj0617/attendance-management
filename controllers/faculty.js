@@ -1,14 +1,15 @@
-const Course = require('../models/course.js');
 const Student = require('../models/student.js');
 const Attendance = require("../models/attendance.js");
 const Faculty = require('../models/faculty');
 const Period = require('../models/period');
 const Section = require('../models/section');
+const Subject = require('../models/subject');
 const { Parser } = require('json2csv');
 const AcademicYear = require('../models/academicYear');
 const Batch = require('../models/batch');
 const mongoose=require("mongoose");
-
+const StudentMarks = require('../models/studentMarks');
+const MarkingSchemeConfig = require('../models/studentMarks');
 // Render login form
 module.exports.renderLoginForm = (req, res) => {
     return res.render('faculty/login.ejs');
@@ -69,9 +70,25 @@ module.exports.facultyDashboard = async (req, res) => {
 
 // Render form for downloading attendance records
 module.exports.renderDownloadForm = async (req, res) => {
-    let { id } = req.user;
-    const academicYears = await AcademicYear.find({});
-    res.render("faculty/download.ejs", { academicYears });
+    const { sectionId } = req.query;
+    try {
+        const academicYears = await AcademicYear.find({});
+        const section = await Section.findById(sectionId)
+            .populate('students.student')
+            .populate('students.batch')
+            .populate('branch');
+
+        if (!section) {
+            req.flash("error", "Section not found.");
+            return res.redirect('/faculty/dashboard');
+        }
+
+        res.render("faculty/download.ejs", { academicYears, section });
+    } catch (err) {
+        console.error(err);
+        req.flash("error", "Cannot load the download form.");
+        res.redirect('/faculty/dashboard');
+    }
 };
 
 // Handle downloading attendance records in CSV format
@@ -120,14 +137,32 @@ module.exports.logout = (req, res, next) => {
     });
 };
 module.exports.renderAttendanceForm = async (req, res) => {
-    const academicYears = await AcademicYear.find({}); // Assuming you have an AcademicYear model
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    let periods = await Period.find({ faculty: req.user._id, day: today })
-    .populate('subject')
-    .populate('year')
-    .populate('branch')
-    .populate('section');
-    res.render('faculty/attendance', { academicYears, today, periods });
+    const { sectionId } = req.query;
+    try {
+        const academicYears = await AcademicYear.find({});
+        const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        const section = await Section.findById(sectionId)
+            .populate('students.student')
+            .populate('students.batch')
+            .populate('branch');
+
+        if (!section) {
+            req.flash("error", "Section not found.");
+            return res.redirect('/faculty/dashboard');
+        }
+
+        let periods = await Period.find({ faculty: req.user._id, day: today })
+            .populate('subject')
+            .populate('year')
+            .populate('branch')
+            .populate('section');
+
+        res.render('faculty/attendance', { academicYears, today, periods, section });
+    } catch (err) {
+        console.error(err);
+        req.flash("error", "Cannot load the attendance form.");
+        res.redirect('/faculty/dashboard');
+    }
 };
 
 module.exports.markAttendance = async (req, res) => {
@@ -191,6 +226,59 @@ module.exports.markAttendance = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Server Error');
+    }
+};
+
+module.exports.renderEnterMarks = async (req, res) => {
+    try {
+        const { sectionId } = req.params;
+
+        // Find the section with its related details, including facultySubjects
+        const section = await Section.findById(sectionId)
+            .populate('branch')
+            .populate('currentSemester')
+            .populate({
+                path: 'students.student',
+                select: 'name rollNo email'
+            })
+            .populate({
+                path: 'facultySubjects.subject',
+                select: 'name code'
+            })
+            .populate({
+                path: 'facultySubjects.faculty',
+                select: 'name'
+            });
+
+        if (!section) {
+            req.flash('error', 'Section not found');
+            return res.redirect('/faculty/dashboard');
+        }
+
+        if (!section.currentSemester) {
+            req.flash('error', 'No current semester found for this section.');
+            return res.redirect('/faculty/dashboard');
+        }
+
+        // Filter facultySubjects for the current faculty (req.user) and current semester
+        const facultySubjects = section.facultySubjects.filter(facSub =>
+            facSub.faculty.equals(req.user._id) && facSub.semester.equals(section.currentSemester._id)
+        );
+
+        if (facultySubjects.length === 0) {
+            req.flash('error', 'No subjects found for this section and semester.');
+            return res.redirect('/faculty/dashboard');
+        }
+
+        // Render the 'enterMarks' page with section and faculty's subjects
+        res.render('faculty/enterMarks', {
+            section,
+            facultySubjects
+        });
+    } catch (error) {
+        console.error('Error rendering enter marks page:', error);
+        req.flash('error', 'An error occurred while rendering marks entry.');
+        res.redirect('/faculty/dashboard');
     }
 };
 

@@ -1,17 +1,17 @@
 <%- layout("../layouts/adminBoilerplate") -%>
-<body style="height: 100vh; width: 100%;">
+<body>
     <!-- Main Container -->
-    <div class="container text-center">
-        <!-- Section Edit Form Container -->
-        <div class="course-edit row align-items-center offset-3 course-card" style="margin-top: 5rem;">
+    <div class="container mt-5">
+        <!-- Section Edit Form Card -->
+        <div class="card shadow-lg p-4">
             <!-- Section Edit Form -->
-            <form method="post" action="/admin/section/<%= section._id %>/edit" class="col needs-validation" novalidate>
-                <h2 class="col">Edit Section</h2>
-                
+            <form method="post" action="/admin/section/<%= section._id %>/edit" class="needs-validation" novalidate>
+                <h2 class="text-center mb-4">Edit Section</h2>
+
                 <!-- Academic Year Dropdown -->
                 <div class="mb-3">
                     <label for="year" class="form-label">Academic Year</label>
-                    <select name="year" id="year" class="form-control" required disabled>
+                    <select name="year" id="year" class="form-select">
                         <option value="<%= section.year._id %>" selected><%= section.year.name %></option>
                     </select>
                 </div>
@@ -19,11 +19,11 @@
                 <!-- Branch Dropdown -->
                 <div class="mb-3">
                     <label for="branch" class="form-label">Branch</label>
-                    <select name="branch" id="branch" class="form-control" required>
+                    <select name="branch" id="branch" class="form-select" required>
                         <option value="<%= section.branch._id %>" selected><%= section.branch.name %></option>
                     </select>
                 </div>
-                
+
                 <!-- Section Name Input -->
                 <div class="mb-3">
                     <label for="name" class="form-label">Section Name</label>
@@ -34,8 +34,12 @@
                 <div class="mb-3">
                     <label for="class_teacher" class="form-label">Class Teacher</label>
                     <input id="class_teacher_search" class="form-control" placeholder="Search Faculty by Username" type="text">
-                    <select id="class_teacher" name="class_teacher" class="form-control mt-2" required>
-                        <option value="<%= section.class_teacher._id %>" selected><%= section.class_teacher.name %></option>
+                    <select id="class_teacher" name="class_teacher" class="form-select mt-2" required>
+                        <% if (section.class_teacher) { %>
+                            <option value="<%= section.class_teacher._id %>" selected><%= section.class_teacher.name %></option>
+                        <% } else { %>
+                            <option value="" disabled selected>Select Class Teacher</option>
+                        <% } %>
                     </select>
                 </div>
 
@@ -44,17 +48,29 @@
                     <label for="room_no" class="form-label">Room Number</label>
                     <input id="room_no" name="room_no" class="form-control" type="text" value="<%= section.room_no %>">
                 </div>
-                
+
+                <!-- Current Semester Dropdown -->
+                <div class="mb-3">
+                    <label for="currentSemester" class="form-label">Current Semester</label>
+                    <select name="currentSemester" id="currentSemester" class="form-select" required>
+                        <% semesters.forEach(semester => { %>
+                            <option value="<%= semester._id %>" <%= section.currentSemester && section.currentSemester._id.equals(semester._id) ? 'selected' : '' %> >
+                                <%= semester.name %>
+                            </option>
+                        <% }) %>
+                    </select>
+                </div>
+
                 <!-- Submit Button -->
-                <div class="button-container">
-                    <button type="submit" class="btn btn-dark btn-add mt-3">Save Changes</button>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary mt-3 px-4">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
-        // The faculty search script will be similar to the one in the creation form
+        // Faculty search script
         document.getElementById('class_teacher_search').addEventListener('input', function() {
             const query = this.value;
             fetch(`/admin/faculty/search?username=${query}`)

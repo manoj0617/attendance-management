@@ -1,31 +1,31 @@
-<% layout("../layouts/adminBoilerplate") -%>
+<%- layout("../layouts/adminBoilerplate") -%>
 <body>
   <div class="container mt-5">
-    <h1 class="mb-4">Create New Academic Year</h1>
+    <h1 class="mb-4 text-deep-blue">Create New Academic Year</h1>
     <form action="/admin/academic-years" method="POST">
       <div class="row">
         <div class="col-md-6 mb-3">
-          <label for="name" class="form-label">Academic Year Name</label>
+          <label for="name" class="form-label text-kimberly">Academic Year Name</label>
           <input type="text" name="name" id="name" class="form-control" placeholder="e.g., 2023-2024" required>
         </div>
 
         <div class="col-md-3 mb-3">
-          <label for="startDate" class="form-label">Start Date</label>
+          <label for="startDate" class="form-label text-kimberly">Start Date</label>
           <input type="date" name="startDate" id="startDate" class="form-control" required>
         </div>
 
         <div class="col-md-3 mb-3">
-          <label for="endDate" class="form-label">End Date</label>
+          <label for="endDate" class="form-label text-kimberly">End Date</label>
           <input type="date" name="endDate" id="endDate" class="form-control" required>
         </div>
       </div>
 
-      <h3 class="mb-4">Semesters</h3>
+      <h3 class="mb-4 text-victoria">Semesters</h3>
       <div id="semesters" class="mb-3"></div>
 
       <div class="text-end">
-        <button type="button" class="btn btn-secondary" id="add-semester">Add Semester</button>
-        <button type="submit" class="btn btn-primary ms-2">Create Academic Year</button>
+        <button type="button" class="btn btn-secondary" id="add-semester" style="background-color: var(--amethyst-smoke); border-color: var(--amethyst-smoke);">Add Semester</button>
+        <button type="submit" class="btn btn-primary ms-2" style="background-color: var(--daisy-bush); border-color: var(--daisy-bush);">Create Academic Year</button>
       </div>
     </form>
   </div>
@@ -33,7 +33,6 @@
   <script>
     let semesterCount = 0;
 
-    // Add a new semester dynamically with dropdown for semester names
     function addSemester() {
       semesterCount++;
       
@@ -45,33 +44,31 @@
       const semesterHTML = `
         <div class="row mb-3" id="semester-${semesterCount}">
           <div class="col-md-4">
-            <label for="semesters[${semesterCount}][sem]" class="form-label">Semester Name</label>
+            <label for="semesters[${semesterCount}][sem]" class="form-label text-kimberly">Semester Name</label>
             <select name="semesters[${semesterCount}][sem]" class="form-select" required>
               ${semesterOptions}
             </select>
           </div>
           <div class="col-md-3">
-            <label for="semesters[${semesterCount}][startDate]" class="form-label">Start Date</label>
+            <label for="semesters[${semesterCount}][startDate]" class="form-label text-kimberly">Start Date</label>
             <input type="date" name="semesters[${semesterCount}][startDate]" class="form-control" required>
           </div>
           <div class="col-md-3">
-            <label for="semesters[${semesterCount}][endDate]" class="form-label">End Date</label>
+            <label for="semesters[${semesterCount}][endDate]" class="form-label text-kimberly">End Date</label>
             <input type="date" name="semesters[${semesterCount}][endDate]" class="form-control" required>
           </div>
           <div class="col-md-2 d-flex align-items-end">
-            <button type="button" class="btn btn-danger" onclick="removeSemester(${semesterCount})">Delete</button>
+            <button type="button" class="btn btn-danger" onclick="removeSemester(${semesterCount})" style="background-color: var(--minsk); border-color: var(--minsk);">Delete</button>
           </div>
         </div>`;
 
       document.getElementById('semesters').insertAdjacentHTML('beforeend', semesterHTML);
     }
 
-    // Function to remove a semester block
     function removeSemester(index) {
       document.getElementById(`semester-${index}`).remove();
     }
 
-    // Event listener for the "Add Semester" button
     document.getElementById('add-semester').addEventListener('click', addSemester);
   </script>
 </body>

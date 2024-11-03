@@ -1,3 +1,16 @@
+:root {
+  --mischka: #d0cede;
+  --deep-blue: #12047a;
+  --kimberly: #6c679c;
+  --manatee: #8484ac;
+  --amethyst-smoke: #8c8cb4;
+  --victoria: #48488c;
+  --minsk: #393987;
+  --bay-of-many: #28287f;
+  --deluge: #7464b4;
+  --daisy-bush: #3c2c94;
+}
+
 /* Reset and general styles */
 * {
   font-family: "Roboto", sans-serif;
@@ -9,6 +22,7 @@
 /* Body styles */
 body {
   overflow-x: hidden;
+  background-color: #d0cede;
 }
 
 /* Course body styles */
@@ -276,21 +290,85 @@ select {
 /* Home button styles */
 .home-btns {
   display: flex;
+  flex-direction: row; /* Switch to horizontal layout on larger screens */
+  align-items: center;
+  justify-content: space-around; /* Space buttons evenly */
+  margin-top: 2rem;
 }
 
 /* Home body styles */
 .home-body {
+  position: relative;
   background-image: url('https://res.cloudinary.com/drqpxfysj/image/upload/v1725807142/1_mxvxbz.jpg');
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
   height: 100vh;
   width: 100vw;
+  color: var(--mischka); /* Set text color for readability */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.home-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--deep-blue); /* Dark overlay to reduce contrast */
+  opacity: 0.7; /* Adjusts how dark the overlay is */
+  z-index: 1; /* Ensures this appears above the background but below content */
+  filter: blur(5px); /* Applies blur to the overlay */
+}
+
+.home-body h2, .home-body h3 {
+  position: relative;
+  z-index: 2; /* Ensure text appears above the overlay */
 }
 
 .home-body h2 {
   margin-left: 6rem !important;
-  margin-top: 1rem;
+  color: white; /* Set heading color */
+  font-size: 3rem;
+  font-weight: bold;
+}
+
+.home-body h3 {
+  margin-left: 6rem;
+  color: white; /* Set subheading color */
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.home-body .home-btns {
+  position: relative;
+  z-index: 2; /* Ensure buttons appear above the overlay */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .home-body h2 {
+    margin-left: 1rem !important;
+    font-size: 2.5rem;
+  }
+
+  .home-body h3 {
+    margin-left: 1rem !important;
+    font-size: 1.75rem;
+  }
+
+  .home-btns {
+    flex-direction: column;
+  }
+
+  .home-btns .btn {
+    width: 90%; /* Make buttons full width on smaller screens */
+    margin-bottom: 1rem;
+  }
 }
 
 .form-group {

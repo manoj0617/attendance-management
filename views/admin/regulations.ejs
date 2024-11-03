@@ -1,0 +1,635 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Manage Regulations</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" onclick="showCreateForm()">
+                Create New Regulation
+            </button>
+        </div>
+    </div>
+
+    <!-- Regulations List -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h3 class="card-title">Existing Regulations</h3>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Regulation</th>
+                            <th>Start Year</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% regulations.forEach(regulation => { %>
+                            <tr>
+                                <td><%= regulation.regulation %></td>
+                                <td><%= regulation.startYear %></td>
+                                <td>
+                                    <span class="badge <%= regulation.isActive ? 'bg-success' : 'bg-danger' %>">
+                                        <%= regulation.isActive ? 'Active' : 'Inactive' %>
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" 
+                                            onclick="viewRegulation('<%= regulation._id %>')">
+                                        View
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" 
+                                            onclick="editRegulation('<%= regulation._id %>')">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" 
+                                            onclick="deleteRegulation('<%= regulation._id %>')">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Regulation Modal -->
+<div class="modal fade" id="regulationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Create New Regulation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="regulationForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Regulation Name</label>
+                            <input type="text" class="form-control" name="regulation" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Start Year</label>
+                            <input type="number" class="form-control" name="startYear" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Total Internal Marks</label>
+                            <input type="number" class="form-control" name="totalInternalMarks" value="40" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Total External Marks</label>
+                            <input type="number" class="form-control" name="totalExternalMarks" value="60" required>
+                        </div>
+                    </div>
+
+                    <!-- Theory Components -->
+                    <div class="mb-3">
+                        <h5>Theory Components</h5>
+                        <div id="theoryInternalComponents">
+                            <h6>Internal Components</h6>
+                            <div class="dynamic-components"></div>
+                            <button type="button" class="btn btn-sm btn-secondary" 
+                                    onclick="addComponent('theoryInternal')">
+                                Add Component
+                            </button>
+                        </div>
+                        <div id="theoryExternalComponents" class="mt-3">
+                            <h6>External Components</h6>
+                            <div class="dynamic-components"></div>
+                            <button type="button" class="btn btn-sm btn-secondary" 
+                                    onclick="addComponent('theoryExternal')">
+                                Add Component
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lab Components -->
+                    <div class="mb-3">
+                        <h5>Lab Components</h5>
+                        <div id="labInternalComponents">
+                            <h6>Internal Components</h6>
+                            <div class="dynamic-components"></div>
+                            <button type="button" class="btn btn-sm btn-secondary" 
+                                    onclick="addComponent('labInternal')">
+                                Add Component
+                            </button>
+                        </div>
+                        <div id="labExternalComponents" class="mt-3">
+                            <h6>External Components</h6>
+                            <div class="dynamic-components"></div>
+                            <button type="button" class="btn btn-sm btn-secondary" 
+                                    onclick="addComponent('labExternal')">
+                                Add Component
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Grade Points -->
+                    <div class="mb-3">
+                        <h5>Grade Points</h5>
+                        <div id="gradePoints">
+                            <div class="dynamic-components"></div>
+                            <button type="button" class="btn btn-sm btn-secondary" 
+                                    onclick="addGradePoint()">
+                                Add Grade Point
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Passing Criteria -->
+                    <div class="mb-3">
+                        <h5>Passing Criteria</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Min Internal %</label>
+                                <input type="number" class="form-control" 
+                                       name="passingCriteria.minInternalPercentage" value="40" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Min External %</label>
+                                <input type="number" class="form-control" 
+                                       name="passingCriteria.minExternalPercentage" value="40" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Min Total %</label>
+                                <input type="number" class="form-control" 
+                                       name="passingCriteria.minTotalPercentage" value="40" required>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveRegulation()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Include Bootstrap JS and other dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Client-side JavaScript for handling the regulation form
+let currentRegulationId = null;
+const modal = new bootstrap.Modal(document.getElementById('regulationModal'));
+
+function showCreateForm() {
+    currentRegulationId = null;
+    document.getElementById('modalTitle').textContent = 'Create New Regulation';
+    document.getElementById('regulationForm').reset();
+    
+    // Add default components
+    addDefaultComponents();
+    modal.show();
+}
+
+function addDefaultComponents() {
+    // Theory Internal defaults
+    addComponent('theoryInternal', { name: 'Mid1', maxMarks: 30 });
+    addComponent('theoryInternal', { name: 'Mid2', maxMarks: 30 });
+    addComponent('theoryInternal', { name: 'Assignment', maxMarks: 5 });
+    addComponent('theoryInternal', { name: 'Presentation', maxMarks: 5 });
+
+    // Theory External defaults
+    addComponent('theoryExternal', { name: 'Semester End Exam', maxMarks: 60 });
+
+    // Lab Internal defaults
+    addComponent('labInternal', { name: 'Mid1', maxMarks: 10 });
+    addComponent('labInternal', { name: 'Mid2', maxMarks: 10 });
+    addComponent('labInternal', { name: 'DayToDay', maxMarks: 10 });
+    addComponent('labInternal', { name: 'Viva', maxMarks: 10 });
+    addComponent('labInternal', { name: 'Project', maxMarks: 10 });
+
+    // Lab External defaults
+    addComponent('labExternal', { name: 'Lab Exam', maxMarks: 60 });
+
+    // Grade Points defaults
+    addGradePoint({ percentage: 90, grade: 'O', gradePoint: 10 });
+    addGradePoint({ percentage: 80, grade: 'A+', gradePoint: 9 });
+    addGradePoint({ percentage: 70, grade: 'A', gradePoint: 8 });
+    addGradePoint({ percentage: 60, grade: 'B+', gradePoint: 7 });
+    addGradePoint({ percentage: 50, grade: 'B', gradePoint: 6 });
+    addGradePoint({ percentage: 40, grade: 'C', gradePoint: 5 });
+    addGradePoint({ percentage: 0, grade: 'F', gradePoint: 0 });
+}
+
+function addComponent(type, defaultValues = null) {
+    const container = document.querySelector(`#${type}Components .dynamic-components`);
+    const componentDiv = document.createElement('div');
+    componentDiv.className = 'row mb-2';
+    componentDiv.innerHTML = `
+        <div class="col-5">
+            <input type="text" class="form-control" 
+                   name="${type}.name" 
+                   placeholder="Component Name"
+                   value="${defaultValues?.name || ''}" required>
+        </div>
+        <div class="col-5">
+            <input type="number" class="form-control" 
+                   name="${type}.maxMarks" 
+                   placeholder="Max Marks"
+                   value="${defaultValues?.maxMarks || ''}" required>
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-danger btn-sm" 
+                    onclick="this.parentElement.parentElement.remove()">
+                Remove
+            </button>
+        </div>
+    `;
+    container.appendChild(componentDiv);
+}
+
+function addGradePoint(defaultValues = null) {
+    const container = document.querySelector('#gradePoints .dynamic-components');
+    const gradeDiv = document.createElement('div');
+    gradeDiv.className = 'row mb-2';
+    gradeDiv.innerHTML = `
+        <div class="col-3">
+            <input type="number" class="form-control" 
+                   name="gradePoints.percentage" 
+                   placeholder="Percentage"
+                   min="0"
+                   max="100"
+                   value="${defaultValues?.percentage ?? ''}" required>
+        </div>
+        <div class="col-3">
+            <input type="text" class="form-control" 
+                   name="gradePoints.grade" 
+                   placeholder="Grade"
+                   value="${defaultValues?.grade ?? ''}" required>
+        </div>
+        <div class="col-3">
+            <input type="number" class="form-control" 
+                   name="gradePoints.gradePoint" 
+                   placeholder="Grade Point"
+                   step="0.1"
+                   min="0"
+                   max="10"
+                   value="${defaultValues?.gradePoint ?? ''}" required>
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-danger btn-sm" 
+                    onclick="this.parentElement.parentElement.remove()">
+                Remove
+            </button>
+        </div>
+    `;
+    container.appendChild(gradeDiv);
+}
+
+async function viewRegulation(id) {
+    try {
+        const response = await fetch(`/admin/regulations/${id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Create a formatted view of the regulation data
+            const regulation = data.regulation;
+            const formattedContent = `
+                <h4>Regulation: ${regulation.regulation}</h4>
+                <p>Start Year: ${regulation.startYear}</p>
+                <p>Status: ${regulation.isActive ? 'Active' : 'Inactive'}</p>
+                
+                <h5>Theory Components</h5>
+                <div class="mb-3">
+                    <h6>Internal (Total: ${regulation.totalInternalMarks})</h6>
+                    <ul>
+                        ${regulation.theoryComponents.internal.map(comp => 
+                            `<li>${comp.name}: ${comp.maxMarks} marks</li>`
+                        ).join('')}
+                    </ul>
+                    
+                    <h6>External (Total: ${regulation.totalExternalMarks})</h6>
+                    <ul>
+                        ${regulation.theoryComponents.external.map(comp => 
+                            `<li>${comp.name}: ${comp.maxMarks} marks</li>`
+                        ).join('')}
+                    </ul>
+                </div>
+
+                <h5>Lab Components</h5>
+                <div class="mb-3">
+                    <h6>Internal (Total: ${regulation.totalInternalMarks})</h6>
+                    <ul>
+                        ${regulation.labComponents.internal.map(comp => 
+                            `<li>${comp.name}: ${comp.maxMarks} marks</li>`
+                        ).join('')}
+                    </ul>
+                    
+                    <h6>External (Total: ${regulation.totalExternalMarks})</h6>
+                    <ul>
+                        ${regulation.labComponents.external.map(comp => 
+                            `<li>${comp.name}: ${comp.maxMarks} marks</li>`
+                        ).join('')}
+                    </ul>
+                </div>
+
+                <h5>Grade Points</h5>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Grade Point</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${regulation.gradePoints.map(gp => `
+                            <tr>
+                                <td>≥ ${gp.percentage}%</td>
+                                <td>${gp.grade}</td>
+                                <td>${gp.gradePoint}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <h5>Passing Criteria</h5>
+                <ul>
+                    <li>Minimum Internal: ${regulation.passingCriteria.minInternalPercentage}%</li>
+                    <li>Minimum External: ${regulation.passingCriteria.minExternalPercentage}%</li>
+                    <li>Minimum Total: ${regulation.passingCriteria.minTotalPercentage}%</li>
+                </ul>
+            `;
+            
+            // Show in modal
+            document.getElementById('modalTitle').textContent = 'View Regulation';
+            const modalBody = document.querySelector('.modal-body');
+            modalBody.innerHTML = formattedContent;
+            
+            // Hide save button
+            document.querySelector('.modal-footer .btn-primary').style.display = 'none';
+            modal.show();
+        } else {
+            showAlert('error', 'Failed to load regulation details');
+        }
+    } catch (error) {
+        showAlert('error', 'Failed to load regulation details');
+    }
+}
+
+async function editRegulation(id) {
+    try {
+        const response = await fetch(`/admin/regulations/${id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            currentRegulationId = id;
+            const regulation = data.regulation;
+            
+            // Reset form and set title
+            document.getElementById('modalTitle').textContent = 'Edit Regulation';
+            document.getElementById('regulationForm').reset();
+            
+            // Set basic fields
+            document.querySelector('[name="regulation"]').value = regulation.regulation;
+            document.querySelector('[name="startYear"]').value = regulation.startYear;
+            document.querySelector('[name="totalInternalMarks"]').value = regulation.totalInternalMarks;
+            document.querySelector('[name="totalExternalMarks"]').value = regulation.totalExternalMarks;
+            
+            // Clear existing components
+            document.querySelectorAll('.dynamic-components').forEach(container => {
+                container.innerHTML = '';
+            });
+            
+            // Add theory components
+            regulation.theoryComponents.internal.forEach(comp => {
+                addComponent('theoryInternal', comp);
+            });
+            regulation.theoryComponents.external.forEach(comp => {
+                addComponent('theoryExternal', comp);
+            });
+            
+            // Add lab components
+            regulation.labComponents.internal.forEach(comp => {
+                addComponent('labInternal', comp);
+            });
+            regulation.labComponents.external.forEach(comp => {
+                addComponent('labExternal', comp);
+            });
+            
+            // Add grade points
+            regulation.gradePoints.forEach(gp => {
+                addGradePoint(gp);
+            });
+            
+            // Set passing criteria
+            document.querySelector('[name="passingCriteria.minInternalPercentage"]').value = 
+                regulation.passingCriteria.minInternalPercentage;
+            document.querySelector('[name="passingCriteria.minExternalPercentage"]').value = 
+                regulation.passingCriteria.minExternalPercentage;
+            document.querySelector('[name="passingCriteria.minTotalPercentage"]').value = 
+                regulation.passingCriteria.minTotalPercentage;
+            
+            // Show save button
+            document.querySelector('.modal-footer .btn-primary').style.display = 'block';
+            modal.show();
+        } else {
+            showAlert('error', 'Failed to load regulation for editing');
+        }
+    } catch (error) {
+        showAlert('error', 'Failed to load regulation for editing');
+    }
+}
+
+async function saveRegulation() {
+    try {
+        const form = document.getElementById('regulationForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const formData = new FormData(form);
+        const gradePoints = gatherGradePoints();
+        
+        // Validate grade points
+        if (gradePoints.length === 0) {
+            showAlert('error', 'At least one grade point configuration is required');
+            return;
+        }
+        
+        const regulation = {
+            regulation: formData.get('regulation'),
+            startYear: parseInt(formData.get('startYear')),
+            totalInternalMarks: parseInt(formData.get('totalInternalMarks')),
+            totalExternalMarks: parseInt(formData.get('totalExternalMarks')),
+            theoryComponents: {
+                internal: gatherComponents('theoryInternal'),
+                external: gatherComponents('theoryExternal')
+            },
+            labComponents: {
+                internal: gatherComponents('labInternal'),
+                external: gatherComponents('labExternal')
+            },
+            gradePoints,
+            passingCriteria: {
+                minInternalPercentage: parseInt(formData.get('passingCriteria.minInternalPercentage')),
+                minExternalPercentage: parseInt(formData.get('passingCriteria.minExternalPercentage')),
+                minTotalPercentage: parseInt(formData.get('passingCriteria.minTotalPercentage'))
+            }
+        };
+
+        // Validate the regulation object
+        if (!validateRegulation(regulation)) {
+            return;
+        }
+
+        const url = currentRegulationId ? 
+            `/admin/regulations/${currentRegulationId}` : 
+            '/admin/regulations';
+        
+        const response = await fetch(url, {
+            method: currentRegulationId ? 'PUT' : 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(regulation)
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('success', `Regulation ${currentRegulationId ? 'updated' : 'created'} successfully`);
+            modal.hide();
+            location.reload();
+        } else {
+            showAlert('error', data.message || 'Failed to save regulation');
+        }
+    } catch (error) {
+        showAlert('error', 'Failed to save regulation: ' + error.message);
+    }
+}
+
+function gatherComponents(type) {
+    const components = [];
+    const container = document.querySelector(`#${type}Components .dynamic-components`);
+    
+    container.querySelectorAll('.row').forEach(row => {
+        components.push({
+            name: row.querySelector(`[name="${type}.name"]`).value,
+            maxMarks: parseInt(row.querySelector(`[name="${type}.maxMarks"]`).value)
+        });
+    });
+    
+    return components;
+}
+
+function gatherGradePoints() {
+    const gradePoints = [];
+    const container = document.querySelector('#gradePoints .dynamic-components');
+    
+    container.querySelectorAll('.row').forEach(row => {
+        const percentage = parseInt(row.querySelector('[name="gradePoints.percentage"]').value);
+        const grade = row.querySelector('[name="gradePoints.grade"]').value;
+        const gradePoint = parseFloat(row.querySelector('[name="gradePoints.gradePoint"]').value);
+        
+        // Only add if all values are present and valid
+        if (!isNaN(percentage) && grade && !isNaN(gradePoint)) {
+            gradePoints.push({
+                percentage,
+                grade,
+                gradePoint
+            });
+        }
+    });
+    
+    // Sort by percentage in descending order
+    return gradePoints.sort((a, b) => b.percentage - a.percentage);
+}
+
+function validateRegulation(regulation) {
+    // Validate basic fields
+    if (!regulation.regulation || !regulation.startYear) {
+        showAlert('error', 'Regulation name and start year are required');
+        return false;
+    }
+
+    // Validate marks
+    if (isNaN(regulation.totalInternalMarks) || isNaN(regulation.totalExternalMarks)) {
+        showAlert('error', 'Invalid marks configuration');
+        return false;
+    }
+
+    // Validate components
+    const validateComponents = (components, type) => {
+        if (!components || components.length === 0) {
+            showAlert('error', `At least one ${type} component is required`);
+            return false;
+        }
+        return components.every(comp => comp.name && !isNaN(comp.maxMarks));
+    };
+
+    if (!validateComponents(regulation.theoryComponents.internal, 'theory internal') ||
+        !validateComponents(regulation.theoryComponents.external, 'theory external') ||
+        !validateComponents(regulation.labComponents.internal, 'lab internal') ||
+        !validateComponents(regulation.labComponents.external, 'lab external')) {
+        return false;
+    }
+
+    // Validate grade points
+    if (!regulation.gradePoints.every(gp => 
+        !isNaN(gp.percentage) && 
+        gp.grade && 
+        !isNaN(gp.gradePoint) &&
+        gp.percentage >= 0 &&
+        gp.percentage <= 100 &&
+        gp.gradePoint >= 0 &&
+        gp.gradePoint <= 10
+    )) {
+        showAlert('error', 'Invalid grade point configuration');
+        return false;
+    }
+
+    return true;
+}
+
+async function deleteRegulation(id) {
+    if (confirm('Are you sure you want to delete this regulation?')) {
+        try {
+            const response = await fetch(`/admin/regulations/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showAlert('success', 'Regulation deleted successfully');
+                location.reload();
+            } else {
+                showAlert('error', data.message);
+            }
+        } catch (error) {
+            showAlert('error', 'Failed to delete regulation');
+        }
+    }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('.container').insertAdjacentElement('afterbegin', alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+</script>
+</body>

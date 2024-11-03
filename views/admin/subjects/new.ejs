@@ -1,23 +1,26 @@
 <% layout("../layouts/adminBoilerplate") -%>
 <body>
   <div class="container mt-5">
-    <h1>Create New Subject</h1>
-    <form action="/admin/subjects" method="POST">
+    <h1 class="text-center mb-4">Create New Subject</h1>
+    <form action="/admin/subjects" method="POST" class="needs-validation" novalidate>
       <div class="row">
         <!-- Subject Type -->
         <div class="form-group col-md-6 mt-3">
           <label for="type" class="form-label">Subject Type:</label>
           <select name="type" id="type" class="form-select" required>
+            <option value="" selected>Select Subject Type</option>
             <option value="Theory">Theory</option>
-            <option value="Practical">Practical</option>
+            <option value="Lab">Lab</option>
             <option value="Non-Academic">Non-Academic</option>
           </select>
+          <div class="invalid-feedback">Please select a subject type.</div>
         </div>
 
         <!-- Subject Short Name -->
         <div class="form-group col-md-6 mt-3">
           <label for="name" class="form-label">Subject Short Name:</label>
           <input type="text" name="name" id="name" class="form-control" required>
+          <div class="invalid-feedback">Please enter the subject short name.</div>
         </div>
       </div>
 
@@ -26,6 +29,7 @@
         <div class="form-group col-md-6 mt-3">
           <label for="full_name" class="form-label">Subject Full Name:</label>
           <input type="text" name="full_name" id="full_name" class="form-control" required>
+          <div class="invalid-feedback">Please enter the subject full name.</div>
         </div>
 
         <!-- Subject Code -->
@@ -36,17 +40,6 @@
       </div>
 
       <div class="row">
-        <!-- Academic Year -->
-        <div class="form-group col-md-6 mt-3">
-          <label for="academicYear" class="form-label">Academic Year:</label>
-          <select name="academicYear" id="academicYear" class="form-select">
-            <option value="" selected>Select Year</option>
-            <% academicYears.forEach(year => { %>
-              <option value="<%= year._id %>"><%= year.name %></option>
-            <% }) %>
-          </select>
-        </div>
-
         <!-- Semester -->
         <div class="form-group col-md-6 mt-3">
           <label for="semester" class="form-label">Semester:</label>
@@ -54,6 +47,17 @@
             <option value="" selected>Select Semester</option>
             <% semesters.forEach(sem => { %>
               <option value="<%= sem._id %>"><%= sem.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Regulation -->
+        <div class="form-group col-md-6 mt-3">
+          <label for="regulation" class="form-label">Regulation:</label>
+          <select name="regulation" id="regulation" class="form-select">
+            <option value="" selected>Select Regulation</option>
+            <% regulations.forEach(reg => { %>
+              <option value="<%= reg._id %>"><%= reg.regulation %></option>
             <% }) %>
           </select>
         </div>
@@ -66,35 +70,26 @@
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" class="btn btn-primary mt-4">Create Subject</button>
+      <button type="submit" class="btn btn-primary mt-4 w-100">Create Subject</button>
     </form>
   </div>
 
   <script>
-    // Handle visibility of fields for Non-Academic type
-    document.getElementById('type').addEventListener('change', function() {
-      const type = this.value;
-      const codeField = document.querySelector('.form-group.col-md-6:nth-of-type(2)'); 
-      const academicYearField = document.querySelector('.form-group.col-md-6:nth-of-type(3)'); 
-      const semesterField = document.querySelector('.form-group.col-md-6:nth-of-type(4)');
-
-      if (type === 'Non-Academic') {
-        codeField.style.display = 'none';
-        academicYearField.style.display = 'none';
-        semesterField.style.display = 'none';
-        document.getElementById('code').removeAttribute('required');
-        document.getElementById('academicYear').removeAttribute('required');
-        document.getElementById('semester').removeAttribute('required');
-      } else {
-        codeField.style.display = 'block';
-        academicYearField.style.display = 'block';
-        semesterField.style.display = 'block';
-        document.getElementById('code').setAttribute('required', true);
-        document.getElementById('academicYear').setAttribute('required', true);
-        document.getElementById('semester').setAttribute('required', true);
-      }
-    });
-
-    document.getElementById('type').dispatchEvent(new Event('change'));
+    // Bootstrap form validation
+    (function() {
+      'use strict';
+      window.addEventListener('load', function() {
+        const forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+          form.addEventListener('submit', function(event) {
+            if (form.checkValidity() === false) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      }, false);
+    })();
   </script>
 </body>

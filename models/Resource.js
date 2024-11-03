@@ -6,21 +6,21 @@ const resourceSchema = new mongoose.Schema({
   description: { type: String },
   fileId: { type: String, required: true },  // Google Drive file ID
   fileLink: { type: String, required: true },  // Google Drive file URL
-  uploader: { type: mongoose.Schema.Types.ObjectId, ref: 'Faculty', required: true },
-  sharedWith: {
-    year: {
-        type: Schema.Types.ObjectId,
-        ref: 'AcademicYear'
-    },
-    branch: { 
-        type: Schema.Types.ObjectId,
-        ref: 'Branch' 
-    },
-    section: { 
-        type: Schema.Types.ObjectId,
-        ref: 'Section' 
-    }
+  uploader: { 
+    type: Schema.Types.ObjectId, 
+    refPath: 'uploaderType', // Dynamic reference either to Admin or Faculty
+    required: true 
   },
+  uploaderType: { 
+    type: String, 
+    required: true, 
+    enum: ['Admin', 'Faculty']  // Specifies whether the uploader is an Admin or Faculty
+  },
+  sharedWith: [{
+    year: { type: Schema.Types.ObjectId, ref: 'AcademicYear' },
+    branch: { type: Schema.Types.ObjectId, ref: 'Branch' },
+    section: { type: Schema.Types.ObjectId, ref: 'Section' }
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -1,56 +1,80 @@
 <%- layout("../layouts/adminBoilerplate") -%>
-<body style="height: 100vh; width: 100%;">
+<body style="height: 100vh; width: 100%; background-color: var(--mischka);">
     <!-- Main Container -->
-    <div class="container text-center">
-        <!-- Section Create Form Container -->
-        <div class="course-create row align-items-center offset-3 course-card" style="margin-top: 5rem;">
-            <!-- Section Create Form -->
-            <form method="post" action="/admin/section/new" class="col needs-validation" novalidate>
-                <h2 class="col">New Section</h2>
-                
-                <!-- Academic Year Dropdown -->
-                <div class="mb-3">
-                    <label for="year" class="form-label">Academic Year</label>
-                    <select name="year" id="year" class="form-control" required>
-                        <option value="" disabled selected>Select Academic Year</option>
-                    </select>
-                </div>
-
-                <!-- Branch Dropdown -->
-                <div class="mb-3">
-                    <label for="branch" class="form-label">Branch</label>
-                    <select name="branch" id="branch" class="form-control" required disabled>
-                        <option value="" disabled selected>Select Branch</option>
-                    </select>
-                </div>
-                
-                <!-- Section Name Input -->
-                <div class="mb-3">
-                    <label for="name" class="form-label">Section Name</label>
-                    <input id="name" name="name" class="form-control" placeholder="Section Name" type="text" required>
-                </div>
-
-                <!-- Class Teacher Search and Select -->
-                <div class="mb-3">
-                    <label for="class_teacher" class="form-label">Class Teacher</label>
-                    <input id="class_teacher_search" class="form-control" placeholder="Search Faculty by Username" type="text">
-                    <select id="class_teacher" name="class_teacher" class="form-control mt-2" required>
-                        <option value="" disabled selected>Select Class Teacher</option>
-                    </select>
-                </div>
-
-                <!-- Room Number Input -->
-                <div class="mb-3">
-                    <label for="room_no" class="form-label">Room Number</label>
-                    <input id="room_no" name="room_no" class="form-control" placeholder="Room Number" type="text">
-                </div>
-                
-                <!-- Submit Button -->
-                <div class="button-container">
-                    <button type="submit" class="btn btn-dark btn-add mt-3">Create</button>
-                </div>
-            </form>
+    <div class="container p-5 mt-5" style="background-color: var(--amethyst-smoke); border-radius: 10px;">
+        <div class="text-center mb-4" style="color: var(--deep-blue);">
+            <h2><i class="fa fa-folder-plus me-2"></i>Create New Section</h2>
         </div>
+
+        <!-- Section Create Form -->
+        <form method="post" action="/admin/section/new" class="needs-validation" novalidate>
+            <!-- Academic Year Dropdown -->
+            <div class="mb-3">
+                <label for="year" class="form-label" style="color: var(--victoria);">Academic Year</label>
+                <select name="year" id="year" class="form-select" required>
+                    <option value="" disabled selected>Select Academic Year</option>
+                </select>
+                <div class="invalid-feedback">
+                    Please select an academic year.
+                </div>
+            </div>
+
+            <!-- Branch Dropdown -->
+            <div class="mb-3">
+                <label for="branch" class="form-label" style="color: var(--victoria);">Branch</label>
+                <select name="branch" id="branch" class="form-select" required disabled>
+                    <option value="" disabled selected>Select Branch</option>
+                </select>
+                <div class="invalid-feedback">
+                    Please select a branch.
+                </div>
+            </div>
+
+            <!-- Section Name Input -->
+            <div class="mb-3">
+                <label for="name" class="form-label" style="color: var(--victoria);">Section Name</label>
+                <input id="name" name="name" class="form-control" placeholder="Section Name" type="text" required>
+                <div class="invalid-feedback">
+                    Please provide a section name.
+                </div>
+            </div>
+
+            <!-- Class Teacher Search and Select -->
+            <div class="mb-3">
+                <label for="class_teacher" class="form-label" style="color: var(--victoria);">Class Teacher</label>
+                <input id="class_teacher_search" class="form-control" placeholder="Search Faculty by Username" type="text">
+                <select id="class_teacher" name="class_teacher" class="form-select mt-2" required>
+                    <option value="" disabled selected>Select Class Teacher</option>
+                </select>
+                <div class="invalid-feedback">
+                    Please select a class teacher.
+                </div>
+            </div>
+
+            <!-- Room Number Input -->
+            <div class="mb-3">
+                <label for="room_no" class="form-label" style="color: var(--victoria);">Room Number</label>
+                <input id="room_no" name="room_no" class="form-control" placeholder="Room Number" type="text">
+            </div>
+
+            <!-- Current Semester Dropdown -->
+            <div class="mb-3">
+                <label for="currentSemester" class="form-label" style="color: var(--victoria);">Current Semester</label>
+                <select name="currentSemester" id="currentSemester" class="form-select" required>
+                    <option value="" disabled selected>Select Current Semester</option>
+                </select>
+                <div class="invalid-feedback">
+                    Please select a semester or it will be automatically determined.
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary mt-3" style="background-color: var(--deep-blue); border-color: var(--deep-blue);">
+                    <i class="fa fa-save me-2"></i>Create Section
+                </button>
+            </div>
+        </form>
     </div>
 
     <script>
@@ -82,6 +106,20 @@
                         branchSelect.appendChild(option);
                     });
                     branchSelect.disabled = false;
+
+                    // Fetch semesters based on selected academic year
+                    fetch(`/admin/semester?year=${year}`)
+                        .then(response => response.json())
+                        .then(semesters => {
+                            const semesterSelect = document.getElementById('currentSemester');
+                            semesterSelect.innerHTML = '<option value="" disabled selected>Select Current Semester</option>';
+                            semesters.forEach(semester => {
+                                const option = document.createElement('option');
+                                option.value = semester._id;
+                                option.textContent = semester.name;
+                                semesterSelect.appendChild(option);
+                            });
+                        });
                 });
         });
 
@@ -101,5 +139,20 @@
                     });
                 });
         });
+
+        // Bootstrap form validation
+        (() => {
+            'use strict';
+            const forms = document.querySelectorAll('.needs-validation');
+            Array.from(forms).forEach((form) => {
+                form.addEventListener('submit', (event) => {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        })();
     </script>
 </body>

@@ -1,132 +1,126 @@
 <%- layout("../layouts/adminBoilerplate") -%>
 <body>
-    <div class="container mt-5">
-        <h1>Create New Faculty</h1>
+  <div class="container mt-5 p-4" style="background-color: var(--mischka); border-radius: 8px;">
+    <h1 class="mb-4 text-center" style="color: var(--deep-blue);"><i class="fa fa-user-plus me-2"></i>Create New Faculty</h1>
 
-        <!-- Form to create new faculty -->
-        <form id="facultyForm" class="mt-3" method="post" action="/admin/faculty/new" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="name" class="form-label">Name</label>
-                <input type="text" class="form-control" id="name" name="name" required>
-            </div>
-            <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" name="email" required>
-            </div>          
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" id="username" name="username" required>
-            </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
-            </div>  
-            <div class="mb-3">
-                <label for="branch" class="form-label">Branch</label>
-                <select id="branch" name="branch" class="form-control" required>
-                    <option value="" disabled selected>Select Branch</option>
-                    <% branches.forEach(branch => { %>
-                        <option value="<%= branch._id %>"><%= branch.name %></option>
-                    <% }); %>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="mobile" class="form-label">Mobile</label>
-                <input type="text" class="form-control" id="mobile" name="mobile" required>
-            </div>
-            <div class="mb-3">
-                <label for="subjects" class="form-label">Subjects</label>
-                <input type="text" class="form-control" id="subjectSearch" placeholder="Search for subjects">
-                <div id="subjectResults" class="list-group mt-2"></div>
-                <div id="selectedSubjects" class="mt-2"></div>
-            </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-        </form>
-    </div>
+    <!-- Form to create new faculty -->
+    <form id="facultyForm" method="post" action="/admin/faculty/new" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label for="name" class="form-label" style="color: var(--victoria);">Name</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+      </div>
+      <div class="mb-3">
+        <label for="email" class="form-label" style="color: var(--victoria);">Email</label>
+        <input type="email" class="form-control" id="email" name="email" required>
+      </div>
+      <div class="mb-3">
+        <label for="username" class="form-label" style="color: var(--victoria);">Username</label>
+        <input type="text" class="form-control" id="username" name="username" required>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label" style="color: var(--victoria);">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+      </div>
+      <div class="mb-3">
+        <label for="branch" class="form-label" style="color: var(--victoria);">Branch</label>
+        <select id="branch" name="branch" class="form-select" required>
+          <option value="" disabled selected>Select Branch</option>
+          <% branches.forEach(branch => { %>
+            <option value="<%= branch._id %>"><%= branch.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="mobile" class="form-label" style="color: var(--victoria);">Mobile</label>
+        <input type="text" class="form-control" id="mobile" name="mobile" required>
+      </div>
+      <div class="mb-3">
+        <label for="subjects" class="form-label" style="color: var(--victoria);">Subjects</label>
+        <input type="text" class="form-control" id="subjectSearch" placeholder="Search for subjects">
+        <div id="subjectResults" class="list-group mt-2"></div>
+        <div id="selectedSubjects" class="mt-2"></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="background-color: var(--deep-blue); border-color: var(--deep-blue);"><i class="fa fa-save me-2"></i>Save</button>
+    </form>
+  </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Handle subject search
-            document.getElementById('subjectSearch').addEventListener('input', function () {
-                const query = this.value;
-                if (query.length > 0) {
-                    fetch(`/admin/subjects/search?q=${query}`)
-                        .then(response => response.json())
-                        .then(subjects => {
-                            const subjectResults = document.getElementById('subjectResults');
-                            subjectResults.innerHTML = '';
-                            subjects.forEach(subject => {
-                                const item = document.createElement('a');
-                                item.href = "#";
-                                item.className = "list-group-item list-group-item-action";
-                                item.textContent = subject.name;
-                                item.dataset.subjectId = subject._id;
-                                item.addEventListener('click', function (e) {
-                                    e.preventDefault();
-                                    addSubject(subject._id, subject.name);
-                                });
-                                subjectResults.appendChild(item);
-                            });
-                        });
-                } else {
-                    document.getElementById('subjectResults').innerHTML = '';
-                }
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Handle subject search
+      document.getElementById('subjectSearch').addEventListener('input', function () {
+        const query = this.value;
+        if (query.length > 0) {
+          fetch(`/admin/subjects/search?q=${query}`)
+            .then(response => response.json())
+            .then(subjects => {
+              const subjectResults = document.getElementById('subjectResults');
+              subjectResults.innerHTML = '';
+              subjects.forEach(subject => {
+                const item = document.createElement('a');
+                item.href = "#";
+                item.className = "list-group-item list-group-item-action";
+                item.textContent = subject.name;
+                item.dataset.subjectId = subject._id;
+                item.style.color = "var(--deep-blue)";
+                item.addEventListener('click', function (e) {
+                  e.preventDefault();
+                  addSubject(subject._id, subject.name);
+                });
+                subjectResults.appendChild(item);
+              });
             });
+        } else {
+          document.getElementById('subjectResults').innerHTML = '';
+        }
+      });
 
-            document.getElementById('facultyForm').addEventListener('submit', function (event) {
-    event.preventDefault();
-    const formData = new FormData(this);
+      document.getElementById('facultyForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const formData = new FormData(this);
 
-    // Log form data to ensure correct values are appended
-    for (let pair of formData.entries()) {
-        console.log(pair[0], pair[1]);
-    }
-
-    const selectedSubjects = document.getElementById('selectedSubjects').querySelectorAll('.subject-item');
-    selectedSubjects.forEach(item => {
-        formData.append('subjects', item.dataset.subjectId);
-    });
-
-    fetch('/admin/faculty/new', {
-        method: 'POST',
-        body: formData,
-    })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Server Response:', data); // Log the server response for debugging
-            if (data.success) {
-                alert(data.message);
-                this.reset();
-                document.getElementById('selectedSubjects').innerHTML = '';
-                document.getElementById('subjectSearch').value = '';
-                document.getElementById('subjectResults').innerHTML = '';
-            } else {
-                alert(data.message);  // Display error message
-            }
-        })
-        .catch(err => console.error('Error in fetch:', err));  // Catch and log fetch errors
-});
-
+        const selectedSubjects = document.getElementById('selectedSubjects').querySelectorAll('.subject-item');
+        selectedSubjects.forEach(item => {
+          formData.append('subjects', item.dataset.subjectId);
         });
 
-        // Add selected subject to the list
-        function addSubject(subjectId, subjectName) {
-            const selectedSubjects = document.getElementById('selectedSubjects');
-            const existing = selectedSubjects.querySelector(`.subject-item[data-subject-id="${subjectId}"]`);
-            if (!existing) {
-                const item = document.createElement('div');
-                item.className = 'subject-item alert alert-primary d-flex justify-content-between align-items-center';
-                item.dataset.subjectId = subjectId;
-                item.textContent = subjectName;
-                const removeButton = document.createElement('button');
-                removeButton.className = 'btn btn-sm btn-danger';
-                removeButton.textContent = 'Remove';
-                removeButton.addEventListener('click', function () {
-                    selectedSubjects.removeChild(item);
-                });
-                item.appendChild(removeButton);
-                selectedSubjects.appendChild(item);
+        fetch('/admin/faculty/new', {
+          method: 'POST',
+          body: formData,
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert(data.message);
+              this.reset();
+              document.getElementById('selectedSubjects').innerHTML = '';
+              document.getElementById('subjectSearch').value = '';
+              document.getElementById('subjectResults').innerHTML = '';
+            } else {
+              alert(data.message);
             }
+          })
+          .catch(err => console.error('Error in fetch:', err));
+      });
+
+      function addSubject(subjectId, subjectName) {
+        const selectedSubjects = document.getElementById('selectedSubjects');
+        const existing = selectedSubjects.querySelector(`.subject-item[data-subject-id="${subjectId}"]`);
+        if (!existing) {
+          const item = document.createElement('div');
+          item.className = 'subject-item alert alert-primary d-flex justify-content-between align-items-center';
+          item.dataset.subjectId = subjectId;
+          item.textContent = subjectName;
+          item.style.backgroundColor = "var(--deluge)";
+          const removeButton = document.createElement('button');
+          removeButton.className = 'btn btn-sm btn-danger';
+          removeButton.textContent = 'Remove';
+          removeButton.addEventListener('click', function () {
+            selectedSubjects.removeChild(item);
+          });
+          item.appendChild(removeButton);
+          selectedSubjects.appendChild(item);
         }
-    </script>
+      }
+    });
+  </script>
 </body>

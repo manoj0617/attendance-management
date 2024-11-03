@@ -14,10 +14,15 @@ const SubjectSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Semester',
   },
+  regulation: {
+    type: String,
+    required: true,
+    ref: 'MarkingSchemeConfig'
+  },
   type:{
     type: String,
     required: true,
-    enum:['Theory','Practical','Non-Academic'],
+    enum:['Theory','Lab','Non-Academic'],
   },
   credits:{
     type:Number

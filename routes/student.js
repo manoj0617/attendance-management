@@ -103,7 +103,66 @@ router.get('/studentAttendance/:studentId', async (req, res) => {
     }
 });
 
-module.exports = router;
+router.get('/forms', async (req, res) => {
+  try {
+    const forms = await FeedbackForm.find({
+      status: 'Active',
+      'target.sections': req.session.sectionId
+    }).populate('questions.template');
+    res.render('student/forms', { forms });
+  } catch (error) {
+    res.status(500).send('Error fetching forms');
+  }
+});
+
+router.get('/forms/:id', async (req, res) => {
+  try {
+    const form = await FeedbackForm.findById(req.params.id)
+      .populate('questions.template');
+    
+    if (!form) {
+      return res.status(404).send('Form not found');
+    }
+
+    res.render('student/form-submit', { form });
+  } catch (error) {
+    res.status(500).send('Error fetching form');
+  }
+});
+
+router.post('/forms/:id', async (req, res) => {
+  try {
+    const form = await FeedbackForm.findById(req.params.id);
+    if (!form) {
+      return res.status(404).send('Form not found');
+    }
+
+    const startTime = new Date(req.body.startedAt);
+    const endTime = new Date();
+    const timeToComplete = Math.floor((endTime - startTime) / 1000);
+
+    const response = new FeedbackResponse({
+      form: form._id,
+      student: req.session.userId,
+      section: req.session.sectionId,
+      subject: req.body.subjectId,
+      faculty: req.body.facultyId,
+      responses: Object.keys(req.body.answers).map(questionId => ({
+        question: questionId,
+        answer: req.body.answers[questionId]
+      })),
+      isAnonymous: form.isAnonymous,
+      timeToComplete,
+      startedAt: startTime,
+      completedAt: endTime
+    });
+
+    await response.save();
+    res.redirect('/student/forms');
+  } catch (error) {
+    res.status(500).send('Error submitting form');
+  }
+});
 
 // Student index route
 router.get("/courses", isStudentLoggedIn, wrapAsync(studentController.studentIndex));

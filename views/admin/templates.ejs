@@ -1,0 +1,664 @@
+<%- layout("../layouts/adminBoilerplate") %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Feedback Template Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --mischka: #d0cede;
+            --deep-blue: #12047a;
+            --kimberly: #6c679c;
+            --manatee: #8484ac;
+            --amethyst-smoke: #8c8cb4;
+            --victoria: #48488c;
+            --minsk: #393987;
+            --bay-of-many: #28287f;
+            --deluge: #7464b4;
+            --daisy-bush: #3c2c94;
+        }
+
+        body {
+            background-color: var(--mischka);
+            color: var(--deep-blue);
+        }
+
+        .sortable-ghost {
+        opacity: 0.5;
+        background-color: #f0f0f0;
+        border: 1px dashed #ccc;
+        }
+
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            background-color: white;
+            border-bottom: 2px solid var(--mischka);
+            border-radius: 1rem 1rem 0 0 !important;
+            padding: 1.5rem;
+        }
+
+        .card-title {
+            color: var(--deep-blue);
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .section-title {
+            color: var(--victoria);
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            color: var(--kimberly);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            border: 1px solid var(--mischka);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--deluge);
+            box-shadow: 0 0 0 0.2rem rgba(116, 100, 180, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--daisy-bush);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--deep-blue);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid var(--victoria);
+            color: var(--victoria);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--mischka);
+            border-color: var(--victoria);
+            color: var(--victoria);
+        }
+
+        .question-card {
+            background-color: var(--mischka);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: move;
+            transition: transform 0.2s;
+        }
+
+        .question-card.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .template-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .template-card {
+            height: 100%;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            border: none;
+            background: none;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background-color: var(--mischka);
+        }
+
+        .btn-icon-delete {
+            color: #dc3545;
+        }
+
+        .btn-icon-delete:hover {
+            color: #bb2d3b;
+        }
+
+        .mcq-options {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 0.5rem;
+        }
+
+        .mcq-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .validation-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 0.25rem solid var(--mischka);
+            border-top-color: var(--deep-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Template Management Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="section-title mb-0">Feedback Templates</h1>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+                <i class="bi bi-plus-circle me-2"></i> Create Template
+            </button>
+        </div>
+
+        <!-- Template List -->
+        <div class="template-list">
+            <% templates.forEach(function(template) { %>
+                <div class="card template-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title"><%= template.title %></h5>
+                        <div class="template-actions">
+                            <button class="btn-icon" onclick="editTemplate('<%= template._id %>')" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn-icon btn-icon-delete" onclick="deleteTemplate('<%= template._id %>')" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><%= template.description %></p>
+                        <div class="text-muted">
+                            <small>
+                                <i class="bi bi-question-circle me-1"></i>
+                                <%= template.questions.length %> questions
+                            </small>
+                            <small class="ms-3">
+                                <i class="bi bi-clock-history me-1"></i>
+                                <%= moment(template.updatedAt).fromNow() %>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+
+        <!-- Create Template Modal -->
+        <div class="modal fade" id="createTemplateModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create New Template</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="templateForm" novalidate>
+                            <div class="mb-3">
+                                <label class="form-label">Template Title</label>
+                                <input type="text" class="form-control" name="title" required 
+                                       minlength="3" maxlength="100">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" rows="3" 
+                                          maxlength="500"></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Questions</label>
+                                <div id="questionsContainer" class="sortable-questions"></div>
+                                <button type="button" class="btn btn-secondary mt-2" onclick="addQuestion()">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Question
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveTemplate()">
+                            Save Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Template Modal -->
+        <div class="modal fade" id="editTemplateModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Template</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editTemplateForm" novalidate>
+                            <input type="hidden" name="templateId">
+                            <div class="mb-3">
+                                <label class="form-label">Template Title</label>
+                                <input type="text" class="form-control" name="title" required 
+                                       minlength="3" maxlength="100">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" rows="3" 
+                                          maxlength="500"></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Questions</label>
+                                <div id="editQuestionsContainer" class="sortable-questions"></div>
+                                <button type="button" class="btn btn-secondary mt-2" onclick="addQuestionToEdit()">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Question
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="updateTemplate()">
+                            Update Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" style="display: none;">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script>
+        let questionCounter = 0;
+        let editQuestionCounter = 0;
+        // Common utility functions
+const showLoading = () => document.querySelector('.loading-overlay').style.display = 'flex';
+const hideLoading = () => document.querySelector('.loading-overlay').style.display = 'none';
+
+const showError = (message) => {
+    const toast = new bootstrap.Toast(document.createElement('div'));
+    toast._element.className = 'toast bg-danger text-white position-fixed bottom-0 end-0 m-3';
+    toast._element.innerHTML = `
+        <div class="toast-body d-flex align-items-center">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            ${message}
+        </div>
+    `;
+    document.body.appendChild(toast._element);
+    toast.show();
+    setTimeout(() => toast._element.remove(), 3000);
+};
+
+// Template management functions
+class TemplateManager {
+    constructor() {
+        this.questionTypes = ['MCQ', 'Rating', 'Text', 'Linear_Scale'];
+        this.categories = ['Teaching', 'Course_Content', 'Infrastructure', 'General'];
+        this.questionCounter = 0;
+        this.editQuestionCounter = 0;
+        this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+        // Modal event listeners
+        const createModal = document.getElementById('createTemplateModal');
+        if (createModal) {
+            createModal.addEventListener('hidden.bs.modal', () => {
+                document.getElementById('templateForm').reset();
+                document.getElementById('questionsContainer').innerHTML = '';
+                this.questionCounter = 0;
+            });
+        }
+
+        const editModal = document.getElementById('editTemplateModal');
+        if (editModal) {
+            editModal.addEventListener('hidden.bs.modal', () => {
+                document.getElementById('editTemplateForm').reset();
+                document.getElementById('editQuestionsContainer').innerHTML = '';
+                this.editQuestionCounter = 0;
+            });
+        }
+    }
+
+    initializeSortable(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        Sortable.create(container, {
+            animation: 150,
+            handle: '.handle',  // Add a drag handle if needed, like a specific icon or button
+            ghostClass: 'sortable-ghost',
+            onEnd: function (/**Event*/evt) {
+                console.log(`Item moved from index ${evt.oldIndex} to ${evt.newIndex}`);
+            }
+        });
+    }
+}
+
+    updateQuestionOrder() {
+        const questions = document.querySelectorAll('.question-card');
+        questions.forEach((question, index) => {
+            const orderInput = question.querySelector('input[name$="[order]"]');
+            if (orderInput) {
+                orderInput.value = index;
+            }
+        });
+    }
+
+    addQuestion(container = 'questionsContainer', counter = this.questionCounter) {
+        const questionsContainer = document.getElementById(container);
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-card';
+        questionDiv.innerHTML = this.createQuestionHTML(counter);
+        questionsContainer.appendChild(questionDiv);
+
+        // Initialize event listeners for the new question
+        this.initializeQuestionEvents(questionDiv);
+
+        if (container === 'questionsContainer') {
+            this.questionCounter++;
+        } else {
+            this.editQuestionCounter++;
+        }
+    }
+
+    createQuestionHTML(counter, question = null) {
+        const typeOptions = this.questionTypes.map(type => 
+            `<option value="${type}" ${question && question.type === type ? 'selected' : ''}>${type.replace('_', ' ')}</option>`
+        ).join('');
+
+        const categoryOptions = this.categories.map(category => 
+            `<option value="${category}" ${question && question.category === category ? 'selected' : ''}>${category.replace('_', ' ')}</option>`
+        ).join('');
+
+        return `
+            <div class="question-card" data-question-id="${counter}">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Question ${counter + 1}</h6>
+                    <div class="btn-group">
+                        <button type="button" class="btn-icon handle" title="Move">
+                            <i class="bi bi-grip-vertical"></i>
+                        </button>
+                        <button type="button" class="btn-icon btn-icon-delete" onclick="templateManager.removeQuestion(this)" title="Remove">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <input type="text" class="form-control" 
+                           name="questions[${counter}][text]" 
+                           placeholder="Question text" 
+                           value="${question ? question.text : ''}" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <select class="form-select" 
+                                name="questions[${counter}][type]" 
+                                onchange="templateManager.handleQuestionTypeChange(this)" required>
+                            <option value="">Select Type</option>
+                            ${typeOptions}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <select class="form-select" 
+                                name="questions[${counter}][category]" required>
+                            <option value="">Select Category</option>
+                            ${categoryOptions}
+                        </select>
+                    </div>
+                </div>
+                <div class="question-options" style="display: none;"></div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" 
+                           name="questions[${counter}][required]" 
+                           ${question && question.required ? 'checked' : ''}>
+                    <label class="form-check-label">Required</label>
+                </div>
+                <input type="hidden" name="questions[${counter}][order]" value="${counter}">
+            </div>
+        `;
+    }
+
+    handleQuestionTypeChange(selectElement) {
+        const questionCard = selectElement.closest('.question-card');
+        const optionsContainer = questionCard.querySelector('.question-options');
+        const questionType = selectElement.value;
+        const questionId = questionCard.dataset.questionId;
+
+        optionsContainer.style.display = 'block';
+        optionsContainer.innerHTML = this.getOptionsHTML(questionType, questionId);
+
+        if (questionType === 'MCQ') {
+            const addOptionBtn = optionsContainer.querySelector('.add-option');
+            addOptionBtn.addEventListener('click', () => this.addMCQOption(questionId));
+        }
+    }
+
+    getOptionsHTML(type, questionId) {
+        switch (type) {
+            case 'MCQ':
+                return `
+                    <div class="mcq-options" data-question-id="${questionId}">
+                        <div class="mcq-option-list"></div>
+                        <button type="button" class="btn btn-sm btn-secondary add-option">
+                            <i class="bi bi-plus-circle me-1"></i>Add Option
+                        </button>
+                    </div>
+                `;
+            case 'Rating':
+            case 'Linear_Scale':
+                return `
+                    <div class="scale-options">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Min Value</label>
+                                <input type="number" class="form-control" 
+                                       name="questions[${questionId}][scaleOptions][min]" 
+                                       value="1" min="1">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Max Value</label>
+                                <input type="number" class="form-control" 
+                                       name="questions[${questionId}][scaleOptions][max]" 
+                                       value="5" min="2">
+                            </div>
+                        </div>
+                        ${type === 'Linear_Scale' ? `
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Start Label</label>
+                                    <input type="text" class="form-control" 
+                                           name="questions[${questionId}][scaleOptions][labels][start]" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">End Label</label>
+                                    <input type="text" class="form-control" 
+                                           name="questions[${questionId}][scaleOptions][labels][end]" required>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            default:
+                return '';
+        }
+    }
+
+    addMCQOption(questionId) {
+        const optionList = document.querySelector(`.mcq-options[data-question-id="${questionId}"] .mcq-option-list`);
+        const optionCount = optionList.children.length;
+        
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'mcq-option mb-2';
+        optionDiv.innerHTML = `
+            <div class="input-group">
+                <input type="text" class="form-control" 
+                       name="questions[${questionId}][options][${optionCount}][text]" 
+                       placeholder="Option ${optionCount + 1}" required>
+                <button type="button" class="btn btn-outline-danger" 
+                        onclick="this.closest('.mcq-option').remove()">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        optionList.appendChild(optionDiv);
+    }
+
+    removeQuestion(button) {
+        const questionCard = button.closest('.question-card');
+        questionCard.remove();
+        this.updateQuestionOrder();
+    }
+
+    async saveTemplate() {
+        try {
+            const form = document.getElementById('templateForm');
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return;
+            }
+
+            showLoading();
+            const formData = new FormData(form);
+            const data = this.processFormData(formData);
+
+            const response = await fetch('/admin/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save template');
+            }
+
+            location.reload();
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    processFormData(formData) {
+        const data = {
+            title: formData.get('title'),
+            description: formData.get('description'),
+            questions: []
+        };
+
+        formData.forEach((value, key) => {
+            if (key.startsWith('questions')) {
+                const keys = key.split(/\[|\]/).filter(Boolean);
+                let target = data.questions;
+                for (let i = 1; i < keys.length - 1; i++) {
+                    const index = keys[i];
+                    target = target[index] || (target[index] = {});
+                }
+                target[keys[keys.length - 1]] = value;
+            }
+        });
+
+        return data;
+    }
+}
+
+const templateManager = new TemplateManager();
+
+// Initialize Sortable for question containers
+document.addEventListener('DOMContentLoaded', () => {
+    templateManager.initializeSortable('questionsContainer');
+    templateManager.initializeSortable('editQuestionsContainer');
+        });
+// Export functions for global use
+window.addQuestion = (container = 'questionsContainer') => {
+    const counter = container === 'questionsContainer' ? questionCounter++ : editQuestionCounter++;
+    const questionsContainer = document.getElementById(container);
+    const questionHTML = templateManager.createQuestionHTML(counter);
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = questionHTML;
+    questionsContainer.appendChild(tempDiv.firstElementChild);
+};
+
+window.saveTemplate = () => templateManager.saveTemplate();
+</script>

@@ -39,9 +39,277 @@ const {
   deleteRegulation,
   getRegulation
 } = require('../controllers/adminController');
+const { 
+  QuestionTemplate, 
+  FeedbackForm, 
+  FeedbackResponse,
+  FeedbackTemplate
+} = require('../models/feedback');
+
 
 router.use(express.json()); // For parsing application/json
 router.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
+
+
+router.get('/forms', isAdminLoggedIn, async (req, res) => {
+  try {
+    const forms = await FeedbackForm.find()
+      .populate('questions.template')
+      .sort('-createdAt');
+    res.render('admin/forms/index', { forms });
+  } catch (error) {
+    res.status(500).send('Error fetching forms');
+  }
+});
+
+router.get('/forms/new', isAdminLoggedIn, async (req, res) => {
+  try {
+    const questionTemplates = await QuestionTemplate.find();
+    const academicYears = await AcademicYear.find({});
+    const semesters = await Semester.find({});
+    const branches = await Branch.find({});
+    const sections = await Section.find({});
+    const subjects = await Subject.find({});
+    const templates = await FeedbackTemplate.find({});
+    res.render('admin/forms/new', { questionTemplates, academicYears, semesters, branches, sections, subjects,templates });
+  } catch (error) {
+    res.status(500).send('Error fetching question templates');
+  }
+});
+
+router.post('/forms', isAdminLoggedIn, async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      feedbackTypes,
+      subjectTemplates,
+      infrastructureTemplate,
+      generalTemplate,
+      startDate,
+      endDate,
+      target,
+      isAnonymous,
+      academicYear
+    } = req.body;
+
+    // Process target selection with validation
+    const processedTarget = {
+      years: [],
+      branches: [],
+      sections: [],
+      isAllYears: target.years === 'all',
+      isAllBranches: target.branches === 'all',
+      isAllSections: target.sections === 'all'
+    };
+
+    // Handle years selection
+    if (processedTarget.isAllYears) {
+      // If all years selected, fetch all available years
+      const allYears = await mongoose.model('AcademicYear').find({});
+      processedTarget.years = allYears.map(year => year._id);
+    } else if (target.years) {
+      processedTarget.years = Array.isArray(target.years) ? target.years : [target.years];
+    } else if (academicYear) {
+      // Use the provided academicYear if no specific years are selected
+      processedTarget.years = [academicYear];
+      processedTarget.isAllYears = false;
+    }
+
+    // Handle branches selection
+    if (processedTarget.isAllBranches) {
+      const allBranches = await mongoose.model('Branch').find({});
+      processedTarget.branches = allBranches.map(branch => branch._id);
+    } else if (target.branches) {
+      processedTarget.branches = Array.isArray(target.branches) ? target.branches : [target.branches];
+    }
+
+    // Handle sections selection
+    if (processedTarget.isAllSections) {
+      // If all sections selected, we'll fetch them based on the selected years and branches
+      const sectionQuery = {};
+      if (processedTarget.years.length > 0) {
+        sectionQuery.year = { $in: processedTarget.years };
+      }
+      if (processedTarget.branches.length > 0) {
+        sectionQuery.branch = { $in: processedTarget.branches };
+      }
+      const allSections = await mongoose.model('Section').find(sectionQuery);
+      processedTarget.sections = allSections.map(section => section._id);
+    } else if (target.sections) {
+      processedTarget.sections = Array.isArray(target.sections) ? target.sections : [target.sections];
+    }
+
+    // Validate that we have at least some target criteria
+    if (!processedTarget.isAllYears && processedTarget.years.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid target',
+        message: 'Please select at least one academic year or "all years"'
+      });
+    }
+
+    if (!processedTarget.isAllBranches && processedTarget.branches.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid target',
+        message: 'Please select at least one branch or "all branches"'
+      });
+    }
+
+    // Validate target sections exist
+    const targetSections = await getTargetSections(processedTarget);
+    if (targetSections.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid target',
+        message: 'No valid sections found for the specified target criteria. Please check your selection.'
+      });
+    }
+
+    // Process questions array
+    let questions = [];
+    
+    // Add subject templates
+    if (subjectTemplates) {
+      for (const [subjectId, templateId] of Object.entries(subjectTemplates)) {
+        if (templateId) {
+          questions.push({
+            template: templateId,
+            subject: subjectId,
+            required: true,
+            order: questions.length + 1,
+            type: 'subject'
+          });
+        }
+      }
+    }
+
+    // Add infrastructure template
+    if (infrastructureTemplate) {
+      questions.push({
+        template: infrastructureTemplate,
+        required: true,
+        order: questions.length + 1,
+        type: 'infrastructure'
+      });
+    }
+
+    // Add general template
+    if (generalTemplate) {
+      questions.push({
+        template: generalTemplate,
+        required: true,
+        order: questions.length + 1,
+        type: 'general'
+      });
+    }
+
+    // Create feedback form
+    const form = new FeedbackForm({
+      title: title.trim(),
+      description: description ? description.trim() : '',
+      feedbackTypes: Array.isArray(feedbackTypes) ? feedbackTypes : [feedbackTypes],
+      target: processedTarget,
+      questions,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      isAnonymous: Boolean(isAnonymous),
+      academicYear,
+      status: 'Scheduled'
+    });
+
+    await form.save();
+    req.flash('success', 'Feedback form created successfully');
+    res.redirect('/admin/forms');
+
+  } catch (error) {
+    console.error('Error creating feedback form:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// Helper function to get target sections
+async function getTargetSections(target) {
+  try {
+    let query = {};
+    
+    if (target.isAllYears) {
+      console.log("All years selected");
+    } else if (target.years && target.years.length > 0) {
+      query.year = { $in: target.years };
+      console.log("Selected years:", target.years);
+    } else {
+      console.log("No years selected");
+      return []; // No years selected
+    }
+
+    if (target.isAllBranches) {
+      console.log("All branches selected");
+    } else if (target.branches && target.branches.length > 0) {
+      query.branch = { $in: target.branches };
+      console.log("Selected branches:", target.branches);
+    } else {
+      console.log("No branches selected");
+      return []; // No branches selected
+    }
+
+    if (target.isAllSections) {
+      console.log("All sections selected");
+    } else if (target.sections && target.sections.length > 0) {
+      query._id = { $in: target.sections };
+      console.log("Selected sections:", target.sections);
+    } else {
+      console.log("No sections selected");
+      return []; // No sections selected
+    }
+
+    console.log("Final query:", query);
+    return await mongoose.model('Section').find(query).populate('year branch');
+  } catch (error) {
+    console.error('Error getting target sections:', error);
+    throw error;
+  }
+}
+
+router.get('/templates', isAdminLoggedIn, async (req, res) => {
+  const templates = await FeedbackTemplate.find().sort('-createdAt');
+  res.render('admin/templates', { templates,moment });
+});
+
+router.post('/templates', isAdminLoggedIn, async (req, res) => {
+  try {
+      const template = new FeedbackTemplate(req.body);
+      await template.save();
+      console.log(template);
+      res.json({ success: true, template });
+  } catch (error) {
+      res.json({ success: false, error: error.message });
+  }
+});
+
+router.get('/templates/:id', isAdminLoggedIn, async (req, res) => {
+  const template = await FeedbackTemplate.findById(req.params.id);
+  res.json(template);
+});
+
+router.delete('/templates/:id', isAdminLoggedIn, async (req, res) => {
+  await FeedbackTemplate.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+router.post('/templates/:id/duplicate', isAdminLoggedIn, async (req, res) => {
+  const template = await FeedbackTemplate.findById(req.params.id);
+  const newTemplate = new FeedbackTemplate({
+      ...template.toObject(),
+      _id: undefined,
+      title: `${template.title} (Copy)`,
+      createdAt: undefined,
+      updatedAt: undefined
+  });
+  await newTemplate.save();
+  res.json({ success: true });
+});
 
 router.get('/regulations', isAdminLoggedIn, renderRegulations);
 router.get('/regulations/:id',isAdminLoggedIn, getRegulation);
@@ -73,7 +341,8 @@ router.post('/upload-students', upload.single('file'), async (req, res) => {
         branchName,
         yearName,
         gender,
-        sectionName
+        sectionName,
+        batchName  // Optional: If you want to assign students to batches
       } = row;
 
       // Find the corresponding branch, year, and section from the database
@@ -85,35 +354,64 @@ router.post('/upload-students', upload.single('file'), async (req, res) => {
         year: year ? year._id : null
       });
 
+      // Find batch if batchName is provided
+      let batch = null;
+      if (batchName) {
+        batch = await Batch.findOne({ name: batchName });
+        if (!batch) {
+          errors.push(`Row ${index + 1}: Batch "${batchName}" not found.`);
+        }
+      }
+
       // Check for missing references
       if (!branch) {
         errors.push(`Row ${index + 1}: Branch "${branchName}" not found.`);
-        continue; // Skip this row
+        continue;
       }
       if (!year) {
         errors.push(`Row ${index + 1}: Academic Year "${yearName}" not found.`);
-        continue; // Skip this row
+        continue;
       }
       if (!section) {
         errors.push(
           `Row ${index + 1}: Section "${sectionName}" not found for the given branch and year.`
         );
-        continue; // Skip this row
+        continue;
       }
 
-      // Create a new student if all references are valid
-      const newStudent = new Student({
-        email,
-        name,
-        branch: branch._id,
-        year: year._id,
-        username: Rollno,
-        gender,
-        section: section._id
-      });
-
       try {
-        let registeredStudent = await Student.register(newStudent, password);
+        // Create and register the new student
+        const newStudent = new Student({
+          email,
+          name,
+          branch: branch._id,
+          year: year._id,
+          username: Rollno,
+          gender,
+          section: section._id
+        });
+
+        const registeredStudent = await Student.register(newStudent, password);
+
+        // Add student to the section
+        const studentEntry = {
+          student: registeredStudent._id
+        };
+        
+        // Add batch reference if batch exists
+        if (batch) {
+          studentEntry.batch = batch._id;
+        }
+
+        // Update the section with the new student
+        await Section.findByIdAndUpdate(
+          section._id,
+          {
+            $push: { students: studentEntry }
+          },
+          { new: true }
+        );
+
       } catch (saveError) {
         errors.push(
           `Row ${index + 1}: Failed to save student "${name}". Error: ${saveError.message}`
@@ -129,7 +427,8 @@ router.post('/upload-students', upload.single('file'), async (req, res) => {
         .status(400)
         .json({ message: 'Some errors occurred during the upload.', errors });
     } else {
-      res.status(200).send('Students uploaded and saved successfully.');
+      req.flash("success", "Students uploaded successfully");
+      res.redirect('/admin/student');
     }
   } catch (error) {
     console.error('Error uploading students:', error);
@@ -360,7 +659,7 @@ router.get('/download-timetable', async (req, res) => {
 });
 
 router.get('/login', (req, res) => {
-  res.render('admin/login');
+  res.redirect('/');
 });
 
 router.post('/login', passport.authenticate('local-admin', {
@@ -385,44 +684,6 @@ let oauth2Client = new google.auth.OAuth2(
   'http://localhost:2000/admin/oauth2/callback' // Your redirect URL
 );
 
-// Function to send the email
-async function sendEmail({ accessToken, refreshToken, to, from, subject, text, attachments = [] }) {
-  try {
-    // Set credentials for OAuth2
-    oauth2Client.setCredentials({
-      access_token: accessToken,
-      refresh_token: refreshToken
-    });
-
-    // Create Nodemailer transport with OAuth2
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type: 'OAuth2',
-        user: from,
-        clientId: process.env.CLIENT_ID,
-        clientSecret: process.env.CLIENT_SECRET,
-        refreshToken: refreshToken,
-        accessToken: accessToken,
-      },
-    });
-    // Email options
-    const mailOptions = {
-      from,
-      to,
-      subject,
-      text,
-      attachments  // Pass the attachments if present
-    };
-
-    // Send email
-    await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully');
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw error;
-  }
-}
 // Middleware to ensure user is authenticated and refresh tokens automatically
 async function ensureAuthenticated(req, res, next) {
   if (req.session.accessToken && req.session.refreshToken) {
@@ -471,16 +732,178 @@ router.post('/save-selected-file', isAdminLoggedIn, async (req, res) => {
 // Handle file upload
 upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure this function is defined at the top of your file
-async function refreshAccessToken(oauth2Client) {
+const createOAuth2Client = () => {
+  return new OAuth2(
+    process.env.CLIENT_ID,
+    process.env.CLIENT_SECRET,
+    process.env.REDIRECT_URI
+  );
+};
+
+async function exchangeCodeForTokens(code) {
+  const tokenData = new URLSearchParams({
+    code,
+    client_id: process.env.CLIENT_ID,
+    client_secret: process.env.CLIENT_SECRET,
+    redirect_uri: process.env.REDIRECT_URI,
+    grant_type: 'authorization_code'
+  });
+
   try {
-    const { credentials } = await oauth2Client.refreshAccessToken();
-    oauth2Client.setCredentials(credentials);
-    return credentials.access_token;
+    const response = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      tokenData.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+    return response.data;
   } catch (error) {
-    console.error('Error refreshing access token:', error);
-    throw error;
+    console.error('Token exchange error:', error.response?.data || error.message);
+    throw new Error('Failed to exchange authorization code for tokens');
   }
+}
+
+async function refreshAccessToken(refreshToken) {
+  const tokenData = new URLSearchParams({
+    refresh_token: refreshToken,
+    client_id: process.env.CLIENT_ID,
+    client_secret: process.env.CLIENT_SECRET,
+    grant_type: 'refresh_token'
+  });
+
+  try {
+    const response = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      tokenData.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Token refresh error:', error.response?.data || error.message);
+    throw new Error('Failed to refresh access token');
+  }
+}
+
+async function getUserEmail(accessToken) {
+  try {
+    const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    return response.data.email;
+  } catch (error) {
+    console.error('Error fetching user info:', error.response?.data || error.message);
+    throw new Error('Failed to fetch user email');
+  }
+}
+
+async function uploadToDrive(oauth2Client, fileData) {
+  try {
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(Buffer.from(fileData.buffer));
+
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileData.originalname,
+        mimeType: fileData.mimetype,
+        parents: [process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID],
+      },
+      media: {
+        mimeType: fileData.mimetype,
+        body: bufferStream,
+      },
+      fields: 'id, webViewLink'
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Drive upload error:', error);
+    throw new Error('Failed to upload file to Google Drive');
+  }
+}
+
+async function sendEmail({
+  accessToken,
+  refreshToken,
+  from,
+  to,
+  subject,
+  text,
+  fileData = null
+}) {
+  // Input validation
+  if (!accessToken || !refreshToken || !from || !to || !subject) {
+    throw new Error('Missing required email parameters');
+  }
+
+  try {
+    // Create transport
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: from,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken,
+        accessToken,
+      },
+    });
+
+    // Prepare email options
+    const emailOptions = {
+      from,
+      to,
+      subject,
+      text,
+    };
+
+    // Add attachment if file data exists
+    if (fileData) {
+      emailOptions.attachments = [{
+        filename: fileData.originalname,
+        content: Buffer.from(fileData.buffer),
+        contentType: fileData.mimetype
+      }];
+    }
+
+    // Send email
+    const result = await transporter.sendMail(emailOptions);
+    console.log('Email sent successfully:', result.messageId);
+    return result;
+
+  } catch (error) {
+    console.error('Email send error:', error);
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+}
+
+// Helper function to get students based on filters
+async function getStudentsByFilters(filters) {
+  let query = {};
+  
+  if (Array.isArray(filters.year)) {
+    query.year = { $in: filters.year };
+  } else if (filters.year) {
+    query.year = filters.year;
+  }
+  
+  if (filters.branch && filters.branch !== 'all') {
+    query.branch = filters.branch;
+  }
+  
+  if (filters.section && filters.section !== 'all') {
+    query.section = filters.section;
+  }
+  
+  return await Student.find(query).select('email');
 }
 
 router.post('/upload-file', ensureAuthenticated, upload.single('file'), async (req, res) => {
@@ -560,187 +983,232 @@ router.post('/upload-file', ensureAuthenticated, upload.single('file'), async (r
   }
 });
 
-// Route to handle OAuth2 callback, upload file, and send email
 router.get('/oauth2/callback', async (req, res) => {
   const { code, state } = req.query;
 
   if (!code) {
-    return res.status(400).send('Invalid request: Missing code');
+    return res.status(400).send('Invalid request: Missing authorization code');
   }
 
   try {
-    // Exchange authorization code for access token
-    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: process.env.REDIRECT_URI
-    }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
+    // Decode state
+    const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
+    const { years, branch, section, emailSubject, emailBody } = decodedState;
 
-    const { access_token, refresh_token } = tokenResponse.data;
-    req.session.accessToken = access_token;
-    req.session.refreshToken = refresh_token;
+    // Exchange code for tokens
+    const { access_token, refresh_token } = await exchangeCodeForTokens(code);
+    
+    // Get user email
+    const userEmail = await getUserEmail(access_token);
 
-    // Fetch user profile to get the email
-    const userInfoResponse = await axios.get('https://openidconnect.googleapis.com/v1/userinfo', {
-      headers: { Authorization: `Bearer ${access_token}` }
-    });
-
-    const userEmail = userInfoResponse.data.email;
-
-    // Check if state is provided (for sending emails)
-    let emailSubject, emailBody, year, branch, section;
-    if (state) {
-      const formDetails = JSON.parse(state);
-      ({ year, branch, section, emailSubject, emailBody } = formDetails);
+    // Fetch recipient emails
+    let query = {};
+    if (years && !years.includes('all')) {
+      query.year = { $in: years.split(',') };
     }
-
-    let recipientEmails = [];
-    if (year && branch && section) {
-      // Fetch recipient emails based on year, branch, and section
-      const students = await Student.find({ year, branch, section });
-      recipientEmails = students.map(student => student.email);
-      if (recipientEmails.length === 0) {
-        return res.status(400).send('No recipient emails found');
+    if (branch && branch !== 'all') {
+      query.branch = branch;
+      if (section && section !== 'all') {
+        query.section = section;
       }
     }
 
-    // Upload the file to Google Drive (if there's a file in session)
-    let fileLink = '';
-    if (req.session.file) {
-      const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const students = await Student.find(query).select('email');
+    const recipientEmails = students.map(student => student.email);
 
-      const bufferStream = new stream.PassThrough();
-      bufferStream.end(req.session.file.buffer); // Convert buffer to stream
-
-      const driveResponse = await drive.files.create({
-        requestBody: {
-          name: req.session.file.originalname,
-          mimeType: req.session.file.mimetype,
-        },
-        media: {
-          mimeType: req.session.file.mimetype,
-          body: bufferStream,
-        },
-        fields: 'id, webViewLink'
-      });
-
-      fileLink = driveResponse.data.webViewLink; // File link to include in email
-      console.log('File uploaded successfully to Google Drive:', fileLink);
-
-      // Save resource to database (with file link and other details)
-      const newResource = new Resource({
-        title: req.session.file.originalname,
-        description: 'Uploaded by user',  // You can get a description from formDetails if needed
-        fileId: driveResponse.data.id,
-        fileLink: fileLink,
-        uploader: req.user._id,
-        sharedWith: year && branch && section ? [{ year, branch, section }] : []  // Only share if state exists
-      });
-
-      await newResource.save();  // Save to DB
+    if (recipientEmails.length === 0) {
+      return res.status(400).send('No recipient emails found');
     }
 
-    // If sending an email (only if state is present)
-    if (recipientEmails.length > 0) {
-      const emailOptions = {
-        to: recipientEmails.join(','),
-        subject: emailSubject,
-        text: `${emailBody}\n\n${fileLink ? 'View attached file: ' + fileLink : ''}`,
-        from: userEmail,
-        attachments: []
-      };
+    // Send email
+    await sendEmail({
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      from: userEmail,
+      to: recipientEmails.join(','),
+      subject: emailSubject,
+      text: emailBody,
+      fileData: req.session.fileData
+    });
 
-      if (req.session.file) {
-        emailOptions.attachments.push({
-          filename: req.session.file.originalname,
-          content: req.session.file.buffer,
-          contentType: req.session.file.mimetype
-        });
-      }
+    // Clear file data from session
+    delete req.session.fileData;
 
-      // Send the email
-      await sendEmail({
-        accessToken: req.session.accessToken,
-        refreshToken: req.session.refreshToken,
-        ...emailOptions
-      });
-
-      req.flash('success', 'Email sent successfully with file upload');
-    }
-
+    // Success redirect
+    req.flash('success', 'Email sent successfully');
     res.redirect('/admin/email');
+
   } catch (error) {
-    console.error('Error during OAuth2 callback:', error.response ? error.response.data : error.message);
-    res.status(500).send('Error processing authorization code or file upload.');
+    console.error('OAuth callback error:', error);
+    
+    let errorMessage = 'Error processing request. Please try again.';
+    let statusCode = 500;
+
+    if (error.message.includes('Invalid grant')) {
+      errorMessage = 'Authorization expired. Please try again.';
+      statusCode = 400;
+    } else if (error.message.includes('token')) {
+      errorMessage = 'Authentication failed. Please try again.';
+      statusCode = 401;
+    }
+
+    res.status(statusCode).send(errorMessage);
   }
 });
 
-// Route to initiate OAuth2 login
-router.get('/auth/google', (req, res) => {
-  // Example state data you might want to pass
-  const state = JSON.stringify({
-    year: req.query.year,
-    branch: req.query.branch,
-    section: req.query.section,
-    emailSubject: req.query.emailSubject,
-    emailBody: req.query.emailBody
-  });
+router.post('/send-email', upload.single('emailAttachment'), async (req, res) => {
+  const { years, branch, section, emailSubject, emailBody } = req.body;
+  const file = req.file;
 
+  try {
+    // Store file in session if it exists
+    if (file) {
+      req.session.fileData = {
+        originalname: file.originalname,
+        buffer: file.buffer,
+        mimetype: file.mimetype
+      };
+    }
+
+    // Create state object
+    const stateData = {
+      years: years || '',
+      branch: branch || '',
+      section: section || '',
+      emailSubject: emailSubject || '',
+      emailBody: emailBody || ''
+    };
+
+    // Encode state as base64
+    const encodedState = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `scope=${encodeURIComponent('https://www.googleapis.com/auth/gmail.send openid profile email')}` +
+      `&access_type=offline` +
+      `&include_granted_scopes=true` +
+      `&response_type=code` +
+      `&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}` +
+      `&client_id=${encodeURIComponent(process.env.CLIENT_ID)}` +
+      `&state=${encodedState}` +
+      `&prompt=consent`;
+
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Error in send-email route:', error);
+    res.status(500).json({ success: false, error: 'Failed to initiate email send process' });
+  }
+});
+
+router.get('/api/branches', async (req, res) => {
+  try {
+    const { yearId } = req.query;
+    
+    let query = {};
+    if (yearId && yearId !== 'all') {
+      const sections = await Section.find({ year: yearId }).distinct('branch');
+      query._id = { $in: sections };
+    }
+
+    const branches = await Branch.find(query)
+      .select('name')
+      .sort('name')
+      .lean();
+
+    res.json(branches);
+  } catch (error) {
+    console.error('Error fetching branches:', error);
+    res.status(500).json({ error: 'Failed to fetch branches' });
+  }
+});
+
+router.get('/api/sections', async (req, res) => {
+  try {
+    const { yearId, branchId } = req.query;
+    
+    let query = {};
+    if (yearId && yearId !== 'all') {
+      query.year = yearId;
+    }
+    if (branchId && branchId !== 'all') {
+      query.branch = branchId;
+    }
+
+    const sections = await Section.find(query)
+      .select('name')
+      .sort('name')
+      .lean();
+
+    res.json(sections);
+  } catch (error) {
+    console.error('Error fetching sections:', error);
+    res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+// Modified routes for fetching branches and sections
+router.get('/allbranch', async (req, res) => {
+  try {
+    const yearsParam = req.query.years || '';
+    const years = yearsParam ? yearsParam.split(',') : [];
+
+    let query = {};
+    if (years.length > 0 && !years.includes('all')) {
+      query.year = { $in: years };
+    }
+
+    const sections = await Section.find(query).distinct('branch');
+    const branches = await Branch.find({ _id: { $in: sections } })
+      .select('name')
+      .lean();
+
+    res.json(branches);
+  } catch (error) {
+    console.error('Error fetching branches:', error);
+    res.status(500).json({ error: 'Failed to fetch branches' });
+  }
+});
+
+router.get('/allsections', async (req, res) => {
+  try {
+    const { years, branch } = req.query;
+    const yearArray = years ? years.split(',') : [];
+
+    let query = {};
+    if (branch && branch !== 'all') {
+      query.branch = branch;
+    }
+    if (yearArray.length > 0 && !yearArray.includes('all')) {
+      query.year = { $in: yearArray };
+    }
+
+    const sections = await Section.find(query)
+      .select('name')
+      .lean();
+
+    res.json(sections);
+  } catch (error) {
+    console.error('Error fetching sections:', error);
+    res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+
+// Route to initiate OAuth2 login flow
+router.get('/auth/google', (req, res) => {
   const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',  // Ensures refresh tokens are received
+    access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/userinfo.profile',
       'https://www.googleapis.com/auth/userinfo.email'
     ],
-    state: state  // Pass the state in the OAuth2 request
+    state: JSON.stringify({
+      year: req.query.year,
+      branch: req.query.branch,
+      section: req.query.section,
+      emailSubject: req.query.emailSubject,
+      emailBody: req.query.emailBody
+    })
   });
-
-  res.redirect(url);
-});
-
-// Send email route with optional attachment
-router.post('/send-email', upload.single('emailAttachment'), async (req, res) => {
-  const { year, branch, section, emailSubject, emailBody } = req.body;
-  const file = req.file; 
-
-  try {
-    const students = await Student.find({ year, branch, section });
-    const recipientEmails = students.map(student => student.email);
-
-    if (recipientEmails.length === 0) {
-      return res.status(400).json({ success: false, error: 'No recipient emails found' });
-    }
-
-    const state = new URLSearchParams({
-      year,
-      branch,
-      section,
-      emailSubject,
-      emailBody
-    }).toString();
-
-    if (file) {
-      req.session.file = {
-        originalname: file.originalname,
-        buffer: file.buffer,
-        mimetype: file.mimetype
-      };
-    } else {
-      req.session.file = null;
-    }
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.send&access_type=offline&include_granted_scopes=true&response_type=code&redirect_uri=http://localhost:2000/admin/oauth2/callback&client_id=${process.env.CLIENT_ID}&state=${encodeURIComponent(state)}&prompt=consent`;
-
-    res.redirect(authUrl);
-  } catch (error) {
-    console.error('Error in send-email route:', error);
-    res.status(500).json({ success: false, error: 'Failed to send email' });
-  }
+  res.redirect(url); // Initiate OAuth flow without CORS
 });
 
 router.get('/email', isAdminLoggedIn, async (req, res) => {
@@ -749,7 +1217,6 @@ router.get('/email', isAdminLoggedIn, async (req, res) => {
   let state = JSON.stringify({ year: req.query.year, branch: req.query.branch }); // Generate a state with some meaningful data
   res.render('admin/sendEmail', { academicYears, client });
 });
-
 
 // Set the credentials for the OAuth2 client
 oauth2Client.setCredentials({
@@ -1272,7 +1739,6 @@ router.post('/subjects', isAdminLoggedIn, async (req, res) => {
   res.redirect('/admin/subjects');
 });
 
-
 // Render edit subject form
 router.get('/subjects/:id/edit', isAdminLoggedIn, async (req, res) => {
   const subject = await Subject.findById(req.params.id)
@@ -1334,6 +1800,10 @@ router.get('/subject', async(req, res) => {
   const subjects = await Subject.find({});
   res.json(subjects);
 });
+router.get('/subjec', async(req, res) => {
+  const subjects = await Subject.find({ type: {$nin: ['Non-Academic'] } }).sort('name');
+  res.json(subjects);
+});
 // Route to get the timetable creation and viewing page
 router.get('/timetable', isAdminLoggedIn, async (req, res) => {
   try {
@@ -1366,222 +1836,339 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
 });
 
 router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
-  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject:subjectId, faculty, room } = req.body;
-  console.log(req.body);
+    const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject: subjectId, faculty, room } = req.body;
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const dayName = dayNames[day - 1];
 
-  // Convert day number to day name
-  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const dayName = dayNames[day - 1];
+    try {
+        const semesterDoc = await Semester.findById(semester);
+        const subject = await Subject.findById(subjectId);
+        if (!semesterDoc) {
+            req.flash('error', 'Invalid semester');
+            return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
+        }
 
-  try {
-      // Find the semester document by ID
-      const semesterDoc = await Semester.findById(semester);
-      const subject=await Subject.findById(subjectId);
-      console.log(subject);
-      if (!semesterDoc) {
-          req.flash('error', 'Invalid semester');
-          return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
-      }
+        let periods = [];
 
-      // Initialize an array to hold the period documents
-      let periods = [];
+        if (subject && subject.type == 'Non-Academic') {
+            const newPeriod = new Period({
+                hour,
+                day: dayName,
+                branch,
+                year,
+                section,
+                subject,
+                room,
+                semester,
+                startTime,
+                endTime,
+                specialPeriod: subject.name,
+                faculty: null,
+            });
 
-      // Check if the request is for a special period (like lunch, sports, or library)
-      if (subject.type=='Non-Academic') {
-          const newPeriod = new Period({
-              hour,
-              day: dayName,
-              branch,
-              year,
-              section,
-              subject,
-              room,
-              semester,
-              startTime,
-              endTime,
-              specialPeriod:subject.name,
-              faculty: null, // No faculty for special periods
-          });
+            let period = await newPeriod.save();
+            periods.push(period._id);
+        } else if (batchDetails && batchDetails.length > 0) {
+            for (const { batchId, subject, faculty } of batchDetails) {
+                if (!subject || !faculty) {
+                    req.flash('error', 'Subject and Faculty must be selected for each batch.');
+                    return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
+                }
+                const newPeriod = new Period({
+                    hour,
+                    day: dayName,
+                    branch,
+                    year,
+                    section,
+                    subject,
+                    room,
+                    semester,
+                    startTime,
+                    endTime,
+                    faculty,
+                    batch: batchId
+                });
 
-          let period = await newPeriod.save();
-          periods.push(period._id);
-          console.log(newPeriod);
-      } else if (batchDetails && batchDetails.length > 0) {
-          // Create a period for each batch detail
-          for (const { batchId, subject, faculty } of batchDetails) {
-              if (!subject || !faculty) {
-                  req.flash('error', 'Subject and Faculty must be selected for each batch.');
-                  return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
-              }
-              const newPeriod = new Period({
-                  hour,
-                  day: dayName,
-                  branch,
-                  year,
-                  section,
-                  subject,
-                  room,
-                  semester,
-                  startTime,
-                  endTime,
-                  faculty,
-                  batch: batchId
-              });
+                let period = await newPeriod.save();
+                period = await period.populate('subject faculty');
+                periods.push(period._id);
 
-              let period = await newPeriod.save();
-              period = await period.populate('subject faculty'); // Populate subject and faculty in the period
-              periods.push(period._id);
-              // Add section to faculty's sections array
-              await Faculty.findByIdAndUpdate(faculty, { $addToSet: { sections: section } });
-          }
-      } else {
-          // Create a standard period without batches
-          const newPeriod = new Period({
-              hour,
-              day: dayName,
-              branch,
-              year,
-              section,
-              subject,
-              room,
-              semester,
-              startTime,
-              endTime,
-              faculty
-          });
+                // Add section to faculty's sections array without duplicates
+                await Faculty.findByIdAndUpdate(faculty, {
+                    $addToSet: { 
+                        sections: section,
+                        periods: period._id
+                    }
+                });
+            }
+        } else {
+            const newPeriod = new Period({
+                hour,
+                day: dayName,
+                branch,
+                year,
+                section,
+                subject,
+                room,
+                semester,
+                startTime,
+                endTime,
+                faculty
+            });
 
-          let period = await newPeriod.save();
-          period = await period.populate('subject faculty'); // Populate subject and faculty in the period
-          periods.push(period._id);
-          // Add section to faculty's sections array
-          await Faculty.findByIdAndUpdate(faculty, { $addToSet: { sections: section } });
-      }
+            let period = await newPeriod.save();
+            period = await period.populate('subject faculty');
+            periods.push(period._id);
 
-      // Find or create the timetable
-      let timetable = await Timetable.findOne({ year, branch, section, semester });
-      if (!timetable) {
-          timetable = new Timetable({ year, branch, section, semester, periods: [] });
-      }
+            // Add section and period to faculty without duplicates
+            if (faculty) {
+                await Faculty.findByIdAndUpdate(faculty, {
+                    $addToSet: { 
+                        sections: section,
+                        periods: period._id
+                    }
+                });
+            }
+        }
 
-      // Add the periods to the timetable and save
-      timetable.periods.push(...periods);
-      console.log(periods);
-      await timetable.save();
+        // Find or create timetable and add periods without duplicates
+        let timetable = await Timetable.findOne({ year, branch, section, semester });
+        if (!timetable) {
+            timetable = new Timetable({ year, branch, section, semester, periods: [] });
+        }
 
-      if (batchDetails && batchDetails.length > 0) {
-          // Update faculty with the new periods
-          for (const { faculty } of batchDetails) {
-              await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
-          }
-      } else if (faculty) {
-          await Faculty.findByIdAndUpdate(faculty, { $push: { periods: { $each: periods } } });
-      }
-      // Update Section's facultySubjects array for the current semester
-      await Section.findByIdAndUpdate(section, { 
-        $addToSet: { 
-            facultySubjects: { 
-                faculty, 
-                subject, 
-                semester 
-            } 
-        } 
-      });
+        // Add periods to timetable without duplicates
+        await Timetable.findByIdAndUpdate(timetable._id, {
+            $addToSet: { periods: { $each: periods } }
+        });
 
-      req.flash('success', 'Period(s) added successfully');
-      res.json({ success: true, periods: periods });
-  } catch (error) {
-      console.error('Error adding period:', error);
-      req.flash('error', 'Error adding period');
-      res.json({ success: false, error: error.message });
-  }
+        // Update Section's facultySubjects array without duplicates
+        if (faculty && subject) {
+            await Section.findByIdAndUpdate(section, {
+                $addToSet: {
+                    facultySubjects: {
+                        faculty,
+                        subject,
+                        semester
+                    }
+                }
+            });
+        }
+
+        req.flash('success', 'Period(s) added successfully');
+        res.json({ success: true, periods: periods });
+    } catch (error) {
+        console.error('Error adding period:', error);
+        req.flash('error', 'Error adding period');
+        res.json({ success: false, error: error.message });
+    }
 });
 
 router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
-  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject: subjectId, faculty: newFacultyId, room } = req.body;
+    let { 
+        hour, 
+        day, 
+        branch, 
+        year, 
+        section, 
+        semester, 
+        startTime, 
+        endTime, 
+        batch, 
+        subject: subjectId, 
+        faculty: newFacultyId, 
+        room,
+        specialPeriod 
+    } = req.body;
 
-  try {
-    // Find the existing period by ID
-    const oldPeriod = await Period.findById(req.params.id);
-    if (!oldPeriod) {
-      return res.status(404).json({ success: false, message: 'Period not found' });
+    try {
+        const oldPeriod = await Period.findById(req.params.id);
+        if (!oldPeriod) {
+            return res.status(404).json({ success: false, message: 'Period not found' });
+        }
+
+        const oldFacultyId = oldPeriod.faculty;
+        const oldSubjectId = oldPeriod.subject;
+        const oldSemesterId = oldPeriod.semester;
+
+        const daysEnum = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        if (day < 1 || day > daysEnum.length) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid day number. Must be between 1 and 7.' 
+            });
+        }
+        const dayString = daysEnum[day-1];
+        hour--;
+
+        // Update the period
+        const updatedPeriod = await Period.findByIdAndUpdate(
+            req.params.id,
+            {
+                hour,
+                day: dayString,
+                branch,
+                year,
+                section,
+                semester,
+                startTime,
+                endTime,
+                subject: subjectId,
+                faculty: newFacultyId,
+                room,
+                batch,
+                specialPeriod
+            },
+            { new: true, runValidators: true }
+        );
+
+        // Handle faculty sections and periods updates
+        if (oldFacultyId) {
+            // Remove period from old faculty's periods array
+            await Faculty.findByIdAndUpdate(oldFacultyId, {
+                $pull: { periods: req.params.id }
+            });
+
+            // Check if faculty still has other periods in this section
+            const oldFacultyPeriodsInSection = await Period.countDocuments({ 
+                faculty: oldFacultyId, 
+                section: section 
+            });
+
+            if (oldFacultyPeriodsInSection === 0) {
+                await Faculty.findByIdAndUpdate(oldFacultyId, {
+                    $pull: { sections: section }
+                });
+            }
+        }
+
+        // Add to new faculty
+        if (newFacultyId) {
+            await Faculty.findByIdAndUpdate(newFacultyId, {
+                $addToSet: { 
+                    sections: section,
+                    periods: updatedPeriod._id
+                }
+            });
+        }
+
+        // Update section's facultySubjects
+        if (section && oldFacultyId && oldSubjectId && oldSemesterId) {
+            const oldFacultySubjectPeriods = await Period.countDocuments({ 
+                faculty: oldFacultyId, 
+                subject: oldSubjectId, 
+                section: section,
+                semester: oldSemesterId 
+            });
+
+            if (oldFacultySubjectPeriods === 0) {
+                await Section.findByIdAndUpdate(section, {
+                    $pull: {
+                        facultySubjects: {
+                            faculty: oldFacultyId,
+                            subject: oldSubjectId,
+                            semester: oldSemesterId
+                        }
+                    }
+                });
+            }
+        }
+
+        // Add new faculty-subject combination if doesn't exist
+        if (section && newFacultyId && subjectId && semester) {
+            await Section.findByIdAndUpdate(section, {
+                $addToSet: {
+                    facultySubjects: {
+                        faculty: newFacultyId,
+                        subject: subjectId,
+                        semester: semester
+                    }
+                }
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Period updated successfully',
+            period: updatedPeriod 
+        });
+
+    } catch (error) {
+        console.error('Error updating period:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating period',
+            error: error.message 
+        });
     }
-
-    const oldFacultyId = oldPeriod.faculty;  // Old faculty before update
-    const subject = await Subject.findById(subjectId);
-
-    // Update the period with the new details
-    oldPeriod.hour = hour;
-    oldPeriod.day = day;
-    oldPeriod.branch = branch;
-    oldPeriod.year = year;
-    oldPeriod.section = section;
-    oldPeriod.semester = semester;
-    oldPeriod.startTime = startTime;
-    oldPeriod.endTime = endTime;
-    oldPeriod.subject = subjectId;
-    oldPeriod.faculty = newFacultyId;
-    oldPeriod.room = room;
-
-    await oldPeriod.save();
-
-    // Check if the old faculty is still teaching any periods in this section
-    const oldFacultyPeriodsInSection = await Period.find({ faculty: oldFacultyId, section: section });
-
-    // If the old faculty is no longer teaching this section, remove the section from their `sections` array
-    if (oldFacultyPeriodsInSection.length === 0) {
-      await Faculty.findByIdAndUpdate(oldFacultyId, { $pull: { sections: section } });
-    }
-
-    // Add the section to the new faculty's `sections` array if not already present
-    await Faculty.findByIdAndUpdate(newFacultyId, { $addToSet: { sections: section } });
-
-    // Check if old faculty-subject-semester pair should be removed from section's facultySubjects array
-    const oldFacultySubjectPeriods = await Period.find({ 
-      faculty: oldFacultyId, 
-      subject: oldSubjectId, 
-      section: section,
-      semester: oldSemesterId // Include the old semester
-    });
-    if (oldFacultySubjectPeriods.length === 0) {
-      await Section.findByIdAndUpdate(section, { 
-          $pull: { 
-              facultySubjects: { 
-                  faculty: oldFacultyId, 
-                  subject: oldSubjectId, 
-                  semester: oldSemesterId // Pull from the correct semester
-              } 
-          } 
-      });
-    }
-
-
-    // Add new faculty-subject-semester pair if it doesn't already exist in section's facultySubjects array
-    const newFacultySubjectPeriods = await Period.find({ 
-      faculty: newFacultyId, 
-      subject: subjectId, 
-      section: section,
-      semester: newSemesterId // Check for the new semester
-    });
-    if (newFacultySubjectPeriods.length === 0) {
-      await Section.findByIdAndUpdate(section, { 
-          $addToSet: { 
-              facultySubjects: { 
-                  faculty: newFacultyId, 
-                  subject: subjectId, 
-                  semester: newSemesterId // Add for the correct semester
-              } 
-          } 
-      });
-    }
-
-    res.json({ success: true, message: 'Period updated successfully' });
-
-  } catch (error) {
-    console.error('Error updating period:', error);
-    res.json({ success: false, message: 'Error updating period' });
-  }
 });
 
+router.delete('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
+    try {
+        const period = await Period.findById(req.params.id);
+        if (!period) {
+            return res.json({ success: false, message: 'Period not found' });
+        }
+
+        const { faculty, subject, section, semester } = period;
+
+        // Remove period from faculty's periods array
+        if (faculty) {
+            await Faculty.findByIdAndUpdate(faculty, {
+                $pull: { periods: period._id }
+            });
+
+            // Check if faculty still has other periods in this section
+            const facultyPeriodsInSection = await Period.countDocuments({ 
+                faculty: faculty, 
+                section: section 
+            });
+
+            if (facultyPeriodsInSection === 1) { // 1 because current period isn't deleted yet
+                await Faculty.findByIdAndUpdate(faculty, {
+                    $pull: { sections: section }
+                });
+            }
+        }
+
+        // Remove from timetable
+        await Timetable.updateMany(
+            { periods: period._id },
+            { $pull: { periods: period._id } }
+        );
+
+        // Check and update facultySubjects in section
+        if (faculty && subject && section && semester) {
+            const facultySubjectPeriods = await Period.countDocuments({ 
+                faculty, 
+                subject, 
+                section,
+                semester,
+                _id: { $ne: period._id } // Exclude current period
+            });
+
+            if (facultySubjectPeriods === 0) {
+                await Section.findByIdAndUpdate(section, {
+                    $pull: {
+                        facultySubjects: {
+                            faculty,
+                            subject,
+                            semester
+                        }
+                    }
+                });
+            }
+        }
+
+        // Finally delete the period
+        await Period.findByIdAndDelete(period._id);
+
+        res.json({ success: true, message: 'Period deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting period:', error);
+        res.json({ success: false, message: 'Error deleting period' });
+    }
+});
 
 router.get('/timetables', async (req, res) => {
   const { section, year, branch, semester } = req.query;
@@ -1646,49 +2233,6 @@ router.get('/timetable/:id', async (req, res) => {
     console.error('Error fetching timetable:', error);
     req.flash('error', 'Error fetching timetable');
     res.redirect('/admin/timetable');
-  }
-});
-// Route to delete a period
-router.delete('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
-  try {
-    const period = await Period.findByIdAndDelete(req.params.id);
-    if (period) {
-            const faculty = period.faculty;
-            const subject = period.subject;
-            const section = period.section;
-            const semester = period.semester;
-        // Remove the section from the faculty's sections array only if no other periods are left for the same section
-        const facultyPeriodsInSection = await Period.find({ faculty: period.faculty, section: period.section });
-        
-        if (facultyPeriodsInSection.length === 0) {
-          await Faculty.findByIdAndUpdate(period.faculty, { $pull: { sections: period.section } });
-        }
-        // Check if other periods exist for the same faculty, subject, and semester in the section
-        const remainingFacultySubjectPeriods = await Period.find({ 
-          faculty, 
-          subject, 
-          section,
-          semester // Ensure you're checking for the correct semester
-        });
-        if (remainingFacultySubjectPeriods.length === 0) {
-          await Section.findByIdAndUpdate(section, { 
-              $pull: { 
-                  facultySubjects: { 
-                      faculty, 
-                      subject, 
-                      semester // Remove from the correct semester
-                  } 
-              } 
-          });
-        }
-
-      res.json({ success: true, message: 'Period deleted successfully' });
-    } else {
-      res.json({ success: false, message: 'Period not found' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: 'Error deleting period' });
   }
 });
 
@@ -1968,28 +2512,32 @@ router.get('/faculty/search', async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 router.get('/faculty/:id', async (req, res) => {
   try {
-    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const faculty = await Faculty.findById(req.params.id)
+          .populate({
+              path: 'periods',
+              populate: [
+                  { path: 'subject' },
+                  { path: 'year' },
+                  { path: 'branch' },
+                  { path: 'section' }
+              ]
+          })
           .populate('branch')
           .populate('subjects');
-          let weeklyTimetable = {};
 
-          for (let day of daysOfWeek) {
-              let periods = await Period.find({ faculty: faculty._id, day: day })
-                  .populate('subject')
-                  .populate('year')
-                  .populate('branch')
-                  .populate('section');
-  
-              weeklyTimetable[day] = periods;
-              console.log(weeklyTimetable);
-          }
-      res.render('admin/faculty/facultyView', { faculty,weeklyTimetable });
+      if (!faculty) {
+          req.flash('error', 'Faculty not found');
+          return res.redirect('/admin/faculty');
+      }
+
+      res.render('admin/faculty/facultyView', { faculty });
   } catch (error) {
       console.error('Error fetching faculty:', error);
-      res.status(500).send('Internal Server Error');
+      req.flash('error', 'An error occurred while fetching faculty details');
+      res.status(500).redirect('/admin/faculty');
   }
 });
 
@@ -2038,49 +2586,49 @@ router.get('/section', async (req, res) => {
   }
 });
 
-router.get('/attendance', async (req, res) => {
-  // const { student, subject, date, status, period, branch, section, semester, year } = req.query;
+// router.get('/attendance', async (req, res) => {
+//   // const { student, subject, date, status, period, branch, section, semester, year } = req.query;
 
-  // let filter = {};
-  // if (student) filter.student = student;
-  // if (subject) filter.subject = subject;
-  // if (date) filter.date = new Date(date);
-  // if (status !== undefined) filter.status = status.toLowerCase() === 'present';
-  // if (period) filter.period = period;
-  // if (branch) filter.branch = branch;
-  // if (section) filter.section = section;
-  // if (semester) filter.semester = semester;
-  // if (year) filter.year = year;
+//   // let filter = {};
+//   // if (student) filter.student = student;
+//   // if (subject) filter.subject = subject;
+//   // if (date) filter.date = new Date(date);
+//   // if (status !== undefined) filter.status = status.toLowerCase() === 'present';
+//   // if (period) filter.period = period;
+//   // if (branch) filter.branch = branch;
+//   // if (section) filter.section = section;
+//   // if (semester) filter.semester = semester;
+//   // if (year) filter.year = year;
 
-  try {
-    // const attendances = await Attendance.find(filter)
-    //   .populate('student subject branch section semester year');
-    // res.render('admin/attendance/attendance', { attendances });
-    res.render('admin/attendance/attendance');
-  } catch (error) {
-    console.error('Error fetching attendances:', error);
-    req.flash('error', 'Error fetching attendances');
-    res.redirect('/admin');
-  }
-});
+//   try {
+//     // const attendances = await Attendance.find(filter)
+//     //   .populate('student subject branch section semester year');
+//     // res.render('admin/attendance/attendance', { attendances });
+//     res.render('admin/attendance/attendance');
+//   } catch (error) {
+//     console.error('Error fetching attendances:', error);
+//     req.flash('error', 'Error fetching attendances');
+//     res.redirect('/admin');
+//   }
+// });
 
-// Handle attendance submission
-router.post('/attendance', isAdminLoggedIn, async (req, res) => {
-  const { attendance } = req.body; // attendance should be an array of { studentId, status }
-  try {
-    for (let entry of attendance) {
-      await Attendance.create({
-        student: entry.studentId,
-        status: entry.status
-      });
-    }
-    req.flash('success', 'Attendance recorded successfully');
-    res.redirect('/admin/attendance');
-  } catch (err) {
-    req.flash('error', 'Error recording attendance');
-    res.redirect('/admin/attendance');
-  }
-});
+// // Handle attendance submission
+// router.post('/attendance', isAdminLoggedIn, async (req, res) => {
+//   const { attendance } = req.body; // attendance should be an array of { studentId, status }
+//   try {
+//     for (let entry of attendance) {
+//       await Attendance.create({
+//         student: entry.studentId,
+//         status: entry.status
+//       });
+//     }
+//     req.flash('success', 'Attendance recorded successfully');
+//     res.redirect('/admin/attendance');
+//   } catch (err) {
+//     req.flash('error', 'Error recording attendance');
+//     res.redirect('/admin/attendance');
+//   }
+// });
 
 router.get("/section/new",async(req,res)=>{
   let sections=await Section.find({});
@@ -2547,6 +3095,34 @@ router.get('/section/:id/search-students-no-batch', async (req, res) => {
   res.json(studentsNoBatch);
 });
 
+// Delete a batch
+router.post('/section/:id/batch/:batchId/delete', async (req, res) => {
+  const { id, batchId } = req.params;
+
+  try {
+    // Delete the batch
+    await Batch.findByIdAndDelete(batchId);
+
+    // Remove the batch reference from students in the section
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({ success: false, message: 'Section not found' });
+    }
+
+    section.students.forEach(student => {
+      if (student.batch && student.batch.equals(batchId)) {
+        student.batch = null; // Remove the batch reference
+      }
+    });
+    await section.save();
+
+    res.redirect(`/admin/section/${id}/batches`);
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    res.status(500).json({ success: false, message: 'Error deleting batch' });
+  }
+});
+
 router.get('/non-academic-subjects', async (req, res) => {
   try {
     const nonAcademicSubjects = await Subject.find({ type: 'Non-Academic' });
@@ -2557,4 +3133,22 @@ router.get('/non-academic-subjects', async (req, res) => {
   }
 });
 
+const attendanceController = require('../controllers/attendanceController');
+
+// View Routes
+router.get('/attendance', isAdminLoggedIn, attendanceController.getAttendanceDashboard);
+router.get('/attendance/student/:id', isAdminLoggedIn, attendanceController.getStudentAttendance);
+
+// API Routes
+router.get('/attendance/api/summary', isAdminLoggedIn, attendanceController.getAttendanceSummary);
+router.get('/attendance/api/filter', isAdminLoggedIn, attendanceController.filterAttendance);
+router.post('/attendance/api/edit', isAdminLoggedIn, attendanceController.editAttendance);
+router.get('/attendance/api/download/:type', isAdminLoggedIn, attendanceController.downloadReport);
+
+// Data Loading Routes
+router.get('/attendance/api/load-semesters/:yearId', isAdminLoggedIn, attendanceController.loadSemesters);
+router.get('/attendance/api/load-sections/:branchId', isAdminLoggedIn, attendanceController.loadSections);
+router.get('/attendance/api/load-subjects/:sectionId', isAdminLoggedIn, attendanceController.loadSubjects);
+
+module.exports = router;
 module.exports = router;

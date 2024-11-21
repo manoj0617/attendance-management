@@ -34,9 +34,8 @@
                                 <% if (period) { %>
                                     <td class="attendance-entered">
                                         <div><%= period.subject.name %></div>
-                                        <div><%= period.branch.name %></div>
-                                        <div><%= period.year.name %> SEM</div>
-                                        <div>Sec: <%= period.section.name %></div>
+                                        <div><%= period.branch.name %>-<%= period.section.name %></div>
+                                        <div><%= period.year.name %> SEM</div>                                        
                                         <div><%= period.startTime %> - <%= period.endTime %></div>
                                     </td>
                                 <% } else { %>

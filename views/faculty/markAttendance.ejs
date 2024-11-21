@@ -4,10 +4,10 @@
 </head>
 <body>
     <div class="container">
-        <h2>Mark Attendance for <%= new Date(date).toLocaleDateString() %><%= acYear.name %> <%= branch.name %> <%= section.name %></h2>
+        <h2>Mark Attendance for <%= new Date(date).toLocaleDateString() %> - <%= acYear.name %> - <%= branch.name %> - <%= sectionData.name %></h2>
         <form id="markAttendanceForm" action="/faculty/submitAttendance" method="post">
             <input type="hidden" name="date" value="<%= date %>">
-            <input type="hidden" name="section" value="<%= section %>">
+            <input type="hidden" name="section" value="<%= sectionData._id %>">
             <input type="hidden" name="acYear" value="<%= acYear %>">
             <input type="hidden" name="program" value="<%= program %>">
             <input type="hidden" name="branch" value="<%= branch %>">
@@ -38,7 +38,7 @@
                             <td><%= index + 1 %></td>
                             <td><%= student.username %></td>
                             <td><%= student.name %></td>
-                            <td><%= student.section %> / <%= student.batch ? student.batch : '' %></td>
+                            <td><%= sectionData.name %> / <%= student.batch || '' %></td>
                             <td>
                                 <input type="checkbox" name="attendance[<%= student._id %>]" value="true" checked>
                             </td>

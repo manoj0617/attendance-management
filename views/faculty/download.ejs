@@ -1,14 +1,23 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
+<!DOCTYPE html>
+<html>
+<head>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #d0cede; /* Mishka color */
+            background-color: #d0cede;
         }
         .form-container {
             background-color: #ffffff;
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .report-type-container {
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -17,174 +26,243 @@
         <div class="row justify-content-center">
             <div class="col-md-8 form-container shadow">
                 <form method="post" action="/faculty/downloadReport" class="needs-validation" novalidate>
-                    <h2 class="text-center mb-4">Download Attendance</h2>
+                    <h2 class="text-center mb-4">Download Attendance Report</h2>
+                    <input type="hidden" name="section" value="<%= section._id %>">
+                    <input type="hidden" name="acYear" value="<%= section.year %>">
+                    <input type="hidden" name="branch" value="<%= section.branch._id %>">
+                    <input type="hidden" name="semester" value="<%= section.currentSemester._id %>">
+                    
+                    <div class="report-type-container">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <div class="custom-control custom-radio">
+                                <input type="radio" id="cumulative-subject" name="reportType" value="cumulative-subject" class="custom-control-input" required>
+                                <label class="custom-control-label" for="cumulative-subject">Cumulative Subject-wise Report</label>
+                            </div>
+                            <div class="custom-control custom-radio">
+                                <input type="radio" id="cumulative-monthly" name="reportType" value="cumulative-monthly" class="custom-control-input">
+                                <label class="custom-control-label" for="cumulative-monthly">Cumulative Month-wise Report</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label for="fromDate">From</label>
-                            <input type="date" id="fromDate" name="fromDate" class="form-control" max="<%= new Date().toISOString().split('T')[0] %>" required>
-                            <div class="invalid-feedback">Please choose a date.</div>
+                            <label for="fromDate">From Date</label>
+                            <input type="date" id="fromDate" name="fromDate" class="form-control" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="toDate">To</label>
-                            <input type="date" id="toDate" name="toDate" class="form-control" max="<%= new Date().toISOString().split('T')[0] %>" required>
-                            <div class="invalid-feedback">Please choose a date.</div>
+                            <label for="toDate">To Date</label>
+                            <input type="date" id="toDate" name="toDate" class="form-control" required>
                         </div>
                     </div>
+
                     <div class="form-group">
-                        <label for="academicYear">Academic Year</label>
-                        <select id="academicYear" name="academicYear" class="form-control" required>
-                            <option value="">Select Academic Year</option>
-                            <% academicYears.forEach(year => { %>
-                                <option value="<%= year._id %>"><%= year.name %></option>
-                            <% }); %>
-                        </select>
-                        <div class="invalid-feedback">Please select an academic year.</div>
-                    </div>
-                    <div class="form-group">
-                        <label for="semester">Semester</label>
-                        <select id="semester" name="semester" class="form-control" required disabled>
-                            <option value="">Choose...</option>
-                        </select>
-                        <div class="invalid-feedback">Please select a semester.</div>
-                    </div>
-                    <div class="form-group"></div>
-                        <label for="percentage">Percentage Criteria</label>
-                        <select id="percentageCriteria" name="percentageCriteria" class="form-control" required>
-                            <option value="">-SELECT-</option>
+                        <label for="percentageCriteria">Percentage Criteria</label>
+                        <select id="percentageCriteria" name="percentageCriteria" class="form-control">
+                            <option value="">All Students</option>
                             <option value="less_65">Less than 65%</option>
                             <option value="less_75">Less than 75%</option>
                             <option value="above_90">Above 90%</option>
                             <option value="other">Other</option>
                         </select>
                         <div id="otherCriteria" class="mt-2" style="display:none;">
-                            <select id="otherCondition" class="form-control mb-2">
-                                <option value=">">></option>
-                                <option value="<"><</option>
-                                <option value=">=">>=</option>
-                                <option value="<="><=</option>
+                            <select id="otherCondition" name="otherCondition" class="form-control mb-2">
+                                <option value=">">Greater than</option>
+                                <option value="<">Less than</option>
+                                <option value=">=">Greater than or equal to</option>
+                                <option value="<=">Less than or equal to</option>
                                 <option value="between">Between</option>
                             </select>
-                            <input type="number" id="percentageValue" class="form-control mb-2" placeholder="Enter value">
-                            <input type="number" id="percentageValue2" class="form-control" placeholder="Enter second value (for Between)" style="display:none;">
+                            <input type="number" id="percentageValue" name="percentageValue" class="form-control mb-2" placeholder="Enter percentage">
+                            <input type="number" id="percentageValue2" name="percentageValue2" class="form-control" placeholder="Enter second percentage (for Between)" style="display:none;">
                         </div>
-                        <div class="form-group">
-                            <label for="format">File Format</label>
-                            <select id="format" name="format" class="form-control" required>
-                                <option value="">Choose...</option>
-                                <option value="excel">Excel</option>
-                                <option value="pdf">PDF</option>
-                            </select>
-                            <div class="invalid-feedback">Please select a file format.</div>
-                        </div>
-                        <div class="form-group text-center mt-4">
-                            <button type="button" id="showData" class="btn btn-primary">Show Data</button>
-                            <button type="submit" class="btn btn-outline-dark">Download Report</button>
-                        </div>
-                    </div>                    
+                    </div>
+
+                    <div class="form-group">
+                        <label for="format">File Format</label>
+                        <select id="format" name="format" class="form-control" required>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group text-center mt-4">
+                        <button type="button" id="showData" class="btn btn-primary">Preview Data</button>
+                        <button type="submit" class="btn btn-outline-dark">Download Report</button>
+                    </div>
                 </form>
+
                 <div id="dataDisplay" class="mt-5" style="display:none;">
-                    <h3 class="text-center">Attendance Data</h3>
-                    <div id="attendanceTableContainer"></div>
+                    <h3 class="text-center">Preview</h3>
+                    <div class="table-responsive">
+                        <div id="attendanceTableContainer"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            $('#academicYear').change(function() {
-                var academicYear = $(this).val();
-                if (academicYear) {
-                    $.ajax({
-                        url: '/faculty/semester',
-                        type: 'GET',
-                        data: { year: academicYear },
-                        success: function(data) {
-                            $('#semester').removeAttr('disabled').html('<option value="">Select Semester</option>' + data.semesters.map(sem => `<option value="${sem._id}">${sem.name}</option>`));
-                        }
-                    });
-                }
-            });
-
+            // Handle percentage criteria selection
             document.getElementById('percentageCriteria').addEventListener('change', function() {
-                if (this.value === 'other') {
-                    document.getElementById('otherCriteria').style.display = 'block';
-                } else {
-                    document.getElementById('otherCriteria').style.display = 'none';
-                }
+                document.getElementById('otherCriteria').style.display = 
+                    this.value === 'other' ? 'block' : 'none';
             });
 
+            // Handle other condition selection
             document.getElementById('otherCondition').addEventListener('change', function() {
-                if (this.value === 'between') {
-                    document.getElementById('percentageValue2').style.display = 'block';
-                } else {
-                    document.getElementById('percentageValue2').style.display = 'none';
-                }
+                document.getElementById('percentageValue2').style.display = 
+                    this.value === 'between' ? 'block' : 'none';
             });
 
+            // Preview data button handler
             document.getElementById('showData').addEventListener('click', function() {
-                // Fetch and display data based on selected criteria
-                const fromDate = document.getElementById('fromDate').value;
-                const toDate = document.getElementById('toDate').value;
-                const academicYear = document.getElementById('academicYear').value;
-                const semester = document.getElementById('semester').value;
-                const percentageCriteria = document.getElementById('percentageCriteria').value;
-                const otherCondition = document.getElementById('otherCondition').value;
-                const percentageValue = document.getElementById('percentageValue').value;
-                const percentageValue2 = document.getElementById('percentageValue2').value;
-                const format = document.getElementById('format').value;
-
-                const requestData = {
-                    fromDate,
-                    toDate,
-                    academicYear,
-                    semester,
-                    percentageCriteria,
-                    otherCondition,
-                    percentageValue,
-                    percentageValue2,
-                    format
-                };
+                const formData = new FormData(document.querySelector('form'));
+                const queryString = new URLSearchParams(formData).toString();
 
                 $.ajax({
-                    url: '/faculty/getAttendanceData',
+                    url: '/faculty/getAttendanceData?' + queryString,
                     type: 'GET',
-                    data: requestData,
                     success: function(data) {
-                        // Display fetched data
                         document.getElementById('dataDisplay').style.display = 'block';
-
                         const tableContainer = document.getElementById('attendanceTableContainer');
-                        tableContainer.innerHTML = createTable(data);
+                        if (data && data.length) {
+                            const reportType = document.querySelector('input[name="reportType"]:checked').value;
+                            tableContainer.innerHTML = createTable(data, reportType);
+                        } else {
+                            tableContainer.innerHTML = '<p class="text-center text-warning">No data found for the selected criteria.</p>';
+                        }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error fetching data:', error);
+                        console.error('Error:', error);
+                        const tableContainer = document.getElementById('attendanceTableContainer');
+                        tableContainer.innerHTML = '<p class="text-center text-danger">Error fetching data. Please try again.</p>';
                     }
                 });
             });
+            // Complete the EJS template first
+function createTable(data, reportType) {
+    if (!data.length) return '';
 
-            function createTable(data) {
-                if (!data.length) {
-                    return '<p class="text-center">No data found for the selected criteria.</p>';
-                }
-
-                let tableHTML = '<table class="table table-bordered"><thead><tr><th>#</th><th>Username</th><th>Name</th><th>Total Classes</th><th>Attended Classes</th><th>Percentage</th></tr></thead><tbody>';
-
-                data.forEach((record, index) => {
-                    tableHTML += `<tr>
-                        <td>${index + 1}</td>
-                        <td>${record.username}</td>
-                        <td>${record.name}</td>
-                        <td>${record.totalClasses}</td>
-                        <td>${record.attendedClasses}</td>
-                        <td>${record.percentage.toFixed(2)}%</td>
-                    </tr>`;
-                });
-
-                tableHTML += '</tbody></table>';
-                return tableHTML;
-            }
+    let tableHTML = '<table class="table table-bordered table-striped"><thead><tr>';
+    
+    // Common columns
+    tableHTML += '<th>Roll No</th><th>Name</th>';
+    
+    if (reportType === 'cumulative-subject') {
+        // Get unique subjects
+        const subjects = Object.keys(data[0].subjects || {});
+        
+        // Add subject columns (TC and TA for each)
+        subjects.forEach(subject => {
+            tableHTML += `<th colspan="2">${subject}</th>`;
         });
-    </script>
+        
+        // Add total columns
+        tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
+        
+        // Add TC/TA subheaders for each subject
+        subjects.forEach(() => {
+            tableHTML += '<th>TC</th><th>TA</th>';
+        });
+        
+        // Add TC/TA subheaders for total
+        tableHTML += '<th>TC</th><th>TA</th>';
+        
+    } else if (reportType === 'cumulative-monthly') {
+        // Get unique months from the data
+        const months = data[0].months.map(m => m.month);
+        
+        // Add month columns (TC and TA for each)
+        months.forEach(month => {
+            tableHTML += `<th colspan="2">${month}</th>`;
+        });
+        
+        // Add total columns
+        tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
+        
+        // Add TC/TA subheaders for each month
+        months.forEach(() => {
+            tableHTML += '<th>TC</th><th>TA</th>';
+        });
+        
+        // Add TC/TA subheaders for total
+        tableHTML += '<th>TC</th><th>TA</th>';
+    }
+    
+    tableHTML += '</tr></thead><tbody>';
+    
+    // Add data rows
+    data.forEach(record => {
+        tableHTML += `<tr><td>${record.rollNo}</td><td>${record.studentName}</td>`;
+        
+        if (reportType === 'cumulative-subject') {
+            Object.values(record.subjects).forEach(subject => {
+                tableHTML += `<td>${subject.TC}</td><td>${subject.TA}</td>`;
+            });
+            tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
+            
+        } else if (reportType === 'cumulative-monthly') {
+            record.months.forEach(month => {
+                tableHTML += `<td>${month.TC}</td><td>${month.TA}</td>`;
+            });
+            tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
+        }
+        
+        tableHTML += '</tr>';
+    });
+    
+    tableHTML += '</tbody></table>';
+    return tableHTML;
+}
+
+// Add validation for the form
+document.querySelector('form').addEventListener('submit', function(e) {
+    const fromDate = new Date(document.getElementById('fromDate').value);
+    const toDate = new Date(document.getElementById('toDate').value);
+    
+    if (fromDate > toDate) {
+        e.preventDefault();
+        alert('From Date cannot be greater than To Date');
+        return false;
+    }
+    
+    const percentageCriteria = document.getElementById('percentageCriteria').value;
+    if (percentageCriteria === 'other') {
+        const value1 = parseFloat(document.getElementById('percentageValue').value);
+        const value2 = parseFloat(document.getElementById('percentageValue2').value);
+        const condition = document.getElementById('otherCondition').value;
+        
+        if (condition === 'between' && (isNaN(value1) || isNaN(value2) || value1 > value2)) {
+            e.preventDefault();
+            alert('Please enter valid percentage values for the between condition');
+            return false;
+        }
+        
+        if (!condition === 'between' && isNaN(value1)) {
+            e.preventDefault();
+            alert('Please enter a valid percentage value');
+            return false;
+        }
+    }
+});
+
+// Add date range restrictions based on semester dates
+document.addEventListener('DOMContentLoaded', function() {
+    const semesterStartDate = new Date('<%= section.currentSemester.startDate %>');
+    const semesterEndDate = new Date('<%= section.currentSemester.endDate %>');
+    
+    const fromDateInput = document.getElementById('fromDate');
+    const toDateInput = document.getElementById('toDate');
+    
+    fromDateInput.min = semesterStartDate.toISOString().split('T')[0];
+    fromDateInput.max = semesterEndDate.toISOString().split('T')[0];
+    toDateInput.min = semesterStartDate.toISOString().split('T')[0];
+    toDateInput.max = semesterEndDate.toISOString().split('T')[0];
+});
+        });
+</script>
 </body>
-</html>

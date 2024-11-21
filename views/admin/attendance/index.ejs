@@ -1,0 +1,360 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body>
+    <!-- views/admin/attendance/index.ejs -->
+<div class="container mt-4">
+    <!-- Filters Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Attendance Filters</h5>
+        </div>
+        <div class="card-body">
+            <form id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Academic Year</label>
+                    <select class="form-select" name="academicYear" id="academicYear">
+                        <option value="">Select Year</option>
+                        <% academicYears.forEach(function(year) { %>
+                            <option value="<%= year._id %>"><%= year.name %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Branch</label>
+                    <select class="form-select" name="branch" id="branch">
+                        <option value="">Select Branch</option>
+                        <% branches.forEach(function(branch) { %>
+                            <option value="<%= branch._id %>"><%= branch.name %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Semester</label>
+                    <select class="form-select" name="semester" id="semester">
+                        <option value="">Select Semester</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Section</label>
+                    <select class="form-select" name="section" id="section">
+                        <option value="">Select Section</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Subject</label>
+                    <select class="form-select" name="subject" id="subject">
+                        <option value="">Select Subject</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Date Range</label>
+                    <div class="input-group">
+                        <input type="date" class="form-control" name="startDate" id="startDate">
+                        <span class="input-group-text">to</span>
+                        <input type="date" class="form-control" name="endDate" id="endDate">
+                    </div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quick Search -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="input-group">
+                <input type="text" class="form-control" id="quickSearch" placeholder="Search by Roll No, Name, or Section...">
+                <button class="btn btn-outline-secondary" type="button">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Summary -->
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Attendance Summary</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-primary me-2" onclick="downloadReport('pdf')">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="downloadReport('excel')">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Roll No</th>
+                            <th>Name</th>
+                            <th>Total Classes</th>
+                            <th>Attended</th>
+                            <th>Percentage</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        <% students.forEach(function(student) { %>
+                            <tr class="<%= student.percentage < 75 ? 'table-danger' : '' %>">
+                                <td><%= student.rollNo %></td>
+                                <td><%= student.name %></td>
+                                <td><%= student.totalClasses %></td>
+                                <td><%= student.attended %></td>
+                                <td><%= student.percentage %>%</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewDetails('<%= student._id %>')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="editAttendance('<%= student._id %>')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Attendance Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="attendanceTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="attendanceDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Student Details -->
+<div class="modal fade" id="studentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Student Attendance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Attendance Edit -->
+<div class="modal fade" id="editAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAttendanceForm">
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" name="date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" name="status" required>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason for Change</label>
+                        <textarea class="form-control" name="reason" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveAttendanceEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // public/js/admin/attendance.js
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    setupEventListeners();
+    loadInitialData();
+});
+
+// Initialize Charts
+function initializeCharts() {
+    // Attendance Trend Chart
+    const trendCtx = document.getElementById('attendanceTrendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: [], // Will be populated with dates
+            datasets: [{
+                label: 'Attendance %',
+                data: [], // Will be populated with attendance percentages
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Attendance Distribution Chart
+    const distCtx = document.getElementById('attendanceDistributionChart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'pie',
+        data: {
+            labels: ['<75%', '75-85%', '85-100%'],
+            datasets: [{
+                data: [0, 0, 0], // Will be populated with distribution data
+                backgroundColor: ['#dc3545', '#ffc107', '#198754']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// Setup Event Listeners
+function setupEventListeners() {
+    // Filter form submission
+    document.getElementById('filterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        applyFilters();
+    });
+
+    // Cascade dropdowns
+    document.getElementById('academicYear').addEventListener('change', loadSemesters);
+    document.getElementById('branch').addEventListener('change', loadSections);
+    document.getElementById('section').addEventListener('change', loadSubjects);
+
+    // Quick search
+    document.getElementById('quickSearch').addEventListener('input', debounce(function(e) {
+        quickSearch(e.target.value);
+    }, 300));
+}
+
+// API Calls
+async function loadInitialData() {
+    try {
+        const response = await fetch('/api/admin/attendance/summary');
+        const data = await response.json();
+        updateAttendanceTable(data.students);
+        updateCharts(data.analytics);
+    } catch (error) {
+        showAlert('Error loading data', 'error');
+    }
+}
+
+async function applyFilters() {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+
+    try {
+        const response = await fetch(`/api/admin/attendance/filter?${params}`);
+        const data = await response.json();
+        updateAttendanceTable(data.students);
+        updateCharts(data.analytics);
+    } catch (error) {
+        showAlert('Error applying filters', 'error');
+    }
+}
+
+// Utility Functions
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function showAlert(message, type) {
+    // Implement your alert/notification system
+}
+
+function updateAttendanceTable(students) {
+    const tbody = document.getElementById('attendanceTableBody');
+    tbody.innerHTML = students.map(student => `
+        <tr class="${student.percentage < 75 ? 'table-danger' : ''}">
+            <td>${student.rollNo}</td>
+            <td>${student.name}</td>
+            <td>${student.totalClasses}</td>
+            <td>${student.attended}</td>
+            <td>${student.percentage}%</td>
+            <td>
+                <button class="btn btn-sm btn-outline-info" onclick="viewDetails('${student._id}')">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="editAttendance('${student._id}')">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Download Reports
+function downloadReport(type) {
+    const formData = new FormData(document.getElementById('filterForm'));
+    const params = new URLSearchParams(formData);
+    window.location.href = `/api/admin/attendance/download/${type}?${params}`;
+}
+
+// Modal Functions
+async function viewDetails(studentId) {
+    try {
+        const response = await fetch(`/api/admin/attendance/student/${studentId}`);
+        const data = await response.json();
+        
+        const modal = document.getElementById('studentDetailsModal');
+        modal.querySelector('.modal-body').innerHTML = generateStudentDetailsHTML(data);
+        new bootstrap.Modal(modal).show();
+    } catch (error) {
+        showAlert('Error loading student details', 'error');
+    }
+}
+
+function generateStudentDetailsHTML(data) {
+    // Generate detailed HTML for student attendance
+    return `
+        <div class="student-details">
+            <!-- Generate your detailed view here -->
+        </div>
+    `;
+}
+</script>
+</body>

@@ -1,71 +1,237 @@
 <%- layout("../layouts/adminBoilerplate") -%>
 
-<body>
-    <div class="container mt-5">
-        <h1>Faculty Details</h1>
-        <table class="table table-bordered">
-            <tbody>
-                <tr>
-                    <th>Name</th>
-                    <td><%= faculty.name %></td>
-                </tr>
-                <tr>
-                    <th>Email</th>
-                    <td><%= faculty.email %></td>
-                </tr>
-                <tr>
-                    <th>Branch</th>
-                    <td><%= faculty.branch.name %></td>
-                </tr>
-                <tr>
-                    <th>Mobile</th>
-                    <td><%= faculty.mobile %></td>
-                </tr>
-                <tr>
-                    <th>Subjects</th>
-                    <td><%= faculty.subjects.map(subject => subject.name).join(', ') %></td>
-                </tr>
-            </tbody>
-        </table>
+<style>
+    :root {
+        --mischka: #d0cede;
+        --deep-blue: #12047a;
+        --kimberly: #6c679c;
+        --manatee: #8484ac;
+        --amethyst-smoke: #8c8cb4;
+        --victoria: #48488c;
+        --minsk: #393987;
+        --bay-of-many: #28287f;
+        --deluge: #7464b4;
+        --daisy-bush: #3c2c94;
+    }
 
-        <h2>Weekly Timetable</h2>
-        <table class="timetable table table-bordered">
-            <thead>
-                <tr>
-                    <th>Day</th>
-                    <th>1</th>
-                    <th>2</th>
-                    <th>3</th>
-                    <th>4</th>
-                    <th>5</th>
-                    <th>6</th>
-                    <th>7</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% for (let day in weeklyTimetable) { %>
+    .container {
+        padding: 2rem;
+    }
+
+    .faculty-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .faculty-card .card-header {
+        background: var(--deep-blue);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .faculty-details {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .faculty-details th {
+        background: var(--mischka);
+        color: var(--deep-blue);
+        font-weight: 600;
+        padding: 1rem;
+    }
+
+    .faculty-details td {
+        padding: 1rem;
+        color: var(--minsk);
+    }
+
+    .timetable-section {
+        margin-top: 2rem;
+    }
+
+    .timetable-section h2 {
+        color: var(--deep-blue);
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .timetable {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .timetable thead th {
+        background: var(--deep-blue);
+        color: white;
+        padding: 1rem;
+        font-weight: 500;
+    }
+
+    .timetable tbody td {
+        padding: 0.75rem;
+        border: 1px solid var(--mischka);
+    }
+
+    .timetable tbody tr td:first-child {
+        background: var(--mischka);
+        color: var(--deep-blue);
+        font-weight: 600;
+    }
+
+    .period-cell {
+        min-width: 150px;
+        background: var(--kimberly);
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .period-cell .subject-name {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .period-cell .period-details {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    .period-cell .time-slot {
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        color: var(--mischka);
+    }
+
+    .empty-cell {
+        background: var(--mischka);
+        opacity: 0.3;
+    }
+
+    .back-btn {
+        background: var(--deep-blue);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 1rem;
+        transition: background-color 0.3s;
+    }
+
+    .back-btn:hover {
+        background: var(--daisy-bush);
+        color: white;
+        text-decoration: none;
+    }
+</style>
+
+<div class="container">
+    <div class="faculty-card">
+        <div class="card-header">
+            <h1 class="mb-0">Faculty Details</h1>
+        </div>
+        <div class="card-body">
+            <table class="faculty-details">
+                <tbody>
                     <tr>
-                        <td><%= day %></td>
-                        <% for (let i = 1; i <= 7; i++) { %>
-                            <% let period = weeklyTimetable[day].find(p => p.hour === i); %>
-                            <% if (period) { %>
-                                <td class="attendance-entered">
-                                    <div><%= period.subject.name %></div>
-                                    <div><%= period.branch.name %></div>
-                                    <div><%= period.year.name %> SEM</div>
-                                    <div>Sec: <%= period.section.name %></div>
-                                    <div><%= period.startTime %> - <%= period.endTime %></div>
-                                </td>
-                            <% } else { %>
-                                <td></td>
-                            <% } %>
-                        <% } %>
+                        <th>Name</th>
+                        <td><%= faculty.name %></td>
                     </tr>
-                <% } %>
-            </tbody>
-        </table>
+                    <tr>
+                        <th>Email</th>
+                        <td><%= faculty.email %></td>
+                    </tr>
+                    <tr>
+                        <th>Branch</th>
+                        <td><%= faculty.branch.name %></td>
+                    </tr>
+                    <tr>
+                        <th>Mobile</th>
+                        <td><%= faculty.mobile %></td>
+                    </tr>
+                    <tr>
+                        <th>Subjects</th>
+                        <td><%= faculty.subjects.map(subject => subject.name).join(', ') %></td>
+                    </tr>
+                </tbody>
+            </table>
 
-        <a href="/admin/faculty" class="btn btn-primary">Back</a>
+            <div class="timetable-section">
+                <h2>Weekly Timetable</h2>
+                <div class="table-responsive">
+                    <table class="timetable">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>1</th>
+                                <th>2</th>
+                                <th>3</th>
+                                <th>4</th>
+                                <th>5</th>
+                                <th>6</th>
+                                <th>7</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach(day => { %>
+                                <tr>
+                                    <td><%= day %></td>
+                                    <% for(let hour = 1; hour <= 7; hour++) { %>
+                                        <% 
+                                            let period = faculty.periods.find(p => 
+                                                p.day === day && p.hour === hour
+                                            );
+                                        %>
+                                        <td class="<%= period ? '' : 'empty-cell' %>">
+                                            <% if(period) { %>
+                                                <div class="period-cell">
+                                                    <div class="subject-name">
+                                                        <%= period.subject.name %>
+                                                    </div>
+                                                    <div class="period-details">
+                                                        <%= period.branch.name %> - <%= period.year.name %> Year<br>
+                                                        Section <%= period.section.name %>
+                                                    </div>
+                                                    <div class="time-slot">
+                                                        <%= period.startTime %> - <%= period.endTime %>
+                                                    </div>
+                                                </div>
+                                            <% } %>
+                                        </td>
+                                    <% } %>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-</body>
-</html>
+    <a href="/admin/faculty" class="back-btn">
+        <i class="fas fa-arrow-left"></i> Back to Faculty List
+    </a>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add hover effect to period cells
+        const periodCells = document.querySelectorAll('.period-cell');
+        periodCells.forEach(cell => {
+            cell.addEventListener('mouseover', function() {
+                this.style.transform = 'scale(1.02)';
+                this.style.transition = 'transform 0.2s ease';
+            });
+            cell.addEventListener('mouseout', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+    });
+</script>

@@ -169,13 +169,18 @@
                 <div class="mb-3 form-check" id="batchCheckbox">
                   <input type="checkbox" class="form-check-input" id="includeBatches" onchange="toggleBatchSelection()">
                   <label class="form-check-label" for="includeBatches">Include Batches</label>
-                </div>
-                <div id="batchSelection" style="display: none;">
+              </div>
+              
+              <div id="batchSelection" style="display: none;">
                   <label for="batch" class="form-label">Batch</label>
                   <div id="batchCheckboxContainer">
-                    <!-- Checkboxes will be populated dynamically -->
+                      <!-- Checkboxes will be populated dynamically -->
                   </div>
-                </div>
+              </div>
+              
+              <div id="batchFormContainer" style="margin-top: 20px;">
+                  <!-- Forms for selected batches will be dynamically added here -->
+              </div>              
       
                 <button type="submit" class="btn btn-primary">Save</button>
               </form>
@@ -296,7 +301,7 @@ function populateDropdowns(branch, semester, selectedSubject = '', selectedFacul
     const facultySelect = document.getElementById('faculty');
     
     // Populate subjects
-    fetch(`/admin/subject?branch=${branch}&semester=${semester}`)
+    fetch(`/admin/subjec?branch=${branch}&semester=${semester}`)
         .then(response => response.json())
         .then(subjects => {
             subjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
@@ -341,8 +346,6 @@ function populateDropdowns(branch, semester, selectedSubject = '', selectedFacul
     });
 }
 
-
-
 // Function to delete a period
 function deletePeriod(periodId) {
     if (confirm('Are you sure you want to delete this period?')) {
@@ -361,7 +364,6 @@ function deletePeriod(periodId) {
     }
 }
 
-
 // Function to display the periods grouped in one cell if they belong to different batches
 function displayGroupedPeriods(periods) {
     return periods.map(period => `
@@ -379,29 +381,30 @@ function displayGroupedPeriods(periods) {
 
 // Function to toggle batch selection visibility
 function toggleBatchSelection() {
-    const batchSelection = document.getElementById('batchSelection');
-    const subjectField = document.getElementById('subjectPeriod');
-    const facultyField = document.getElementById('facultyPeriod');
-    const batchFormContainer = document.getElementById('batchFormContainer');
-    const includeBatchesCheckbox = document.getElementById('includeBatches');
+        const batchSelection = document.getElementById('batchSelection');
+        const subjectField = document.getElementById('regularPeriodFields');
+        const facultyField = document.getElementById('faculty');
+        const batchFormContainer = document.getElementById('batchFormContainer');
+        const includeBatchesCheckbox = document.getElementById('includeBatches');
 
-    if (includeBatchesCheckbox.checked) {
-      batchSelection.style.display = 'block';
-    } else {
-      batchSelection.style.display = 'none';
+        if (includeBatchesCheckbox && includeBatchesCheckbox.checked) {
+            if (batchSelection) batchSelection.style.display = 'block';
+            if (subjectField) subjectField.style.display = 'none';
+            if (facultyField) facultyField.style.display = 'none';
+            populateBatchSelection(); // Ensure this function exists
+        } else {
+            if (batchSelection) batchSelection.style.display = 'none';
+            if (subjectField) subjectField.style.display = 'block';
+            if (facultyField) facultyField.style.display = 'block';
+            if (batchFormContainer) batchFormContainer.innerHTML = ''; // Clear batch forms
+        }
     }
-    if (document.getElementById('includeBatches').checked) {
-        batchSelection.style.display = 'block';
-        subjectField.style.display = 'none';
-        facultyField.style.display = 'none';
-        populateBatchSelection();
-    } else {
-        batchSelection.style.display = 'none';
-        subjectField.style.display = 'block';
-        facultyField.style.display = 'block';
-        batchFormContainer.innerHTML = ''; // Clear batch forms
+
+    // Attach the toggleBatchSelection function to the checkbox
+    const includeBatchesCheckbox = document.getElementById('includeBatches');
+    if (includeBatchesCheckbox) {
+        includeBatchesCheckbox.addEventListener('change', toggleBatchSelection);
     }
-}
 function populateBatchSelection() {
     const branch = document.getElementById('branchInput').value;
     const semester = document.getElementById('semesterInput').value;
@@ -772,7 +775,7 @@ function handlePeriodTypeChange(type) {
         regularPeriodFields.style.display = 'none';
         batchCheckbox.style.display = 'none'; // Hide batch option for special periods
         roomField.style.display = 'block';
-        specialPeriodSelect.disabled = false;
+        specialPeriodSelection.disabled = false;
         loadNonAcademicSubjects();
     } else {
         specialPeriodSelection.style.display = 'none';
@@ -786,14 +789,14 @@ function loadNonAcademicSubjects() {
     fetch('/admin/non-academic-subjects')
       .then(response => response.json())
       .then(data => {
-        const specialPeriodSelect = document.getElementById('specialPeriod');
-        specialPeriodSelect.innerHTML = '<option value="" disabled selected>Select Special Period</option>';
+        const specialPeriodSelection = document.getElementById('specialPeriod');
+        specialPeriodSelection.innerHTML = '<option value="" disabled selected>Select Special Period</option>';
         
         data.forEach(subject => {
           const option = document.createElement('option');
           option.value = subject._id;
           option.textContent = subject.name;
-          specialPeriodSelect.appendChild(option);
+          specialPeriodSelection.appendChild(option);
         });
       })
       .catch(error => console.error('Error loading non-academic subjects:', error));

@@ -12,7 +12,7 @@ const StudentMarks = require('../models/studentMarks');
 const MarkingSchemeConfig = require('../models/studentMarks');
 // Render login form
 module.exports.renderLoginForm = (req, res) => {
-    return res.render('faculty/login.ejs');
+    return res.redirect('/');
 };
 
 // Handle login process
@@ -67,23 +67,28 @@ module.exports.facultyDashboard = async (req, res) => {
     }
 };
 
-
 // Render form for downloading attendance records
 module.exports.renderDownloadForm = async (req, res) => {
-    const { sectionId } = req.query;
+    const { sectionId } = req.query; // The sectionId is passed in the query string
     try {
-        const academicYears = await AcademicYear.find({});
+        // Find the section by ID, populating the required fields
         const section = await Section.findById(sectionId)
-            .populate('students.student')
-            .populate('students.batch')
-            .populate('branch');
+                            .populate('year') // Populate the academic year
+                            .populate('currentSemester') // Populate the current semester
+                            .populate('branch') // Populate the branch details
+                            .populate('students.student') // Populate student details
+                            .populate('facultySubjects.faculty') // Populate faculty details in facultySubjects
+                            .populate('facultySubjects.subject'); // Populate subject details in facultySubjects
 
+
+        // If the section is not found, redirect with an error message
         if (!section) {
             req.flash("error", "Section not found.");
             return res.redirect('/faculty/dashboard');
         }
 
-        res.render("faculty/download.ejs", { academicYears, section });
+        // Render the form with the section data
+        res.render("faculty/download.ejs", { section });
     } catch (err) {
         console.error(err);
         req.flash("error", "Cannot load the download form.");
@@ -136,14 +141,27 @@ module.exports.logout = (req, res, next) => {
         res.redirect('/');
     });
 };
+
 module.exports.renderAttendanceForm = async (req, res) => {
     const { sectionId } = req.query;
+
     try {
+        // Fetch all academic years for dropdown
         const academicYears = await AcademicYear.find({});
+        
+        // Get today's day in string format (e.g., "Monday")
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        
+        // Find the section and populate related data
         const section = await Section.findById(sectionId)
-            .populate('students.student')
-            .populate('students.batch')
+            .populate({
+                path: 'students.student',
+                model: 'Student'
+            })
+            .populate({
+                path: 'students.batch',
+                model: 'Batch'
+            })
             .populate('branch');
 
         if (!section) {
@@ -151,13 +169,31 @@ module.exports.renderAttendanceForm = async (req, res) => {
             return res.redirect('/faculty/dashboard');
         }
 
-        let periods = await Period.find({ faculty: req.user._id, day: today })
+        // Fetch periods assigned to the faculty for today
+        const periods = await Period.find({ faculty: req.user._id, day: today, section: sectionId })
             .populate('subject')
             .populate('year')
             .populate('branch')
-            .populate('section');
+            .populate('batch'); // Include batch for filtering
+       
+        // Filter periods based on batch consistency
+        const filteredPeriods = periods.filter(period => {
+            if (!period.batch) {
+                // Period is for the entire section, allow it
+                return true;
+            }
+            // Check if the batch matches the selected batch in the form
+            return section.students.some(student => student.batch && student.batch.equals(period.batch));
+        });
 
-        res.render('faculty/attendance', { academicYears, today, periods, section });
+        // Render the attendance form with filtered periods
+        res.render('faculty/attendance', {
+            academicYears,
+            today,
+            periods: filteredPeriods,
+            section
+        });
+
     } catch (err) {
         console.error(err);
         req.flash("error", "Cannot load the attendance form.");
@@ -172,7 +208,6 @@ module.exports.markAttendance = async (req, res) => {
         if (!section) {
             return res.status(400).send('Section is required');
         }
-        console.log(req.body);
 
         // Fetch the section with populated students and their batches
         const sectionData = await Section.findById(section)
@@ -190,11 +225,9 @@ module.exports.markAttendance = async (req, res) => {
             username: s.student.username,
             name: s.student.name,
             batch: s.batch ? s.batch.name : null,
-            section: sectionData.name,
+            section: sectionData.name,  // Accessing section name from sectionData
             batchId: s.batch ? s.batch._id : null
         }));
-
-        console.log("All students:", students);
 
         // Filter students by the selected batch
         if (batch) {
@@ -209,9 +242,10 @@ module.exports.markAttendance = async (req, res) => {
 
         console.log("Unique periods:", uniquePeriods);
 
+        // Render with sectionData directly to access `name`
         res.render('faculty/markAttendance', {
             date,
-            section,
+            sectionData, // Passing the full sectionData
             acYear,
             program,
             branch,
@@ -281,8 +315,3 @@ module.exports.renderEnterMarks = async (req, res) => {
         res.redirect('/faculty/dashboard');
     }
 };
-
-
-
-
-

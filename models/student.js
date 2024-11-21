@@ -1,36 +1,48 @@
-const { required } = require("joi");
-const mongoose=require("mongoose");
-const {Schema}=mongoose;
+// models/Student.js
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
 const passportLocalMongoose = require('passport-local-mongoose');
 
-const studentSchema=mongoose.Schema({
-    email:{
-        type:String,
-        required:true,
+// Check if model exists before defining
+if (mongoose.models.Student) {
+  module.exports = mongoose.models.Student;
+} else {
+  const studentSchema = new Schema({
+    email: {
+      type: String,
+      required: true,
     },
-    name:{
-        type:String,
-        required:true,
+    name: {
+      type: String,
+      required: true,
+    },
+    rollNo: {
+      type: String,
+      required: true,
+      unique: true
     },
     branch: {
-        type: Schema.Types.ObjectId,
-        ref: 'Branch',
-        required: true
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      required: true
     },
-    year:{
-        type: Schema.Types.ObjectId,
-        ref: 'AcademicYear',
-        required: true
+    year: {
+      type: Schema.Types.ObjectId,
+      ref: 'AcademicYear',
+      required: true
     },
-    gender:{
-        type:String,
-        required:true,
-        enum:['M','F'],
+    gender: {
+      type: String,
+      required: true,
+      enum: ['M', 'F'],
     },
-    section: { type: Schema.Types.ObjectId, ref: 'Section' },
-});
+    section: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Section' 
+    }
+  });
 
-studentSchema.plugin(passportLocalMongoose);
-
-Student=mongoose.model("Student",studentSchema);
-module.exports=Student;
+  studentSchema.plugin(passportLocalMongoose);
+  
+  module.exports = mongoose.model('Student', studentSchema);
+}

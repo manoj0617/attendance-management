@@ -31,6 +31,7 @@
     "moment": "^2.30.1",
     "mongodb": "^6.8.0",
     "mongoose": "^8.3.5",
+    "mongoose-sequence": "^6.0.1",
     "multer": "^1.4.5-lts.1",
     "node-schedule": "^2.1.1",
     "nodemailer": "^6.9.15",
@@ -38,6 +39,7 @@
     "passport-local": "^1.0.0",
     "passport-local-mongoose": "^8.0.0",
     "pdf-lib": "^1.17.1",
+    "pdfkit": "^0.15.1",
     "puppeteer": "^23.1.0",
     "serverless-http": "^2.7.0",
     "xlsx": "^0.18.5"

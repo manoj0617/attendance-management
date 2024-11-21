@@ -1,62 +1,203 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
 <body>
-    <div class="container">
-        <h2>Daily Attendance</h2>
-        <div class="top-buttons">
-            <button id="newRecord" class="btn btn-success" data-action="/faculty/markAttendance">New</button>
-            <button id="modifyRecord" class="btn btn-warning" data-action="/faculty/modifyAttendance">Modify</button>
-            <button id="showRecord" class="btn btn-info" data-action="/faculty/showAttendance">Show</button>
+    <style>/* Base Container Styling */
+        .container {
+            background: linear-gradient(to bottom right, #fff, var(--mischka));
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Header Styling */
+        .text-primary {
+            color: var(--deep-blue) !important;
+            font-weight: 600;
+        }
+        
+        /* Button Styling */
+        .btn-success {
+            background-color: var(--victoria);
+            border-color: var(--victoria);
+        }
+        
+        .btn-success:hover {
+            background-color: var(--minsk);
+            border-color: var(--minsk);
+        }
+        
+        .btn-warning {
+            background-color: var(--deluge);
+            border-color: var(--deluge);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: var(--daisy-bush);
+            border-color: var(--daisy-bush);
+            color: white;
+        }
+        
+        .btn-info {
+            background-color: var(--kimberly);
+            border-color: var(--kimberly);
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background-color: var(--manatee);
+            border-color: var(--manatee);
+            color: white;
+        }
+        
+        /* Form Controls Styling */
+        .form-label {
+            color: var(--deep-blue);
+            font-weight: 500;
+        }
+        
+        .form-control, .form-select {
+            border-color: var(--amethyst-smoke);
+            transition: border-color 0.2s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--victoria);
+            box-shadow: 0 0 0 0.2rem rgba(72, 72, 140, 0.25);
+        }
+        
+        /* Checkbox Styling */
+        .form-check-input {
+            border-color: var(--victoria);
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--victoria);
+            border-color: var(--victoria);
+        }
+        
+        /* Table Styling */
+        .table {
+            border-color: var(--mischka);
+        }
+        
+        .table-light {
+            background-color: var(--mischka);
+        }
+        
+        thead th {
+            background-color: var(--deep-blue);
+            color: white;
+            border-color: var(--bay-of-many);
+        }
+        
+        /* Legend Styling */
+        .legend-box {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        
+        /* Submit Button */
+        .btn-primary {
+            background-color: var(--deep-blue);
+            border-color: var(--deep-blue);
+            padding: 0.5rem 2rem;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--bay-of-many);
+            border-color: var(--bay-of-many);
+        }
+        
+        /* Invalid Feedback */
+        .invalid-feedback {
+            color: var(--deluge);
+        }
+        
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem !important;
+            }
+            
+            .row {
+                margin: 0 !important;
+            }
+        }</style>
+    <div class="container my-5 p-4 border rounded bg-light">
+        <h2 class="text-center mb-4 text-primary">Daily Attendance</h2>
+        
+        <div class="d-flex justify-content-center mb-4">
+            <button id="newRecord" class="btn btn-success mx-2" data-action="/faculty/markAttendance">New</button>
+            <button id="modifyRecord" class="btn btn-warning mx-2" data-action="/faculty/modifyAttendance">Modify</button>
+            <button id="showRecord" class="btn btn-info mx-2" data-action="/faculty/showAttendance">Show</button>
         </div>
-        <form id="attendanceForm" action="" method="post" style="display: none;">
-            <div class="row">
-                <!-- Form Fields for Academic Year, Date, Section -->
-                <div class="col">
-                    <label for="acYear">Academic Year:</label>
-                    <select id="acYear" name="acYear" class="form-control" required>
-                        <option value="">Select Academic Year</option>
-                        <% academicYears.forEach(year => { %>
-                            <option value="<%= year._id %>"><%= year.name %></option>
-                        <% }); %>
-                    </select>
-                </div>
-                <div class="col">
-                    <label for="date">Date:</label>
-                    <input type="date" id="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" class="form-control" max="<%= new Date().toISOString().split('T')[0] %>" required>
-                </div>
-                <div class="col">
-                    <label for="sem">Semester:</label>
-                    <select id="sem" name="sem" class="form-control" required disabled>
-                        <option value="">Select Semester</option>
-                    </select>
-                </div>
-                <div class="col">
-                    <label for="subject">Subject:</label>
-                    <select id="subject" name="subject" class="form-control" required disabled>
+    
+        <!-- Attendance Form -->
+        <form id="attendanceForm" action="" method="post" class="needs-validation" style="display: none;" novalidate>
+            <!-- Hidden Inputs for Section Details -->
+            <input type="hidden" name="section" value="<%= section._id %>">
+            <input type="hidden" name="acYear" value="<%= section.year %>">
+            <input type="hidden" name="program" value="YourProgramValue">
+            <input type="hidden" name="branch" value="<%= section.branch._id %>">
+            <input type="hidden" name="sem" value="<%= section.currentSemester %>">
+    
+            <div class="row g-3">
+                <!-- Date Selection -->
+                <div class="col-md-4">
+                    <label for="date" class="form-label">Date:</label>
+                    <input 
+                        type="date" 
+                        id="date" 
+                        name="date" 
+                        value="<%= new Date().toISOString().split('T')[0] %>" 
+                        class="form-control" 
+                        required>
+                    <div class="invalid-feedback">Please select a valid date.</div>
+                </div>               
+    
+                <!-- Subject Selection -->
+                <div class="col-md-6">
+                    <label for="subject" class="form-label">Subject:</label>
+                    <select id="subject" name="subject" class="form-select" required>
                         <option value="">Select Subject</option>
+                        <% section.facultySubjects.forEach(fs => { %>
+                            <option value="<%= fs.subject %>"><%= fs.subjectName %></option>
+                        <% }) %>
                     </select>
-                </div>
-                <div>
-                    <input type="checkbox" class="form-check-input" id="includeBatches">
-                    <label class="form-check-label" for="includeBatches">Include Batches</label>
+                    <div class="invalid-feedback">Please select a subject.</div>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-2">
-                    <select id="batch" name="batch" class="form-control" required disabled>
+    
+            <!-- Include Batches -->
+            <!-- <div class="form-check my-3">
+                <input type="checkbox" class="form-check-input" id="includeBatches">
+                <label class="form-check-label" for="includeBatches">Include Batches</label>
+            </div> -->
+    
+            <!-- Batch Selection -->
+            <!-- <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="batch" class="form-label">Batch:</label>
+                    <select id="batch" name="batch" class="form-select" disabled>
                         <option value="">Select Batch</option>
                     </select>
                 </div>
-            </div>
-            <input type="hidden" id="branch" name="branch">
-            <input type="hidden" id="section" name="section">
-            <section id="timetableSection" style="display: none;">
-                <h2>Today's Timetable</h2>
-                <table class="timetable table">
-                    <thead>
+            </div> -->
+    
+            <!-- Timetable Section -->
+            <section id="timetableSection" class="mt-4" style="display: none;">
+                <h4 class="text-primary">Today's Timetable</h4>
+                <table class="table table-bordered mt-3">
+                    <thead class="table-light">
                         <tr>
                             <th>Details</th>
                             <% for (let i = 1; i <= 7; i++) { %>
-                                <th>Period <%= i %> <input type="checkbox" class="period-checkbox" name="periods" value="<%= i %>"></th>
+                                <th>
+                                    Period <%= i %> 
+                                    <input type="checkbox" class="form-check-input period-checkbox" name="periods" value="<%= i %>">
+                                </th>
                             <% } %>
                         </tr>
                     </thead>
@@ -69,144 +210,172 @@
                         </tr>
                     </tbody>
                 </table>
-                <div class="legend">
-                    <div><span class="legend-box attendance-not-entered"></span> Attendance not Entered</div>
-                    <div><span class="legend-box attendance-entered"></span> Attendance Entered</div>
-                    <div><span class="legend-box attendance-mismatch"></span> Entered attendance not matching with the timetable</div>
-                    <div><span class="legend-box class-cancelled"></span> Class cancelled</div>
+    
+                <!-- Legend -->
+                <div class="d-flex flex-wrap justify-content-start mt-3">
+                    <div class="me-4">
+                        <span class="legend-box bg-danger"></span> Attendance not Entered
+                    </div>
+                    <div class="me-4">
+                        <span class="legend-box bg-success"></span> Attendance Entered
+                    </div>
+                    <div class="me-4">
+                        <span class="legend-box bg-warning"></span> Attendance Mismatch
+                    </div>
+                    <div>
+                        <span class="legend-box bg-secondary"></span> Class Cancelled
+                    </div>
                 </div>
             </section>
-
-            <div class="row mt-4">
+    
+            <!-- Submit Button -->
+            <div class="mt-4 d-flex justify-content-end">
                 <button type="submit" class="btn btn-primary">Submit</button>
             </div>
         </form>
     </div>
+    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
+    <script>// Add this to your existing JavaScript code, replacing the old period checkbox handling
+
         $(document).ready(function() {
+            // Storage for period batch information
+            let periodBatchInfo = {};
+        
             $('#newRecord, #modifyRecord, #showRecord').click(function() {
                 $('#attendanceForm').show();
                 $('#attendanceForm').attr('action', $(this).data('action'));
                 $('#newRecord, #modifyRecord, #showRecord').attr('disabled', 'disabled');
-
+        
                 if ($(this).data('action') === '/faculty/modifyAttendance' || $(this).data('action') === '/faculty/showAttendance') {
                     $('#attendanceForm').append('<input type="hidden" name="facultyId" value="<%= currUser._id %>">');
-                    // Restrict to only one period selection
-                    $('.period-checkbox').off('change').on('change', function() {
-                        if ($('.period-checkbox:checked').length > 1) {
-                            alert('You can only select one period.');
-                            $(this).prop('checked', false);
-                        }
-                    });
                 } else {
                     $('#attendanceForm').find('input[name="facultyId"]').remove();
                 }
             });
-
+        
+            // Function to check if periods can be selected together
+            function canSelectTogether(selectedPeriods) {
+                if (selectedPeriods.length <= 1) return true;
+        
+                let batchId = null;
+                let hasEntireSection = false;
+        
+                for (let periodHour of selectedPeriods) {
+                    const periodInfo = periodBatchInfo[periodHour];
+                    
+                    // If we don't have info for this period, treat as incompatible
+                    if (!periodInfo) return false;
+        
+                    // If this is the first period we're checking
+                    if (batchId === null && !hasEntireSection) {
+                        if (periodInfo.batchId) {
+                            batchId = periodInfo.batchId;
+                        } else {
+                            hasEntireSection = true;
+                        }
+                        continue;
+                    }
+        
+                    // Check compatibility with previously selected periods
+                    if (hasEntireSection) {
+                        // If we have entire section periods, new period must also be entire section
+                        if (periodInfo.batchId) return false;
+                    } else {
+                        // If we have batch-specific periods, new period must be for same batch
+                        if (!periodInfo.batchId || periodInfo.batchId !== batchId) return false;
+                    }
+                }
+        
+                return true;
+            }
+        
             function fetchTimetable() {
                 var date = $('#date').val();
-                var acYear = $('#acYear').val();
-                var sem = $('#sem').val();
+                var acYear = "<%= section.year %>";
+                var section = "<%= section._id %>";
+                var sem = "<%= section.currentSemester %>";
+                var branch = "<%= section.branch._id %>";
                 var subject = $('#subject').val();
                 var action = $('#attendanceForm').attr('action');
                 var facultyId = $('input[name="facultyId"]').val();
-
+        
                 if (date && acYear && sem && subject) {
-                    console.log('Making AJAX request to fetch periods...');
                     $.ajax({
                         url: '/faculty/fetchPeriods',
                         type: 'GET',
                         data: {
-                            date: date,
-                            acYear: acYear,
-                            sem: sem,
+                            date,
+                            acYear,
+                            sem,
                             action: action.split('/').pop(),
-                            facultyId: facultyId,
-                            subject: subject
+                            facultyId,
+                            subject,
+                            section,
+                            branch
                         },
                         success: function(data) {
-                            console.log('Received periods data:', data);
                             $('#timetableSection').show();
-                            var periodsMatched = false; // Track if any period matches
-
+                            periodBatchInfo = {}; // Reset period batch info
+        
                             for (let i = 1; i <= 7; i++) {
                                 let period = data.periods.find(p => p.hour === i);
                                 let periodCell = $(`#period-${i}`);
                                 let checkbox = $(`input[name="periods"][value="${i}"]`);
-                                periodCell.html(''); // Clear the cell
-
+                                periodCell.html('');
+        
                                 if (period) {
-                                    periodsMatched = true;
+                                    // Store batch information for this period
+                                    periodBatchInfo[i] = {
+                                        batchId: period.batch ? period.batch._id : null,
+                                        batchName: period.batch ? period.batch.name : null
+                                    };
+        
                                     let periodHtml = `<div>${period.subject.name}</div>
-                                                      <div>${period.year.name} SEM</div>
-                                                      <div>${period.startTime} - ${period.endTime}</div>`;
-
-                                    // If the period has batch details, display them
+                                                    <div>${period.startTime} - ${period.endTime}</div>`;
+        
                                     if (period.batch) {
                                         periodHtml += `<div>Batch: ${period.batch.name}</div>`;
+                                    } else {
+                                        periodHtml += '<div>Entire Section</div>';
                                     }
-
+        
                                     periodCell.html(periodHtml);
                                     periodCell.removeClass('attendance-not-entered attendance-mismatch attendance-entered class-cancelled');
-
-                                    if (!periodsMatched) {
-                                        // Add hidden input for the subject
-                                        periodCell.append(`<input type="hidden" name="subjects[${i}]" value="${$('#subject').val()}">`);
-                                    } else {
-                                        // Add hidden input for the subject
-                                        periodCell.append(`<input type="hidden" name="subjects[${i}]" value="${period.subject._id}">`);
-                                    }
-
-                                    // Preselect the checkbox if the subject matches
+        
                                     if (period.subject._id === subject) {
-                                        checkbox.prop('checked', true);
+                                        checkbox.prop('disabled', false);
+                                    } else {
+                                        checkbox.prop('disabled', true);
                                     }
-
+        
+                                    // Add hidden inputs for period details
+                                    periodCell.append(`
+                                        <input type="hidden" name="periodInfo[${i}][subjectId]" value="${period.subject._id}">
+                                        <input type="hidden" name="periodInfo[${i}][batchId]" value="${period.batch ? period.batch._id : ''}">
+                                    `);
                                 } else {
-                                    periodCell.html('');
-                                    periodCell.removeClass('attendance-not-entered attendance-mismatch attendance-entered class-cancelled');
-                                    checkbox.attr('disabled', 'disabled');
+                                    checkbox.prop('disabled', true);
                                 }
-
-                                if (action.split('/').pop() == 'markAttendance') {
+        
+                                // Handle period status classes based on action type
+                                const actionType = action.split('/').pop();
+                                if (actionType === 'markAttendance') {
                                     if (data.enabledPeriods.includes(i)) {
                                         periodCell.addClass('attendance-entered');
-                                        checkbox.attr('disabled', 'disabled');
+                                        checkbox.prop('disabled', true);
                                     } else {
                                         periodCell.addClass('attendance-not-entered');
-                                        checkbox.removeAttr('disabled');
                                     }
-                                } else if (action.split('/').pop() == 'modifyAttendance') {
+                                } else {
                                     if (data.enabledPeriods.includes(i)) {
                                         periodCell.addClass('attendance-entered');
-                                        checkbox.removeAttr('disabled');
                                     } else {
                                         periodCell.addClass('attendance-not-entered');
-                                        checkbox.attr('disabled', 'disabled');
-                                    }
-                                } else if (action.split('/').pop() == 'showAttendance') {
-                                    if (data.enabledPeriods.includes(i)) {
-                                        periodCell.addClass('attendance-entered');
-                                        checkbox.removeAttr('disabled');
-                                    } else {
-                                        periodCell.addClass('attendance-not-entered');
-                                        checkbox.attr('disabled', 'disabled');
+                                        checkbox.prop('disabled', true);
                                     }
                                 }
                             }
-
-                            // Append hidden input field for periodsMatched
-                            $('#attendanceForm').append(`<input type="hidden" name="periodsMatched" value="${periodsMatched}">`);
-
-                            // Handle batch selection based on section
-                            $('#includeBatches').change(function() {
-                                if ($(this).is(':checked')) {
-                                    $('#batch').removeAttr('disabled').html('<option value="">Select Batch</option>' + data.batches.map(batch => `<option value="${batch._id}">${batch.name}</option>`));
-                                } else {
-                                    $('#batch').attr('disabled', 'disabled').html('<option value="">Select Batch</option>');
-                                }
-                            });
                         },
                         error: function(err) {
                             console.error('Error fetching periods:', err);
@@ -214,73 +383,70 @@
                     });
                 }
             }
-
-            $('#acYear, #sem, #date, #subject').change(fetchTimetable);
-
-            $('#acYear').change(function() {
-                var acYear = $(this).val();
-                if (acYear) {
-                    $.ajax({
-                        url: '/faculty/semester',
-                        type: 'GET',
-                        data: { year: acYear },
-                        success: function(data) {
-                            $('#sem').removeAttr('disabled').html('<option value="">Select Semester</option>' + data.semesters.map(sem => `<option value="${sem._id}">${sem.name}</option>`));
-                        }
-                    });
-                }
-            });
-
-            $('#sem').change(function() {
-                var sem = $('#sem').val();
-                if (sem) {
-                    $.ajax({
-                        url: '/faculty/subject',
-                        type: 'GET',
-                        data: { sem: sem },
-                        success: function(data) {
-                            $('#subject').removeAttr('disabled').html('<option value="">Select Subject</option>' + data.map(subject => `<option value="${subject._id}">${subject.name}</option>`));
-                        }
-                    });
-                }
-            });
-
-            $('#subject').change(fetchTimetable);
-
-            $('#attendanceForm').submit(function(event) {
-                var checkedPeriods = [];
-                $('input.period-checkbox:checked').each(function() {
-                    checkedPeriods.push($(this).val());
+        
+            // Handle period checkbox changes
+            $(document).on('change', '.period-checkbox', function() {
+                let selectedPeriods = [];
+                $('.period-checkbox:checked').each(function() {
+                    selectedPeriods.push($(this).val());
                 });
-
-                if (!periodsMatched) {
-                    // No periods selected, gather form data and append as hidden inputs
-                    var formData = {
-                        acYear: $('#acYear').val(),
-                        date: $('#date').val(),
-                        sem: $('#sem').val(),
-                        subject: $('#subject').val(),
-                        batch: $('#batch').val() || '' // Handle case if batch is not selected
-                    };
-
-                    for (var key in formData) {
-                        if (formData.hasOwnProperty(key)) {
-                            $('#attendanceForm').append(`<input type="hidden" name="${key}" value="${formData[key]}">`);
-                        }
-                    }
-                } else {
-                    // Add checked periods to the form data
-                    checkedPeriods.forEach(function(period) {
-                        $('#attendanceForm').append(`<input type="hidden" name="periods[]" value="${period}">`);
-                    });
-                }
-
-                // Prevent default submission if appending additional data
-                if (checkedPeriods.length === 0) {
-                    event.preventDefault();
+        
+                if (!canSelectTogether(selectedPeriods)) {
+                    $(this).prop('checked', false);
+                    alert('You can only select periods that are either for the entire section or for the same batch.');
+                    return;
                 }
             });
-        });
-    </script>
+        
+            $('#date, #subject').change(fetchTimetable);
+            function fetchSubjects() {
+                $.ajax({
+                    url: '/faculty/subject',
+                    type: 'GET',
+                    data: { sectionId: '<%= section._id %>' },
+                    success: function(data) {
+                        $('#subject').html('<option value="">Select Subject</option>' + 
+                            data.map(subject => `<option value="${subject._id}">${subject.name}</option>`).join('')
+                        );
+                    },
+                    error: function(err) {
+                        console.error('Error fetching subjects:', err);
+                    }
+                });
+            }
+
+            fetchSubjects();
+        
+            // Form submission handling
+            $('#attendanceForm').submit(function(event) {
+                let selectedPeriods = [];
+                $('.period-checkbox:checked').each(function() {
+                    selectedPeriods.push($(this).val());
+                });
+        
+                if (selectedPeriods.length === 0) {
+                    event.preventDefault();
+                    alert('Please select at least one period.');
+                    return;
+                }
+        
+                if (!canSelectTogether(selectedPeriods)) {
+                    event.preventDefault();
+                    alert('Selected periods must be either all for the entire section or all for the same batch.');
+                    return;
+                }
+        
+                // Add the selected periods to the form
+                selectedPeriods.forEach(function(period) {
+                    const periodInfo = periodBatchInfo[period];
+                    if (periodInfo) {
+                        $(this).append(`
+                            <input type="hidden" name="periods[]" value="${period}">
+                            <input type="hidden" name="batch" value="${periodInfo.batchId || ''}">
+                        `);
+                    }
+                }.bind(this));
+            });
+        });</script>
     <script src="../js/script.js"></script>
 </body>

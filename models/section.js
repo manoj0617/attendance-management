@@ -18,6 +18,11 @@ const sectionSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Semester',
     },
+    yearOfStudy: {  // This represents 1st year, 2nd year etc.
+        type: Number,
+        required: true,
+        enum: [1, 2, 3, 4]
+      },
     branch: {
         type: Schema.Types.ObjectId,
         ref: 'Branch',
@@ -40,7 +45,12 @@ const sectionSchema = new Schema({
             batch: {
                 type: Schema.Types.ObjectId,
                 ref: "Batch"
-            }
+            },
+            status: {
+                type: String,
+                enum: ['active', 'detained', 'graduated', 'dropout'],
+                default: 'active'
+              }
         }
     ],
     facultySubjects: [
@@ -61,7 +71,11 @@ const sectionSchema = new Schema({
                 required: true
             }
         }
-    ]
+    ],
+    isActive: {
+        type: Boolean,
+        default: true
+      }
 }, { timestamps: true });
 
 module.exports = mongoose.model("Section", sectionSchema);

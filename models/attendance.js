@@ -1,4 +1,3 @@
-// models/Attendance.js
 const mongoose = require('mongoose');
 
 // Check if the model already exists before defining it
@@ -10,11 +9,11 @@ if (mongoose.models.Attendance) {
       student: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Student',
-        required: true
       },
       status: {
-        type: Boolean, // true for Present (P), false for Absent (A)
-        required: true
+        type: Boolean,
+        required: true,
+        default: false
       }
     }],
     subject: {
@@ -39,10 +38,11 @@ if (mongoose.models.Attendance) {
     section: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Section',
+      required: true
     },
     batch: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Batch',
+      ref: 'Batch'
     },
     semester: {
       type: mongoose.Schema.Types.ObjectId,

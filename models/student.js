@@ -39,6 +39,30 @@ if (mongoose.models.Student) {
     section: { 
       type: Schema.Types.ObjectId, 
       ref: 'Section' 
+    },
+    academicHistory: [{
+      academicYear: {
+        type: Schema.Types.ObjectId,
+        ref: 'AcademicYear'
+      },
+      section: {
+        type: Schema.Types.ObjectId,
+        ref: 'Section'
+      },
+      semester: {
+        type: Schema.Types.ObjectId,
+        ref: 'Semester'
+      },
+      status: {
+        type: String,
+        enum: ['active', 'detained', 'graduated', 'dropout'],
+        default: 'active'
+      }
+    }],
+    currentYear: {
+      type: Number,  // 1, 2, 3, or 4
+      required: true,
+      default: 1
     }
   });
 

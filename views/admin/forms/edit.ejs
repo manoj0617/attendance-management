@@ -1,0 +1,632 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Edit Feedback Form</title>
+    <style>
+        :root {
+            --mischka: #d0cede;
+            --deep-blue: #12047a;
+            --kimberly: #6c679c;
+            --manatee: #8484ac;
+            --amethyst-smoke: #8c8cb4;
+            --victoria: #48488c;
+            --minsk: #393987;
+            --bay-of-many: #28287f;
+            --deluge: #7464b4;
+            --daisy-bush: #3c2c94;
+        }
+
+        .tabs {
+            margin-bottom: 2rem;
+        }
+        
+        .tab-list {
+            display: flex;
+            border-bottom: 2px solid var(--mischka);
+            margin-bottom: 1rem;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--manatee);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            color: var(--deep-blue);
+            border-bottom: 2px solid var(--deep-blue);
+            margin-bottom: -2px;
+        }
+
+        body {
+            background-color: var(--mischka);
+            color: var(--deep-blue);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .form-container {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        .template-card {
+            border: 1px solid var(--mischka);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            background-color: white;
+            transition: all 0.3s ease;
+        }
+
+        .template-card:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .form-section {
+            margin-bottom: 2.5rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 0.5rem;
+            border: 1px solid var(--mischka);
+        }
+
+        .section-title {
+            color: var(--victoria);
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--mischka);
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--mischka);
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--deluge);
+            box-shadow: 0 0 0 2px rgba(116, 100, 180, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background-color: var(--daisy-bush);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--deep-blue);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--victoria);
+            border: 1px solid var(--victoria);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--mischka);
+        }
+
+        .btn-danger {
+            color: #ef4444;
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .btn-danger:hover {
+            opacity: 1;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert-error {
+            background-color: #fef2f2;
+            color: #ef4444;
+            border: 1px solid #fee2e2;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            color: var(--manatee);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .checkbox-input {
+            margin-right: 0.5rem;
+            accent-color: var(--deluge);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <form id="feedbackForm" action="/admin/forms/<%= form._id %>?_method=PUT" method="POST" class="form-container">
+            <div id="validationAlert" class="alert alert-error" style="display: none;">
+                <strong>Error:</strong> <span id="validationMessage"></span>
+            </div>
+
+            <h1 class="form-title">Edit Feedback Form</h1>
+
+            <!-- Basic Information -->
+            <div class="form-section">
+                <div class="input-group">
+                    <label class="input-label">Title</label>
+                    <input type="text" name="title" required class="form-input" 
+                           placeholder="Enter form title" value="<%= form.title %>">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Description</label>
+                    <textarea name="description" rows="3" class="form-input" 
+                              placeholder="Enter form description"><%= form.description %></textarea>
+                </div>
+            </div>
+
+            <!-- Feedback Types -->
+            <div class="form-section">
+                <h2 class="section-title">Feedback Type</h2>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="feedbackTypes[]" value="Mid-Term" class="checkbox-input"
+                               <%= form.feedbackTypes.includes('Mid-Term') ? 'checked' : '' %>>
+                        Mid-Term
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="feedbackTypes[]" value="End-Term" class="checkbox-input"
+                               <%= form.feedbackTypes.includes('End-Term') ? 'checked' : '' %>>
+                        End-Term
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="feedbackTypes[]" value="Special" class="checkbox-input"
+                               <%= form.feedbackTypes.includes('Special') ? 'checked' : '' %>>
+                        Special
+                    </label>
+                </div>
+            </div>
+
+            <!-- Academic Details -->
+            <div class="form-section">
+                <h2 class="section-title">Academic Details</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="input-group">
+                        <label class="input-label">Academic Year</label>
+                        <select name="academicYear" id="academicYear" required class="form-input">
+                            <option value="">Select Academic Year</option>
+                            <option value="all" <%= form.target.isAllYears ? 'selected' : '' %>>All Years</option>
+                            <% academicYears.forEach(function(year) { %>
+                                <option value="<%= year._id %>" 
+                                        <%= form.target.years.includes(year._id) ? 'selected' : '' %>>
+                                    <%= year.name %>
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Selection -->
+            <div class="form-section">
+                <h2 class="section-title">Target Recipients</h2>
+                
+                <div class="input-group">
+                    <label class="input-label">Branches</label>
+                    <select name="target[branches]" id="branch" class="form-input" required>
+                        <option value="">Select Branch</option>
+                        <option value="all" <%= form.target.isAllBranches ? 'selected' : '' %>>All Branches</option>
+                        <% branches.forEach(function(branch) { %>
+                            <option value="<%= branch._id %>"
+                                    <%= form.target.branches.includes(branch._id) ? 'selected' : '' %>>
+                                <%= branch.name %>
+                            </option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Sections</label>
+                    <select name="target[sections]" id="section" class="form-input" required>
+                        <option value="">Select Section</option>
+                        <option value="all" <%= form.target.isAllSections ? 'selected' : '' %>>All Sections</option>
+                        <% sections.forEach(function(section) { %>
+                            <option value="<%= section._id %>"
+                                    <%= form.target.sections.includes(section._id) ? 'selected' : '' %>>
+                                <%= section.name %>
+                            </option>
+                        <% }); %>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Templates Section -->
+            <div class="form-section">
+                <h2 class="section-title">Templates</h2>
+                <div class="tabs">
+                    <div class="tab-list">
+                        <button type="button" class="tab active" data-tab="subjects">Subject Feedback</button>
+                        <button type="button" class="tab" data-tab="infrastructure">Infrastructure</button>
+                        <button type="button" class="tab" data-tab="general">General</button>
+                    </div>
+
+                    <!-- Subject Templates -->
+                    <div class="tab-content active" id="subjects-tab">
+                        <div id="subject-templates">
+                            <div class="input-group">
+                                <label class="input-label">Add Subject Feedback</label>
+                                <select id="subject-select" class="form-input">
+                                    <option value="">Choose a subject</option>
+                                    <% subjects.forEach(function(subject) { %>
+                                        <option value="<%= subject._id %>" 
+                                                data-name="<%= subject.name %>">
+                                            <%= subject.name %>
+                                        </option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                            <button type="button" id="add-subject-template" class="btn btn-secondary">
+                                Add Subject Feedback
+                            </button>
+                            <div id="subject-forms-container" class="mt-6">
+                                <% form.questions.filter(q => q.type === 'subject').forEach(function(question) { %>
+                                    <div class="template-card" data-subject-id="<%= question.subject %>">
+                                        <div class="template-header">
+                                            <span class="template-title">
+                                                <% const subject = subjects.find(s => s._id.toString() === question.subject.toString()) %>
+                                                <%= subject ? subject.name : 'Unknown Subject' %>
+                                            </span>
+                                            <button type="button" class="btn btn-danger remove-subject">×</button>
+                                        </div>
+                                        <div class="input-group">
+                                            <label class="input-label">Select Template</label>
+                                            <select name="subjectTemplates[<%= question.subject %>]" class="form-input" required>
+                                                <option value="">Select a template</option>
+                                                <% templates.forEach(function(template) { %>
+                                                    <option value="<%= template._id %>"
+                                                            <%= question.template && question.template._id.toString() === template._id.toString() ? 'selected' : '' %>>
+                                                        <%= template.title %>
+                                                    </option>
+                                                <% }); %>
+                                            </select>
+                                        </div>
+                                    </div>
+                                <% }); %>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Infrastructure Templates -->
+                    <div class="tab-content" id="infrastructure-tab" style="display: none;">
+                        <div class="template-card">
+                            <div class="template-header">
+                                <span class="template-title">Infrastructure Feedback</span>
+                            </div>
+                            <div class="input-group">
+                                <label class="input-label">Select Template</label>
+                                <select name="infrastructureTemplate" class="form-input">
+                                    <option value="">Select a template</option>
+                                    <% templates.filter(t => t.category === 'Infrastructure').forEach(function(template) { %>
+                                        <option value="<%= template._id %>"
+                                                <%= form.questions.find(q => q.type === 'infrastructure' && 
+                                                                          q.template.equals(template._id)) ? 'selected' : '' %>>
+                                            <%= template.title %>
+                                        </option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- General Templates -->
+                    <div class="tab-content" id="general-tab" style="display: none;">
+                        <div class="template-card">
+                            <div class="template-header">
+                                <span class="template-title">General Feedback</span>
+                            </div>
+                            <div class="input-group">
+                                <label class="input-label">Select Template</label>
+                                <select name="generalTemplate" class="form-input">
+                                    <option value="">Select a template</option>
+                                    <% templates.filter(t => t.category === 'General').forEach(function(template) { %>
+                                        <option value="<%= template._id %>"
+                                                <%= form.questions.find(q => q.type === 'general' && 
+                                                                          q.template.equals(template._id)) ? 'selected' : '' %>>
+                                            <%= template.title %>
+                                        </option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule -->
+            <div class="form-section">
+                <h2 class="section-title">Schedule</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="input-group">
+                        <label class="input-label">Start Date</label>
+                        <input type="datetime-local" name="startDate" required class="form-input"
+                               value="<%= new Date(form.startDate).toISOString().slice(0, 16) %>">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">End Date</label>
+                        <input type="datetime-local" name="endDate" required class="form-input"
+                               value="<%= new Date(form.endDate).toISOString().slice(0, 16) %>">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="form-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="isAnonymous" class="checkbox-input"
+                           <%= form.isAnonymous ? 'checked' : '' %>>
+                    Make responses anonymous
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions">
+                <button type="button" onclick="history.back()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Form</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('feedbackForm');
+            const validationAlert = document.getElementById('validationAlert');
+            const validationMessage = document.getElementById('validationMessage');
+            const addedSubjects = new Set(
+                Array.from(document.querySelectorAll('.template-card'))
+                    .map(card => card.dataset.subjectId)
+            );
+
+            // Initialize tabs
+            function initTabs() {
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                        
+                        tab.classList.add('active');
+                        const contentId = `${tab.dataset.tab}-tab`;
+                        document.getElementById(contentId).style.display = 'block';
+                    });
+                });
+            }
+
+            // Handle academic year change
+            document.getElementById('academicYear').addEventListener('change', async function() {
+                const yearId = this.value;
+                const branchSelect = document.getElementById('branch');
+                const sectionSelect = document.getElementById('section');
+
+                branchSelect.innerHTML = '<option value="">Select Branch</option>';
+                sectionSelect.innerHTML = '<option value="">Select Section</option>';
+                
+                if (yearId === 'all') {
+                    branchSelect.disabled = true;
+                    sectionSelect.disabled = true;
+                    branchSelect.innerHTML = '<option value="all">All Branches</option>';
+                    sectionSelect.innerHTML = '<option value="all">All Sections</option>';
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/admin/allbranch?years=${yearId}`);
+                    const branches = await response.json();
+
+                    branchSelect.disabled = false;
+                    branchSelect.innerHTML = '<option value="">Select Branch</option><option value="all">All Branches</option>';
+                    branches.forEach(branch => {
+                        branchSelect.innerHTML += `<option value="${branch._id}">${branch.name}</option>`;
+                    });
+                } catch (error) {
+                    console.error('Error fetching branches:', error);
+                    showValidationError('Failed to load branches. Please try again.');
+                }
+            });
+
+            // Handle branch change
+            document.getElementById('branch').addEventListener('change', async function() {
+                const branchId = this.value;
+                const yearId = document.getElementById('academicYear').value;
+                const sectionSelect = document.getElementById('section');
+
+                sectionSelect.innerHTML = '<option value="">Select Section</option>';
+                
+                if (branchId === 'all') {
+                    sectionSelect.disabled = true;
+                    sectionSelect.innerHTML = '<option value="all">All Sections</option>';
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/admin/allsections?branch=${branchId}&year=${yearId}`);
+                    const sections = await response.json();
+                    
+                    sectionSelect.disabled = false;
+                    sectionSelect.innerHTML = '<option value="">Select Section</option><option value="all">All Sections</option>';
+                    sections.forEach(section => {
+                        sectionSelect.innerHTML += `<option value="${section._id}">${section.name}</option>`;
+                    });
+                } catch (error) {
+                    console.error('Error fetching sections:', error);
+                    showValidationError('Failed to load sections. Please try again.');
+                }
+            });
+
+            // Handle subject template addition
+            document.getElementById('add-subject-template').addEventListener('click', function() {
+                const subjectSelect = document.getElementById('subject-select');
+                const selectedSubject = subjectSelect.options[subjectSelect.selectedIndex];
+                
+                if (!selectedSubject.value) {
+                    showValidationError('Please select a subject first.');
+                    return;
+                }
+
+                if (addedSubjects.has(selectedSubject.value)) {
+                    showValidationError('This subject has already been added.');
+                    return;
+                }
+
+                addedSubjects.add(selectedSubject.value);
+                
+                const templateCard = document.createElement('div');
+                templateCard.className = 'template-card';
+                templateCard.dataset.subjectId = selectedSubject.value;
+                
+                templateCard.innerHTML = `
+                    <div class="template-header">
+                        <span class="template-title">${selectedSubject.dataset.name}</span>
+                        <button type="button" class="btn btn-danger remove-subject">×</button>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Select Template</label>
+                        <select name="subjectTemplates[${selectedSubject.value}]" class="form-input" required>
+                            <option value="">Select a template</option>
+                            <% templates.forEach(function(template) { %>
+                                <option value="<%= template._id %>"><%= template.title %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                `;
+
+                document.getElementById('subject-forms-container').appendChild(templateCard);
+                
+                // Add remove button functionality
+                templateCard.querySelector('.remove-subject').addEventListener('click', function() {
+                    addedSubjects.delete(selectedSubject.value);
+                    templateCard.remove();
+                });
+            });
+
+            // Add remove functionality to existing subject cards
+            document.querySelectorAll('.remove-subject').forEach(button => {
+                button.addEventListener('click', function() {
+                    const card = this.closest('.template-card');
+                    addedSubjects.delete(card.dataset.subjectId);
+                    card.remove();
+                });
+            });
+
+            // Form validation and submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Clear previous validation messages
+                hideValidationError();
+
+                // Basic validation
+                const requiredFields = form.querySelectorAll('[required]');
+                for (let field of requiredFields) {
+                    if (!field.value) {
+                        showValidationError('Please fill in all required fields.');
+                        return;
+                    }
+                }
+
+                // Validate dates
+                const startDate = new Date(form.elements.startDate.value);
+                const endDate = new Date(form.elements.endDate.value);
+                
+                if (startDate >= endDate) {
+                    showValidationError('End date must be after start date.');
+                    return;
+                }
+
+                // Validate feedback types
+                const feedbackTypes = form.querySelectorAll('input[name="feedbackTypes[]"]:checked');
+                if (feedbackTypes.length === 0) {
+                    showValidationError('Please select at least one feedback type.');
+                    return;
+                }
+
+                // Validate subject templates
+                if (addedSubjects.size === 0 && 
+                    !form.elements.infrastructureTemplate.value && 
+                    !form.elements.generalTemplate.value) {
+                    showValidationError('Please add at least one template (Subject, Infrastructure, or General).');
+                    return;
+                }
+
+                // If all validation passes, submit the form
+                form.submit();
+            });
+
+            // Utility functions for validation messages
+            function showValidationError(message) {
+                validationAlert.style.display = 'block';
+                validationMessage.textContent = message;
+            }
+
+            function hideValidationError() {
+                validationAlert.style.display = 'none';
+                validationMessage.textContent = '';
+            }
+
+            // Initialize tabs on page load
+            initTabs();
+        });
+    </script>
+</body>
+</html>

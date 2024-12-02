@@ -1,0 +1,411 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --bs-primary: #12047a;
+        --bs-secondary: #6c679c;
+        --bs-success: #28a745;
+        --bs-info: #8c8cb4;
+        --bs-warning: #ffc107;
+        --bs-danger: #dc3545;
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-title-wrapper {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem 0;
+        margin-bottom: 1.5rem;
+        border-radius: 10px;
+    }
+
+    .section-title {
+        color: var(--bs-primary);
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--bs-info);
+    }
+
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 600;
+        color: var(--bs-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: var(--bs-secondary);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .chart-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+
+    .response-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .response-item {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        transition: background-color 0.2s;
+    }
+
+    .response-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .response-item:last-child {
+        border-bottom: none;
+    }
+
+    .keyword-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .keyword-tag {
+        background-color: #e9ecef;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        color: var(--bs-secondary);
+    }
+
+    .sentiment-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .sentiment-bar {
+        flex-grow: 1;
+        height: 8px;
+        background: linear-gradient(to right, #dc3545, #ffc107, #28a745);
+        border-radius: 4px;
+        position: relative;
+    }
+
+    .sentiment-marker {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background: white;
+        border: 2px solid #495057;
+        border-radius: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .filters {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .filter-label {
+        font-weight: 500;
+        min-width: 100px;
+    }
+
+    .filter-select {
+        flex-grow: 1;
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        outline: none;
+    }
+
+    .filter-select:focus {
+        border-color: var(--bs-primary);
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Page Title Section -->
+    <div class="page-title-wrapper mb-4">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <div>
+                <h2 class="h4 mb-0 text-primary">Form Analytics: <%= form.title %></h2>
+                <p class="text-muted mb-0"><%= form.description %></p>
+            </div>
+            <div>
+                <a href="/admin/forms/<%= form._id %>" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Form
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters">
+        <div class="filter-group">
+            <label class="filter-label">Section:</label>
+            <select class="filter-select" id="sectionFilter">
+                <option value="all">All Sections</option>
+                <% sections.forEach(function(section) { %>
+                    <option value="<%= section._id %>"><%= section.name %></option>
+                <% }); %>
+            </select>
+
+            <label class="filter-label">Subject:</label>
+            <select class="filter-select" id="subjectFilter">
+                <option value="all">All Subjects</option>
+                <% subjects.forEach(function(subject) { %>
+                    <option value="<%= subject._id %>"><%= subject.name %></option>
+                <% }); %>
+            </select>
+
+            <label class="filter-label">Faculty:</label>
+            <select class="filter-select" id="facultyFilter">
+                <option value="all">All Faculty</option>
+                <% faculties.forEach(function(faculty) { %>
+                    <option value="<%= faculty._id %>"><%= faculty.name %></option>
+                <% }); %>
+            </select>
+        </div>
+    </div>
+
+    <!-- Overview Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-number"><%= analytics.responseStats.total %></div>
+                <div class="stat-label">Total Responses</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-number"><%= analytics.responseStats.completionRate.toFixed(1) %>%</div>
+                <div class="stat-label">Completion Rate</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-number"><%= analytics.responseStats.anonymous %></div>
+                <div class="stat-label">Anonymous Responses</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-number"><%= Math.round(analytics.responseStats.averageTimeToComplete / 60) %></div>
+                <div class="stat-label">Avg. Time (minutes)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Timeline -->
+    <div class="chart-container">
+        <h3 class="section-title">Response Timeline</h3>
+        <canvas id="responseTimeline"></canvas>
+    </div>
+
+    <!-- Question Analysis -->
+    <div class="row">
+        <% analytics.questionStats.forEach(function(stat, index) { %>
+            <div class="col-md-6 mb-4">
+                <div class="chart-container">
+                    <h4 class="h6 mb-3"><%= stat.question.text %></h4>
+                    
+                    <% if (stat.mcqStats) { %>
+                        <!-- MCQ Analysis -->
+                        <canvas id="mcqChart<%= index %>"></canvas>
+                        <div class="mt-3">
+                            <strong>Most Common Answer:</strong> <%= stat.mcqStats.mostCommonAnswer %>
+                        </div>
+                    <% } %>
+
+                    <% if (stat.ratingStats) { %>
+                        <!-- Rating Analysis -->
+                        <canvas id="ratingChart<%= index %>"></canvas>
+                        <div class="mt-3">
+                            <div><strong>Average:</strong> <%= stat.ratingStats.average.toFixed(2) %></div>
+                            <div><strong>Median:</strong> <%= stat.ratingStats.median %></div>
+                            <div><strong>Mode:</strong> <%= stat.ratingStats.mode %></div>
+                        </div>
+                    <% } %>
+
+                    <% if (stat.textStats) { %>
+                        <!-- Text Analysis -->
+                        <div>
+                            <div><strong>Response Count:</strong> <%= stat.textStats.responseCount %></div>
+                            <div><strong>Average Length:</strong> <%= Math.round(stat.textStats.averageLength) %> characters</div>
+                            
+                            <!-- Keyword Cloud -->
+                            <div class="keyword-cloud">
+                                <% stat.textStats.commonKeywords.forEach(function(keyword) { %>
+                                    <span class="keyword-tag">
+                                        <%= keyword.word %> (<%= keyword.count %>)
+                                    </span>
+                                <% }); %>
+                            </div>
+
+                            <!-- Sentiment Analysis -->
+                            <div class="sentiment-indicator">
+                                <span>Sentiment:</span>
+                                <div class="sentiment-bar">
+                                    <div class="sentiment-marker" 
+                                         style="left: <%= ((stat.textStats.sentimentScore + 1) / 2 * 100) %>%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        <% }); %>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Response Timeline Chart
+        const timelineCtx = document.getElementById('responseTimeline').getContext('2d');
+        new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: <%- JSON.stringify(analytics.temporalAnalysis.dailyResponses.map(d => new Date(d.date).toLocaleDateString())) %>,
+                datasets: [{
+                    label: 'Daily Responses',
+                    data: <%- JSON.stringify(analytics.temporalAnalysis.dailyResponses.map(d => d.count)) %>,
+                    borderColor: '#12047a',
+                    backgroundColor: 'rgba(18, 4, 122, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Initialize charts for each question
+        <% analytics.questionStats.forEach(function(stat, index) { %>
+            <% if (stat.mcqStats) { %>
+                const mcqCtx<%= index %> = document.getElementById('mcqChart<%= index %>').getContext('2d');
+                new Chart(mcqCtx<%= index %>, {
+                    type: 'bar',
+                    data: {
+                        labels: Array.from(<%- JSON.stringify([...stat.mcqStats.optionCounts.keys()]) %>),
+                        datasets: [{
+                            data: Array.from(<%- JSON.stringify([...stat.mcqStats.optionCounts.values()]) %>),
+                            backgroundColor: '#6c679c'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            <% } %>
+
+            <% if (stat.ratingStats) { %>
+                const ratingCtx<%= index %> = document.getElementById('ratingChart<%= index %>').getContext('2d');
+                new Chart(ratingCtx<%= index %>, {
+                    type: 'bar',
+                    data: {
+                        labels: Array.from(<%- JSON.stringify([...stat.ratingStats.distribution.keys()]) %>),
+                        datasets: [{
+                            data: Array.from(<%- JSON.stringify([...stat.ratingStats.distribution.values()]) %>),
+                            backgroundColor: '#28a745'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            <% } %>
+        <% }); %>
+
+        // Handle filter changes
+        const filters = document.querySelectorAll('.filter-select');
+        filters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                const section = document.getElementById('sectionFilter').value;
+                const subject = document.getElementById('subjectFilter').value;
+                const faculty = document.getElementById('facultyFilter').value;
+
+                window.location.href = `/admin/forms/${form._id}/analytics?section=${section}&subject=${subject}&faculty=${faculty}`;
+            });
+        });
+    });
+</script>

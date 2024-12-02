@@ -1,47 +1,138 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <h1>Attendance Summary</h1>
-    <link rel="stylesheet" href="/path/to/your/styles.css">
-</head>
-<body>
-    <body>
-        <div class="container mt-4">
-    
-            <div id="summaryContainer" class="mb-4">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h2>Before Modification</h2>
-                        <div class="list-group">
-                            <li class="list-group-item">Present: <strong><%= beforeModification.present %></strong></li>
-                            <li class="list-group-item">Absent: <strong><%= beforeModification.absent %></strong></li>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <h2>After Modification</h2>
-                        <div class="list-group">
-                            <li class="list-group-item">Present: <strong><%= afterModification.present %></strong></li>
-                            <li class="list-group-item">Absent: <strong><%= afterModification.absent %></strong></li>
-                        </div>
-                    </div>
+<div class="container mt-4">
+    <h1 class="mb-4">Attendance Summary</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Before Modification</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Present
+                            <span class="badge bg-primary rounded-pill"><%= beforeModification.present %></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Absent
+                            <span class="badge bg-danger rounded-pill"><%= beforeModification.absent %></span>
+                        </li>
+                    </ul>
                 </div>
             </div>
-    
-            <form action="/faculty/saveModifiedAttendance" method="post" class="mb-4">
-                <input type="hidden" name="attendanceId" value="<%= attendanceId %>">
-                <input type="hidden" name="section" value="<%= section %>">
-                <input type="hidden" name="date" value="<%= date %>">
-                <input type="hidden" name="period" value="<%= period %>">
-                <input type="hidden" name="subject" value="<%= subject %>">
-                <input type="hidden" name="batch" value="<%= batch %>">
-                <input type="hidden" name="updatedAttendance" value="<%= updatedAttendance %>">
-                <!-- Include other necessary hidden fields -->
-    
-                <button type="submit" class="btn btn-primary btn-lg btn-block">Confirm and Save</button>
-            </form>
         </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">After Modification</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Present
+                            <span class="badge bg-primary rounded-pill"><%= afterModification.present %></span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Absent
+                            <span class="badge bg-danger rounded-pill"><%= afterModification.absent %></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <script src="/path/to/your/script.js"></script>
-</body>
-</html>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">Review Changes</h2>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Roll No.</th>
+                        <th>Student Name</th>
+                        <th>Original Status</th>
+                        <th>New Status</th>
+                        <th>Changed?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% reviewData.forEach(record => { %>
+                        <tr class="<%= record.originalStatus !== record.newStatus ? 'table-warning' : '' %>">
+                            <td><%= record.student.username %></td>
+                            <td><%= record.student.name %></td>
+                            <td>
+                                <span class="badge <%= record.originalStatus ? 'bg-success' : 'bg-danger' %>">
+                                    <%= record.originalStatus ? 'Present' : 'Absent' %>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge <%= record.newStatus ? 'bg-success' : 'bg-danger' %>">
+                                    <%= record.newStatus ? 'Present' : 'Absent' %>
+                                </span>
+                            </td>
+                            <td>
+                                <% if (record.originalStatus !== record.newStatus) { %>
+                                    <span class="badge bg-warning">Changed</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <form action="/faculty/saveModifiedAttendance" method="POST" class="mb-4">
+        <input type="hidden" name="attendanceId" value="<%= attendanceId %>">
+        <input type="hidden" name="section" value="<%= section %>">
+        <input type="hidden" name="updatedAttendance" value='<%= updatedAttendance %>'>
+        
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">Confirm and Save Changes</button>
+            <a href="/faculty/attendance?sectionId=<%= section %>" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Get the form data
+    const formData = new FormData(this);
+    const data = {};
+    
+    for (let [key, value] of formData.entries()) {
+        if (key === 'updatedAttendance') {
+            // Parse the JSON string back to an object
+            data[key] = JSON.parse(value);
+        } else {
+            data[key] = value;
+        }
+    }
+
+    // Submit the form
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Server error');
+        }
+        // Redirect to the attendance page
+        window.location.href = '/faculty/attendance?sectionId=' + data.section;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving changes. Please try again.');
+    });
+});
+</script>

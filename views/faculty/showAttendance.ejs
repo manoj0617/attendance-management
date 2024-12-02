@@ -1,40 +1,66 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
-<body>
-    <div class="container">
-        <h2>Show Attendance</h2>
-
-        <% if (attendance.length > 0) { %>
-            <table class="table mt-4">
-                <thead>
-                    <tr>
-                        <th>Roll No.</th>
-                        <th>Student</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% attendance.forEach(record => { %>
-                        <% record.students.forEach(studentRecord => { %>
-                            <tr>
-                                <td><%= studentRecord.student.username %></td>
-                                <td><%= studentRecord.student.name %></td>
-                                <td>
-                                    <span class="<%= studentRecord.status ? 'text-success' : 'text-danger' %>">
-                                        <%= studentRecord.status ? 'Present' : 'Absent' %>
-                                    </span>
-                                </td>
-                            </tr>
-                        <% }); %>
-                    <% }); %>
-                </tbody>
-            </table>
-        <% } else { %>
-            <div class="alert alert-info" role="alert">
-                No attendance records found for the selected criteria.
+<div class="container">
+    <h2>Show Attendance</h2>
+    <% if (attendance && attendance.length > 0) { %>
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>Total Students: <%= attendance[0].students.length %></h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5 class="text-success">
+                            Present: <%= attendance[0].students.filter(s => s.status).length %>
+                        </h5>
+                    </div>
+                    <div class="col-md-4">
+                        <h5 class="text-danger">
+                            Absent: <%= attendance[0].students.filter(s => !s.status).length %>
+                        </h5>
+                    </div>
+                </div>
             </div>
-        <% } %>
+        </div>
 
-        <a href="/faculty/attendance?sectionId=<%= section %>" class="btn btn-secondary mt-4">Back to Attendance</a>
-    
-    </div>
-</body>
+        <table class="table table-striped mt-4">
+            <thead class="thead-dark">
+                <tr>
+                    <th scope="col">Roll No.</th>
+                    <th scope="col">Student Name</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% 
+                const sortedStudents = attendance[0].students
+                    .filter(studentRecord => studentRecord && studentRecord.student)
+                    .sort((a, b) => {
+                        if (!a.student || !b.student) return 0;
+                        return (a.student.username || '').localeCompare(b.student.username || '');
+                    });
+
+                sortedStudents.forEach(studentRecord => {
+                    if (studentRecord.student) {
+                %>
+                    <tr>
+                        <td><%= studentRecord.student.username || 'N/A' %></td>
+                        <td><%= studentRecord.student.name || 'Unknown Student' %></td>
+                        <td>
+                            <span class="badge <%= studentRecord.status ? 'bg-success' : 'bg-danger' %>">
+                                <%= studentRecord.status ? 'Present' : 'Absent' %>
+                            </span>
+                        </td>
+                    </tr>
+                <% }}); %>
+            </tbody>
+        </table>
+    <% } else { %>
+        <div class="alert alert-info" role="alert">
+            No attendance records found for the selected criteria.
+        </div>
+    <% } %>
+
+    <a href="/faculty/attendance?sectionId=<%= section %>" class="btn btn-secondary mt-4">
+        Back to Attendance
+    </a>
+</div>

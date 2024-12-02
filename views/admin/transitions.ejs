@@ -1,0 +1,189 @@
+<%- layout("../layouts/adminBoilerplate") -%>
+<body style="background-color: var(--mischka);">
+  <div class="container mt-5">
+    <h1 class="mb-4 text-center" style="color: var(--deep-blue);">Academic Transitions Management</h1>
+
+    <div class="row g-4">
+      <!-- Start New Semester Section -->
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm" style="border-color: var(--amethyst-smoke);">
+          <div class="card-body">
+            <h5 class="card-title" style="color: var(--bay-of-many);">Start New Semester</h5>
+            <form id="newSemesterForm" action="/admin/transitions/start-semester" method="POST">
+              <div class="mb-3">
+                <label class="form-label" style="color: var(--victoria);">Select Academic Year</label>
+                <select name="academicYearId" class="form-select" 
+                  style="border-color: var(--amethyst-smoke);" required>
+                  <option value="">Choose Academic Year</option>
+                  <% academicYears.forEach(year => { %>
+                    <option value="<%= year._id %>"><%= year.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" style="color: var(--victoria);">Select New Semester</label>
+                <select name="newSemesterId" class="form-select" 
+                  style="border-color: var(--amethyst-smoke);" required>
+                  <option value="">Choose Semester</option>
+                  <% semesters.forEach(semester => { %>
+                    <option value="<%= semester._id %>"><%= semester.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <button type="submit" class="btn btn-primary w-100" 
+                style="background-color: var(--daisy-bush); border-color: var(--deep-blue);">
+                Start New Semester
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start New Academic Year Section -->
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm" style="border-color: var(--amethyst-smoke);">
+          <div class="card-body">
+            <h5 class="card-title" style="color: var(--bay-of-many);">Start New Academic Year</h5>
+            <form id="newAcademicYearForm" action="/admin/transitions/start-academic-year" method="POST">
+              <div class="mb-3">
+                <label class="form-label" style="color: var(--victoria);">Select Previous Academic Year</label>
+                <select name="oldAcademicYearId" class="form-select" 
+                  style="border-color: var(--amethyst-smoke);" required>
+                  <option value="">Choose Previous Year</option>
+                  <% academicYears.forEach(year => { %>
+                    <option value="<%= year._id %>"><%= year.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" style="color: var(--victoria);">New Academic Year Name</label>
+                <input type="text" name="newAcademicYearData[name]" class="form-control" 
+                  placeholder="e.g., 2024-2025"
+                  style="border-color: var(--amethyst-smoke);" required>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label" style="color: var(--victoria);">Start Date</label>
+                  <input type="date" name="newAcademicYearData[startDate]" class="form-control" 
+                    style="border-color: var(--amethyst-smoke);" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label" style="color: var(--victoria);">End Date</label>
+                  <input type="date" name="newAcademicYearData[endDate]" class="form-control" 
+                    style="border-color: var(--amethyst-smoke);" required>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary w-100" 
+                style="background-color: var(--daisy-bush); border-color: var(--deep-blue);">
+                Start New Academic Year
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graduate Final Year Students Section -->
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm" style="border-color: var(--amethyst-smoke);">
+          <div class="card-body">
+            <h5 class="card-title" style="color: var(--bay-of-many);">Graduate Final Year Students</h5>
+            <form id="graduateStudentsForm" action="/admin/transitions/graduate-students" method="POST">
+              <div class="mb-3">
+                <label class="form-label" style="color: var(--victoria);">Select Academic Year</label>
+                <select name="academicYearId" class="form-select" 
+                  style="border-color: var(--amethyst-smoke);" required>
+                  <option value="">Choose Academic Year</option>
+                  <% academicYears.forEach(year => { %>
+                    <option value="<%= year._id %>"><%= year.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="alert alert-warning" role="alert" style="background-color: rgba(108, 103, 156, 0.1); color: var(--minsk);">
+                <i class="fa fa-exclamation-triangle me-2"></i>
+                This will mark all final year students as graduated.
+              </div>
+
+              <button type="submit" class="btn btn-danger w-100" 
+                style="background-color: var(--minsk); border-color: var(--deep-blue);">
+                Graduate Students
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const confirmMessage = form.id === 'graduateStudentsForm' 
+            ? 'Are you sure you want to graduate all final year students?' 
+            : 'Are you sure you want to proceed with this transition?';
+        
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            // Special handling for new academic year form
+            if (form.id === 'newAcademicYearForm') {
+                // Restructure the data to match the expected format
+                const restructuredData = {
+                    oldAcademicYearId: data.oldAcademicYearId,
+                    newAcademicYearData: {
+                        name: data['newAcademicYearData[name]'],
+                        startDate: data['newAcademicYearData[startDate]'],
+                        endDate: data['newAcademicYearData[endDate]']
+                    }
+                };
+                data = restructuredData;
+            }
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(result.message || 'Transition completed successfully');
+                location.reload();
+            } else {
+                alert(result.error || 'An error occurred');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An unexpected error occurred');
+        }
+    });
+});
+</script>
+
+  <style>
+    body {
+      background-color: var(--mischka);
+    }
+    .card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(56, 57, 135, 0.15);
+    }
+  </style>
+</body>

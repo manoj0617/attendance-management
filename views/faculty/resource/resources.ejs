@@ -1,39 +1,392 @@
-<% layout("../layouts/facultyBoilerplate") -%>
+<%layout("../layouts/facultyBoilerplate") -%>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" integrity="sha512-mH5dWBwUuT+OzF/ZOvNjcU9qulvT8TzJlC7I1FXAJXbFWHuyrYUnXRIReB3zg4wlIBbiq6xAF7Ko9hS5kTTe1g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 <body>
-<div class="container mt-5">
-  <h2>Share Resource (Faculty)</h2>
-  <form action="/faculty/resources/upload" method="POST" enctype="multipart/form-data">
-    <div class="form-group">
-      <label for="title">Title</label>
-      <input type="text" class="form-control" name="title" id="title" required>
-    </div>
+  <div class="container mt-5">
+    <div class="card shadow">
+      <div class="card-header bg-primary text-white">
+        <h2 class="card-title">Share Resource</h2>
+      </div>
+      <div class="card-body">
+        <!-- Debug info section -->
+        <div id="debugInfo" class="alert alert-info mb-3">
+          <pre id="debugText" class="mb-0"></pre>
+        </div>
+        
+        <!-- Error alert -->
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+        
+        <!-- Success alert -->
+        <div id="successAlert" class="alert alert-success d-none" role="alert"></div>
+        
+        <form id="resourceForm" action="/faculty/resources/save" method="POST">
+          <!-- Resource Details Section -->
+          <div class="mb-4">
+            <h4 class="mb-3">Resource Details</h4>
+            
+            <div class="mb-3">
+              <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="description" class="form-label">Description</label>
+              <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
 
-    <div class="form-group">
-      <label for="description">Description</label>
-      <textarea class="form-control" name="description" id="description"></textarea>
-    </div>
-      <input type="hidden" name="section" value="<%= section._id %>">
-
-    <div class="form-group">
-      <label for="file">Select File</label>
-      <input type="file" class="form-control-file" name="file" id="file" required>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Share Resource</button>
-  </form>
-</div>
-<script>
-    $(document).ready(function () {
-      $('form').on('submit', function (e) {
-        const fileInput = $('#file');
-        const file = fileInput[0].files[0];
+            <div class="mb-3">
+              <label for="resourceType" class="form-label">Resource Type <span class="text-danger">*</span></label>
+              <select class="form-select" id="resourceType" name="resourceType" required>
+                <option value="">Select Resource Type</option>
+                <option value="notes">Notes</option>
+                <option value="assignment">Assignment</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- File Selection Section -->
+          <div class="mb-4">
+            <h4 class="mb-3">File Selection</h4>
+            
+            <div class="form-group">
+              <label for="filePicker" class="form-label">Select File from Google Drive <span class="text-danger">*</span></label>
+              <div class="d-flex align-items-center">
+                <button type="button" id="pickerButton" class="btn btn-secondary" >
+                  <span id="pickerButtonText">Select File</span>
+                  <span id="pickerSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                </button>
+                <span id="selectedFileName" class="ms-3 text-success"></span>
+              </div>
+            </div>
+          </div>
   
-        if (!file) {
-          alert('Please select a file.');
-          e.preventDefault();
+          <!-- Hidden inputs -->
+          <input type="hidden" id="fileId" name="fileId">
+          <input type="hidden" id="fileLink" name="fileLink">
+          <input type="hidden" id="fileName" name="fileName">
+          <input type="hidden" id="section" name="section" value="<%= section._id %>">
+          <input type="hidden" id="uploader" name="uploader" value="<%= currUser._id %>">
+  
+          <!-- Submit Button -->
+          <div class="text-end">
+            <button type="submit" id="saveButton" class="btn btn-primary" disabled>Save Resource</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Resources List -->
+    <div class="card shadow mt-4">
+      <div class="card-header bg-light">
+        <h3 class="card-title">Shared Resources</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (resources && resources.length > 0) { %>
+                <% resources.forEach(resource => { %>
+                  <tr>
+                    <td><%= resource.title %></td>
+                    <td>
+                      <span class="badge bg-<%= resource.resourceType === 'notes' ? 'primary' : 'warning' %>">
+                        <%= resource.resourceType.charAt(0).toUpperCase() + resource.resourceType.slice(1) %>
+                      </span>
+                    </td>
+                    <td><%= resource.description || 'No description' %></td>
+                    <td>
+                      <%= new Date(resource.createdAt).toLocaleDateString() %>
+                      <div class="small text-muted">
+                        <%= new Date(resource.createdAt).toLocaleTimeString() %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="btn-group">
+                        <a href="<%= resource.fileLink %>" target="_blank" class="btn btn-sm btn-outline-primary">
+                          <i class="fas fa-eye"></i>
+                        </a>
+                        <form action="/faculty/resources/delete/<%= resource._id %>" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this resource?');">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="5" class="text-center py-4">
+                    <div class="text-muted">
+                      <i class="fas fa-inbox fs-2 d-block mb-2"></i>
+                      No resources shared yet
+                    </div>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load required Google APIs -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
+  <script>
+  // DOM Elements
+  const elements = {
+    pickerButton: document.getElementById('pickerButton'),
+    pickerButtonText: document.getElementById('pickerButtonText'),
+    pickerSpinner: document.getElementById('pickerSpinner'),
+    selectedFileName: document.getElementById('selectedFileName'),
+    errorAlert: document.getElementById('errorAlert'),
+    successAlert: document.getElementById('successAlert'),
+    debugInfo: document.getElementById('debugInfo'),
+    debugText: document.getElementById('debugText'),
+    saveButton: document.getElementById('saveButton'),
+    fileId: document.getElementById('fileId'),
+    fileLink: document.getElementById('fileLink'),
+    fileName: document.getElementById('fileName'),
+    resourceForm: document.getElementById('resourceForm')
+  };
+
+  // Google API Configuration
+  const API_KEY = '<%= key %>';
+  const CLIENT_ID = '<%= process.env.CLIENT_ID %>';
+  const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
+
+  let pickerApiLoaded = false;
+  let tokenClient;
+  let accessToken = null;
+
+  // Debug logging
+  function debug(message, object = null) {
+    const timestamp = new Date().toISOString();
+    let debugMessage = `[${timestamp}] ${message}`;
+    if (object) {
+      debugMessage += '\n' + JSON.stringify(object, null, 2);
+    }
+    elements.debugText.textContent += debugMessage + '\n';
+    console.log(debugMessage, object);
+  }
+
+  // Error handling
+  function showError(message) {
+    if (elements.errorAlert) {
+      elements.errorAlert.textContent = message;
+      elements.errorAlert.classList.remove('d-none');
+      elements.successAlert.classList.add('d-none');
+    }
+    debug('Error: ' + message);
+  }
+
+  // Success message handling
+  function showSuccess(message) {
+    if (elements.successAlert) {
+      elements.successAlert.textContent = message;
+      elements.successAlert.classList.remove('d-none');
+      elements.errorAlert.classList.add('d-none');
+    }
+    debug('Success: ' + message);
+  }
+
+  // Loading state management
+  function setLoading(isLoading) {
+    elements.pickerButton.disabled = isLoading;
+    elements.pickerSpinner.classList.toggle('d-none', !isLoading);
+    elements.pickerButtonText.textContent = isLoading ? 'Loading...' : 'Select File';
+  }
+
+  // Initialize Google Picker API
+  async function initializeGooglePicker() {
+    try {
+      debug('Initializing Google Picker API...');
+
+      await new Promise((resolve, reject) => {
+        gapi.load('picker', {
+          callback: resolve,
+          onerror: reject
+        });
+      });
+
+      debug('Picker API loaded successfully');
+
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES.join(' '),
+        callback: (tokenResponse) => {
+          if (tokenResponse.error !== undefined) {
+            debug('Token error:', tokenResponse.error);
+            showError('Authentication failed');
+            return;
+          }
+          accessToken = tokenResponse.access_token;
+          debug('Token obtained successfully');
+          elements.pickerButton.disabled = false;
         }
       });
-    });
+
+      pickerApiLoaded = true;
+      debug('Google Picker initialized successfully');
+
+    } catch (error) {
+      debug('Error initializing Google Picker:', error);
+      throw new Error('Failed to initialize Google Picker');
+    }
+  }
+
+  // Show picker
+  async function showPicker() {
+    try {
+      setLoading(true);
+      
+      if (!accessToken) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+        return;
+      }
+
+      const picker = new google.picker.PickerBuilder()
+        .addView(new google.picker.DocsView()
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(false)
+          .setMimeTypes('application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation')
+        )
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(API_KEY)
+        .setCallback(pickerCallback)
+        .setOrigin(window.location.protocol + '//' + window.location.host)
+        .setSize(800, 600)
+        .setTitle('Select a file')
+        .build();
+        
+      picker.setVisible(true);
+      
+    } catch (error) {
+      debug('Error showing picker:', error);
+      showError('Failed to show file picker');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Picker callback
+  function pickerCallback(data) {
+    if (data.action === google.picker.Action.PICKED) {
+      const file = data.docs[0];
+      elements.fileId.value = file.id;
+      elements.fileLink.value = file.url || `https://drive.google.com/file/d/${file.id}/view`;
+      elements.fileName.value = file.name;
+      elements.selectedFileName.textContent = `Selected: ${file.name}`;
+      elements.saveButton.disabled = false;
+      
+      debug('File selected:', {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType
+      });
+    }
+  }
+
+  // Form submission handler
+  async function handleFormSubmit(event) {
+    event.preventDefault();
+    
+    try {
+      const submitButton = elements.saveButton;
+      submitButton.disabled = true;
+      submitButton.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        Saving...
+      `;
+
+      const formData = new FormData(event.target);
+      const data = {
+        title: formData.get('title'),
+        description: formData.get('description'),
+        resourceType: formData.get('resourceType'),
+        fileId: formData.get('fileId'),
+        fileLink: formData.get('fileLink'),
+        fileName: formData.get('fileName'),
+        section: formData.get('section'),
+        uploader: formData.get('uploader'),
+        uploaderType: 'Faculty'
+      };
+
+      debug('Submitting form data:', data);
+
+      const response = await fetch('/faculty/resources/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save resource');
+      }
+
+      const result = await response.json();
+      showSuccess(result.message);
+      
+      // Reload page after success
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (error) {
+      showError(error.message);
+      debug('Form submission error:', error);
+    } finally {
+      const submitButton = elements.saveButton;
+      submitButton.disabled = false;
+      submitButton.innerHTML = 'Save Resource';
+    }
+  }
+
+  // Initialize application
+  async function initializeApp() {
+    try {
+      debug('Starting application initialization');
+      
+      // Initialize Google APIs
+      await initializeGooglePicker();
+      debug('Google Picker initialized successfully');
+      
+      // Setup form submission handler
+      elements.resourceForm.addEventListener('submit', handleFormSubmit);
+      debug('Form submission handler initialized');
+      
+      // Setup Google Picker button
+      elements.pickerButton.addEventListener('click', showPicker);
+      debug('Picker button handler initialized');
+      
+      debug('Application initialized successfully');
+      
+    } catch (error) {
+      debug('Critical initialization error:', error);
+      showError('Failed to initialize application. Please try again or refresh the page.');
+      
+      // Disable interactive elements
+      elements.pickerButton.disabled = true;
+      elements.saveButton.disabled = true;
+    }
+  }
+
+  // Initialize the application when the page loads
+  window.addEventListener('load', initializeApp);
   </script>
-  
 </body>

@@ -152,6 +152,7 @@
                         id="date" 
                         name="date" 
                         value="<%= new Date().toISOString().split('T')[0] %>" 
+                        max="<%= new Date().toISOString().split('T')[0] %>"
                         class="form-control" 
                         required>
                     <div class="invalid-feedback">Please select a valid date.</div>
@@ -418,35 +419,94 @@
             fetchSubjects();
         
             // Form submission handling
+            // $('#attendanceForm').submit(function(event) {
+            //     let selectedPeriods = [];
+            //     $('.period-checkbox:checked').each(function() {
+            //         selectedPeriods.push($(this).val());
+            //     });
+        
+            //     if (selectedPeriods.length === 0) {
+            //         event.preventDefault();
+            //         alert('Please select at least one period.');
+            //         return;
+            //     }
+        
+            //     if (!canSelectTogether(selectedPeriods)) {
+            //         event.preventDefault();
+            //         alert('Selected periods must be either all for the entire section or all for the same batch.');
+            //         return;
+            //     }
+        
+            //     // Add the selected periods to the form
+            //     selectedPeriods.forEach(function(period) {
+            //         const periodInfo = periodBatchInfo[period];
+            //         if (periodInfo) {
+            //             $(this).append(`
+            //                 <input type="hidden" name="periods[]" value="${period}">
+            //                 <input type="hidden" name="batch" value="${periodInfo.batchId || ''}">
+            //             `);
+            //         }
+            //     }.bind(this));
+            // });
+            
             $('#attendanceForm').submit(function(event) {
-                let selectedPeriods = [];
-                $('.period-checkbox:checked').each(function() {
-                    selectedPeriods.push($(this).val());
-                });
+        event.preventDefault(); // Prevent default form submission
+
+        // Get selected periods
+        let selectedPeriods = [];
+        $('.period-checkbox:checked').each(function() {
+            selectedPeriods.push($(this).val());
+        });
+
+        // Validation checks
+        if (selectedPeriods.length === 0) {
+            alert('Please select at least one period.');
+            return;
+        }
+
+        if (!canSelectTogether(selectedPeriods)) {
+            alert('Selected periods must be either all for the entire section or all for the same batch.');
+            return;
+        }
+
+        // Get batch information from the first selected period
+        // (since we've validated they're all for the same batch)
+        const firstPeriod = selectedPeriods[0];
+        const batchInfo = periodBatchInfo[firstPeriod];
         
-                if (selectedPeriods.length === 0) {
-                    event.preventDefault();
-                    alert('Please select at least one period.');
-                    return;
-                }
-        
-                if (!canSelectTogether(selectedPeriods)) {
-                    event.preventDefault();
-                    alert('Selected periods must be either all for the entire section or all for the same batch.');
-                    return;
-                }
-        
-                // Add the selected periods to the form
-                selectedPeriods.forEach(function(period) {
-                    const periodInfo = periodBatchInfo[period];
-                    if (periodInfo) {
-                        $(this).append(`
-                            <input type="hidden" name="periods[]" value="${period}">
-                            <input type="hidden" name="batch" value="${periodInfo.batchId || ''}">
-                        `);
-                    }
-                }.bind(this));
-            });
-        });</script>
+        // Create the data object that matches the route's expected format
+        const formData = {
+            date: $('#date').val(),
+            section: $('input[name="section"]').val(),
+            acYear: $('input[name="acYear"]').val(),
+            program: $('input[name="program"]').val(),
+            branch: $('input[name="branch"]').val(),
+            sem: $('input[name="sem"]').val(),
+            subject: $('#subject').val(),
+            periods: selectedPeriods,
+            batch: batchInfo?.batchId || '', // Only send batch if it exists
+            periodsMatched: true // Add if this is needed by your route
+        };
+
+        // Submit the form using AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                // Handle success - the response will be the rendered page
+                // Replace the current page content with the new rendered content
+                document.open();
+                document.write(response);
+                document.close();
+            },
+            error: function(error) {
+                console.error('Error submitting attendance:', error);
+                alert('Error submitting attendance. Please try again.');
+            }
+        });
+    });
+});
+</script>
     <script src="../js/script.js"></script>
 </body>

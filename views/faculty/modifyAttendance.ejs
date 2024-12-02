@@ -1,15 +1,14 @@
 <%- layout("../layouts/facultyBoilerplate") -%>
-<body>
-    <div class="container">
-        <h2>Modify Attendance</h2>
-
-        <form id="modifyAttendanceForm" action="/faculty/confirmModification" method="post">
-            <table class="table mt-4">
-                <thead>
+<div class="container mt-4">
+    <h2 class="mb-4">Modify Attendance</h2>
+    <form id="modifyAttendanceForm" action="/faculty/confirmModification" method="POST">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="thead-dark">
                     <tr>
-                        <th>Roll NO.</th>
-                        <th>Student</th>
-                        <th>Present</th>
+                        <th>Roll No.</th>
+                        <th>Student Name</th>
+                        <th>Attendance</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -19,15 +18,96 @@
                                 <td><%= studentRecord.student.username %></td>
                                 <td><%= studentRecord.student.name %></td>
                                 <td>
-                                    <input type="checkbox" name="updatedAttendance[<%= studentRecord.student._id %>]" value="true" <%= studentRecord.status ? 'checked' : '' %>>
+                                    <input type="hidden" 
+                                           name="updatedAttendance[<%= studentRecord.student._id %>]" 
+                                           value="false">
+                                    <div class="form-check">
+                                        <input type="checkbox" 
+                                               class="form-check-input"
+                                               name="updatedAttendance[<%= studentRecord.student._id %>]" 
+                                               value="true"
+                                               id="attendance-<%= studentRecord.student._id %>"
+                                               <%= studentRecord.status ? 'checked' : '' %>>
+                                        <label class="form-check-label" 
+                                               for="attendance-<%= studentRecord.student._id %>">
+                                            Present
+                                        </label>
+                                    </div>
                                 </td>
                             </tr>
                         <% }); %>
                     <% }); %>
                 </tbody>
             </table>
-            <input type="hidden" name="attendanceId" value="<%= attendance[0]._id %>">
-            <button type="submit" class="btn btn-primary">Next: Review Changes</button>
-        </form>
-    </div>
-</body>
+        </div>
+        
+        <input type="hidden" name="attendanceId" value="<%= attendance[0]._id %>">
+        <input type="hidden" name="section" value="<%= section %>">
+        <input type="hidden" name="date" value="<%= date %>">
+        <input type="hidden" name="periods" value="<%= periods %>">
+        <input type="hidden" name="subject" value="<%= subject %>">
+        <input type="hidden" name="batch" value="<%= batch %>">
+        
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Review Changes</button>
+            <a href="/faculty/attendance?sectionId=<%= section %>" 
+               class="btn btn-secondary ml-2">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('modifyAttendanceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Create FormData object
+    const formData = new FormData(this);
+    
+    // Convert FormData to object
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+        if (key.startsWith('updatedAttendance[')) {
+            // For checkboxes, we need to handle the boolean conversion
+            data[key] = value === 'true';
+        } else {
+            data[key] = value;
+        }
+    }
+    
+    // Add any missing false values for unchecked checkboxes
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        const name = checkbox.getAttribute('name');
+        if (!data.hasOwnProperty(name)) {
+            data[name] = false;
+        }
+    });
+
+    console.log('Submitting data:', data); // Debug log
+
+    // Submit form
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/html'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || 'Server error');
+            });
+        }
+        return response.text();
+    })
+    .then(html => {
+        document.documentElement.innerHTML = html;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error submitting form: ' + error.message);
+    });
+});
+</script>

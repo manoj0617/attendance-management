@@ -1,20 +1,28 @@
-<% layout("../layouts/adminBoilerplate") -%>
+<%layout("../layouts/adminBoilerplate") -%>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" integrity="sha512-mH5dWBwUuT+OzF/ZOvNjcU9qulvT8TzJlC7I1FXAJXbFWHuyrYUnXRIReB3zg4wlIBbiq6xAF7Ko9hS5kTTe1g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 <body>
   <div class="container mt-5">
-    <h2>Resources</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>Resources</h2>
+      <a href="/admin/resources/upload" class="btn btn-primary">
+        <i class="fas fa-upload me-2"></i>Upload New Resource
+      </a>
+    </div>
 
-    <!-- Button to upload new resource -->
-    <a href="/admin/resources/upload" class="btn btn-primary my-4">Upload New Resource</a>
+    <!-- Alerts -->
+    <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+    <div id="successAlert" class="alert alert-success d-none" role="alert"></div>
 
     <!-- Filter Card -->
     <div class="card mb-4 shadow">
-      <div class="card-header">
-        <h5>Filter Resources</h5>
+      <div class="card-header bg-light">
+        <h5 class="mb-0">Filter Resources</h5>
       </div>
       <div class="card-body">
         <form id="filterForm" class="row g-3">
           <div class="col-md-3">
-            <label for="year" class="form-label">Select Academic Year</label>
+            <label for="year" class="form-label">Academic Year</label>
             <select class="form-select" id="year" name="year">
               <option value="">All Years</option>
               <% academicYears.forEach(year => { %>
@@ -22,139 +30,275 @@
               <% }) %>
             </select>
           </div>
+          
           <div class="col-md-3">
-            <label for="semester" class="form-label">Select Semester</label>
-            <select class="form-select" id="semester" name="semester" disabled>
-              <option value="">All Semesters</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label for="branch" class="form-label">Select Branch</label>
+            <label for="branch" class="form-label">Branch</label>
             <select class="form-select" id="branch" name="branch" disabled>
               <option value="">All Branches</option>
             </select>
           </div>
+          
           <div class="col-md-3">
-            <label for="section" class="form-label">Select Section</label>
+            <label for="section" class="form-label">Section</label>
             <select class="form-select" id="section" name="section" disabled>
               <option value="">All Sections</option>
             </select>
           </div>
+
+          <div class="col-md-3">
+            <label for="resourceType" class="form-label">Resource Type</label>
+            <select class="form-select" id="resourceType" name="resourceType">
+              <option value="">All Types</option>
+              <option value="circular">Circular</option>
+              <option value="notice">Notice</option>
+              <option value="event">Event</option>
+            </select>
+          </div>
+
           <div class="col-12 text-end">
-            <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="reset" class="btn btn-secondary me-2">Reset</button>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-funnel me-2"></i>Apply Filters
+            </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Table to display resources -->
-    <div class="table-responsive">
-      <table class="table table-bordered table-hover table-striped mt-4">
-        <thead class="table-dark">
-          <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Year</th>
-            <th>Semester</th>
-            <th>Branch</th>
-            <th>Section</th>
-            <th>Uploader</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% resources.forEach(resource => { %>
-            <tr>
-              <td><%= resource.title %></td>
-              <td><%= resource.description %></td>
-              <td><%= resource.sharedWith[0]?.year?.name || 'N/A' %></td>
-              <td><%= resource.sharedWith[0]?.semester?.name || 'N/A' %></td>
-              <td><%= resource.sharedWith[0]?.branch?.name || 'N/A' %></td>
-              <td><%= resource.sharedWith[0]?.section?.name || 'N/A' %></td>
-              <td><%= resource.uploader?.name || 'Unknown' %></td>
-              <td>
-                <a href="<%= resource.fileLink %>" target="_blank" class="btn btn-info btn-sm">
-                  <i class="bi bi-eye"></i> View
-                </a>
-                <form action="/admin/resources/delete/<%= resource._id %>" method="POST" style="display:inline-block;">
-                  <button type="submit" class="btn btn-danger btn-sm">
-                    <i class="bi bi-trash"></i> Delete
-                  </button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+    <!-- Resources Table -->
+    <div class="card shadow">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead class="table-light">
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Access</th>
+                <th>Uploader</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (resources && resources.length > 0) { %>
+                <% resources.forEach(resource => { %>
+                  <tr>
+                    <td><%= resource.title %></td>
+                    <td>
+                      <span class="badge bg-<%= 
+                        resource.resourceType === 'circular' ? 'primary' : 
+                        resource.resourceType === 'notice' ? 'warning' : 
+                        'success' 
+                      %>">
+                        <%= resource.resourceType.charAt(0).toUpperCase() + resource.resourceType.slice(1) %>
+                      </span>
+                    </td>
+                    <td><%= resource.description || 'No description' %></td>
+                    <td>
+                      <% if (resource.accessControl.allYears) { %>
+                        <span class="badge bg-info">All Years</span>
+                      <% } else { %>
+                        <div style="max-height: 100px; overflow-y: auto;">
+                          <% resource.accessControl.years.forEach(year => { %>
+                            <div class="mb-1">
+                              <%= year.year.name %>
+                              <% if (year.allBranches) { %>
+                                <span class="badge bg-secondary">All Branches</span>
+                              <% } else { %>
+                                <% year.branches.forEach(branch => { %>
+                                  <div class="ms-2">
+                                    <%= branch.branch.name %>
+                                    <% if (branch.allSections) { %>
+                                      <span class="badge bg-secondary">All Sections</span>
+                                    <% } else { %>
+                                      <% branch.sections.forEach(section => { %>
+                                        <span class="badge bg-light text-dark"><%= section.name %></span>
+                                      <% }) %>
+                                    <% } %>
+                                  </div>
+                                <% }) %>
+                              <% } %>
+                            </div>
+                          <% }) %>
+                        </div>
+                      <% } %>
+                    </td>
+                    <td>
+                      <%= resource.uploader?.name || 'Unknown' %>
+                      <div class="small text-muted"><%= resource.uploaderType %></div>
+                    </td>
+                    <td>
+                      <%= new Date(resource.createdAt).toLocaleDateString() %>
+                      <div class="small text-muted">
+                        <%= new Date(resource.createdAt).toLocaleTimeString() %>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="btn-group">
+                        <a href="<%= resource.fileLink %>" target="_blank" class="btn btn-sm btn-outline-primary">
+                          <i class="fas fa-eye"></i>
+                        </a>
+                        <form action="/admin/resources/delete/<%= resource._id %>" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this resource?');">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="7" class="text-center py-4">
+                    <div class="text-muted">
+                      <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                      No resources found
+                    </div>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js" integrity="sha512-44ZBMAOSK8Hl3/7GSvJDy5cT1F4A2LwBf9y7KoRgsBc7Vxowx8/gNjkO6GgVYQVOAox7/M7RtEpR9TqZn/ykQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 
   <script>
-  // Fetch Semesters based on Academic Year
-  document.getElementById('year').addEventListener('change', function() {
-    const year = this.value;
-    fetch(`/admin/semester?year=${year}`)
-        .then(response => response.json())
-        .then(semesters => {
-            const semesterSelect = document.getElementById('semester');
-            semesterSelect.innerHTML = '<option value="">All Semesters</option>';
-            semesters.forEach(semester => {
-                const option = document.createElement('option');
-                option.value = semester._id;
-                option.textContent = semester.name;
-                semesterSelect.appendChild(option);
-            });
-            semesterSelect.disabled = false;
-        })
-        .catch(error => {
-            console.error('Error fetching semesters:', error);
-            alert('An error occurred while fetching semesters.');
-        });
+  // Show error message
+  function showError(message) {
+    const errorAlert = document.getElementById('errorAlert');
+    errorAlert.textContent = message;
+    errorAlert.classList.remove('d-none');
+    setTimeout(() => {
+      errorAlert.classList.add('d-none');
+    }, 5000);
+  }
+
+  // Show success message
+  function showSuccess(message) {
+    const successAlert = document.getElementById('successAlert');
+    successAlert.textContent = message;
+    successAlert.classList.remove('d-none');
+    setTimeout(() => {
+      successAlert.classList.add('d-none');
+    }, 5000);
+  }
+
+  // Set loading state
+  function setLoading(select, isLoading) {
+    select.disabled = isLoading;
+    if (isLoading) {
+      select.insertAdjacentHTML('afterend', '<div class="spinner-border spinner-border-sm ms-2" role="status"></div>');
+    } else {
+      const spinner = select.nextElementSibling;
+      if (spinner && spinner.classList.contains('spinner-border')) {
+        spinner.remove();
+      }
+    }
+  }
+
+  // Fetch data from API
+  async function fetchData(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      return await response.json();
+    } catch (error) {
+      showError(error.message);
+      throw error;
+    }
+  }
+
+  // Populate select element
+  function populateSelect(select, data, defaultOption = 'All') {
+    select.innerHTML = `<option value="">${defaultOption}</option>`;
+    data.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item._id;
+      option.textContent = item.name;
+      select.appendChild(option);
+    });
+    select.disabled = false;
+  }
+
+  // Year change handler
+  document.getElementById('year').addEventListener('change', async function() {
+    const branchSelect = document.getElementById('branch');
+    const sectionSelect = document.getElementById('section');
+    
+    branchSelect.disabled = true;
+    sectionSelect.disabled = true;
+    branchSelect.innerHTML = '<option value="">All Branches</option>';
+    sectionSelect.innerHTML = '<option value="">All Sections</option>';
+    
+    if (!this.value) return;
+    
+    try {
+      setLoading(branchSelect, true);
+      const branches = await fetchData(`/admin/api/branches?yearId=${this.value}`);
+      populateSelect(branchSelect, branches, 'All Branches');
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    } finally {
+      setLoading(branchSelect, false);
+    }
   });
 
-  // Fetch Branches based on Academic Year and Semester
-  document.getElementById('semester').addEventListener('change', function() {
-    const year = document.getElementById('year').value;
-    const semester = this.value;
-    fetch(`/admin/branch?year=${year}&semester=${semester}`)
-        .then(response => response.json())
-        .then(branches => {
-            const branchSelect = document.getElementById('branch');
-            branchSelect.innerHTML = '<option value="">All Branches</option>';
-            branches.forEach(branch => {
-                const option = document.createElement('option');
-                option.value = branch._id;
-                option.textContent = branch.name;
-                branchSelect.appendChild(option);
-            });
-            branchSelect.disabled = false;
-        })
-        .catch(error => {
-            console.error('Error fetching branches:', error);
-            alert('An error occurred while fetching branches.');
-        });
+  // Branch change handler
+  document.getElementById('branch').addEventListener('change', async function() {
+    const yearSelect = document.getElementById('year');
+    const sectionSelect = document.getElementById('section');
+    
+    sectionSelect.disabled = true;
+    sectionSelect.innerHTML = '<option value="">All Sections</option>';
+    
+    if (!this.value || !yearSelect.value) return;
+    
+    try {
+      setLoading(sectionSelect, true);
+      const sections = await fetchData(`/admin/api/sections?yearId=${yearSelect.value}&branchId=${this.value}`);
+      populateSelect(sectionSelect, sections, 'All Sections');
+    } catch (error) {
+      console.error('Error fetching sections:', error);
+    } finally {
+      setLoading(sectionSelect, false);
+    }
   });
 
-  // Fetch Sections based on Branch
-  document.getElementById('branch').addEventListener('change', function() {
-    const branch = this.value;
-    fetch(`/admin/sections?branch=${branch}`)
-        .then(response => response.json())
-        .then(sections => {
-            const sectionSelect = document.getElementById('section');
-            sectionSelect.innerHTML = '<option value="">All Sections</option>';
-            sections.forEach(section => {
-                const option = document.createElement('option');
-                option.value = section._id;
-                option.textContent = section.name;
-                sectionSelect.appendChild(option);
-            });
-            sectionSelect.disabled = false;
-        })
-        .catch(error => {
-            console.error('Error fetching sections:', error);
-            alert('An error occurred while fetching sections.');
-        });
+  // Form reset handler
+  document.getElementById('filterForm').addEventListener('reset', function() {
+    setTimeout(() => {
+      const branchSelect = document.getElementById('branch');
+      const sectionSelect = document.getElementById('section');
+      
+      branchSelect.disabled = true;
+      sectionSelect.disabled = true;
+      branchSelect.innerHTML = '<option value="">All Branches</option>';
+      sectionSelect.innerHTML = '<option value="">All Sections</option>';
+    }, 0);
+  });
+
+  // Form submit handler
+  document.getElementById('filterForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(this);
+    const params = new URLSearchParams();
+    
+    for (const [key, value] of formData.entries()) {
+      if (value) {
+        params.append(key, value);
+      }
+    }
+    
+    window.location.href = `/admin/resources?${params.toString()}`;
   });
   </script>
 </body>

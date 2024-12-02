@@ -2,6 +2,7 @@ const express = require('express');
 const pdf = require('html-pdf');
 const passport = require('passport');
 const router = express.Router({ mergeParams: true });
+const Resource = require('../models/Resource');
 const { isFacultyLoggedIn, saveRedirectUrl, validateDownload, canModifyAttendance } = require('../middleware.js');
 const wrapAsync = require('../utils/wrapAsync.js');
 const fs = require('fs');
@@ -9,7 +10,6 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const multer =require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const Resource = require('../models/Resource');
 const exceljs = require('exceljs');
 const Marks = require('../models/studentMarks'); // Adjust the path as necessary
 const { PDFDocument, rgb,StandardFonts } = require('pdf-lib');
@@ -78,13 +78,36 @@ router.get('/subject',async(req,res)=>{
 });
 
 router.post('/submitAttendance', isFacultyLoggedIn, async (req, res) => {
-  const { date, section, acYear, branch, sem, periods, attendance, batch, students, periodsMatched, subject } = req.body;
+  const { date, section, acYear, branch, sem, periods, attendance, batch, subject, periodsMatched } = req.body;
+  let { students } = req.body;
 
   try {
-      // Log and validate `section`
+      // Log and validate section
       console.log("Received section ID:", section);
+      console.log("Received students data:", students);
+      
+      // Validate section ID
       if (!mongoose.Types.ObjectId.isValid(section)) {
           return res.status(400).send('Invalid or missing section ID');
+      }
+
+      // Parse students JSON string
+      try {
+          students = JSON.parse(students);
+      } catch (err) {
+          console.error("Error parsing students JSON:", err);
+          return res.status(400).send('Invalid students data format');
+      }
+
+      // Validate students array
+      if (!Array.isArray(students)) {
+          return res.status(400).send('Students data must be an array');
+      }
+
+      // Validate each student ID
+      const validStudentIds = students.filter(id => mongoose.Types.ObjectId.isValid(id));
+      if (validStudentIds.length === 0) {
+          return res.status(400).send('No valid student IDs found');
       }
 
       // Convert date to the day of the week
@@ -110,9 +133,10 @@ router.post('/submitAttendance', isFacultyLoggedIn, async (req, res) => {
       if(periodsData.length === 0) {
           return res.status(400).send('No periods data found for the selected criteria.');
       }
+
       // Create attendance records for each period
       for (const period of periodsData) {
-          const studentsAttendance = students.map(studentId => ({
+          const studentsAttendance = validStudentIds.map(studentId => ({
               student: new mongoose.Types.ObjectId(studentId),
               status: attendance[studentId] === 'true'
           }));
@@ -412,370 +436,50 @@ router.route("/download")
     }))
     .post(isFacultyLoggedIn, validateDownload, wrapAsync(facultyController.download));
 
-// Your existing function to generate the PDF report
-async function generatePDFReport(data) {
-    const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const page = pdfDoc.addPage([600, 800]);
 
-    const title = 'Attendance Report';
-    const titleFontSize = 20;
-    const contentFontSize = 10;
-
-    // Draw title
-    page.drawText(title, {
-        x: 50,
-        y: 750,
-        size: titleFontSize,
-        font: font,
-        color: rgb(0, 0, 0),
-    });
-
-    const tableYStart = 700;
-    let tableY = tableYStart;
-    const rowHeight = 20;
-
-    const headers = ['#', 'Username', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'];
-    const headerXPositions = [50, 100, 200, 300, 400, 500];
-
-    // Draw headers
-    headers.forEach((header, i) => {
-        page.drawText(header, {
-            x: headerXPositions[i],
-            y: tableY,
-            size: contentFontSize,
-            font: font,
-            color: rgb(0, 0, 0),
-        });
-    });
-
-    tableY -= rowHeight;
-
-    // Draw data rows
-    data.forEach((record, index) => {
-        if (tableY < 50) {
-            tableY = tableYStart;
-            page = pdfDoc.addPage([600, 800]);
-        }
-
-        const values = [
-            index + 1,
-            record.username || 'N/A',
-            record.name || 'N/A',
-            record.totalClasses || '0',
-            record.attendedClasses || '0',
-            record.percentage ? record.percentage.toFixed(2) : '0.00'
-        ];
-
-        values.forEach((value, i) => {
-            page.drawText(value.toString(), {
-                x: headerXPositions[i],
-                y: tableY,
-                size: contentFontSize,
-                font: font,
-                color: rgb(0, 0, 0),
-            });
-        });
-
-        tableY -= rowHeight;
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
-}
-
-// // Route to handle PDF report download
-// router.post('/downloadReport', isFacultyLoggedIn, async (req, res) => {
-//     const {
-//         branch,
-//         semester,
-//         section,
-//         fromDate,
-//         toDate,
-//         percentageCriteria,
-//         otherCondition,
-//         percentageValue,
-//         percentageValue2,
-//         format
-//     } = req.body;
-
-//     try {
-//         const filter = {
-//             branch,
-//             semester,
-//             section,
-//             created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) }
-//         };
-
-//         const attendanceData = await Attendance.find(filter)
-//             .populate({
-//                 path: 'students.student',
-//                 select: 'username name'
-//             });
-
-//         if (!attendanceData.length) {
-//             return res.status(404).send('No attendance data found for the given filters.');
-//         }
-
-//         let reportData = calculateAttendancePercentage(attendanceData);
-
-//         // Apply percentage criteria filter
-//         if (percentageCriteria) {
-//             let percentageFilter;
-//             switch (percentageCriteria) {
-//                 case 'less_65':
-//                     percentageFilter = (percentage) => percentage < 65;
-//                     break;
-//                 case 'less_75':
-//                     percentageFilter = (percentage) => percentage < 75;
-//                     break;
-//                 case 'above_90':
-//                     percentageFilter = (percentage) => percentage > 90;
-//                     break;
-//                 case 'other':
-//                     if (otherCondition === 'between') {
-//                         percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
-//                     } else {
-//                         percentageFilter = (percentage) => {
-//                             switch (otherCondition) {
-//                                 case '>':
-//                                     return percentage > parseFloat(percentageValue);
-//                                 case '<':
-//                                     return percentage < parseFloat(percentageValue);
-//                                 case '>=':
-//                                     return percentage >= parseFloat(percentageValue);
-//                                 case '<=':
-//                                     return percentage <= parseFloat(percentageValue);
-//                                 default:
-//                                     return true;
-//                             }
-//                         };
-//                     }
-//                     break;
-//                 default:
-//                     percentageFilter = () => true;
-//             }
-
-//             reportData = reportData.filter((record) => percentageFilter(record.percentage));
-//         }
-
-//         if (format === 'excel') {
-//             const workbook = generateExcelReport(reportData);
-//             const buffer = await workbook.xlsx.writeBuffer();
-//             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-//             res.setHeader('Content-Disposition', 'attachment; filename=attendance-report.xlsx');
-//             res.send(buffer);
-//         } else if (format === 'pdf') {
-//             const pdfBytes = await generatePDFReport(reportData);
-//             const filePath = path.join(__dirname, 'attendance-report.pdf');
-//             fs.writeFileSync(filePath, pdfBytes);
-
-//             res.download(filePath, 'attendance-report.pdf', (err) => {
-//                 if (err) {
-//                     console.error('Error sending the file:', err);
-//                     res.status(500).send('Failed to send PDF');
-//                 }
-//                 fs.unlinkSync(filePath); // Optional: Clean up the file after sending
-//             });
-//         } else {
-//             res.status(400).send('Invalid format requested.');
-//         }
-//     } catch (error) {
-//         console.error('Error generating report:', error);
-//         res.status(500).send('Internal Server Error');
-//     }
-// });
 ObjectId = mongoose.Types.ObjectId;
-// Helper function to calculate attendance
-const calculateAttendance = async (filter, reportType, subject = null) => {
-  try {
-      const matchStage = {
-          ...filter,
-          ...(subject && { subject: mongoose.Types.ObjectId(subject) })
-      };
 
-      const pipeline = [
-          { $match: matchStage },
-          {
-              $lookup: {
-                  from: 'students',
-                  localField: 'students.student',
-                  foreignField: '_id',
-                  as: 'studentDetails'
-              }
-          },
-          {
-              $unwind: '$students'
-          },
-          {
-              $lookup: {
-                  from: 'subjects',
-                  localField: 'subject',
-                  foreignField: '_id',
-                  as: 'subjectDetails'
-              }
-          },
-          {
-              $group: {
-                  _id: {
-                      student: '$students.student',
-                      ...(reportType === 'cumulative' && { subject: '$subject' })
-                  },
-                  totalClasses: { $sum: 1 },
-                  attendedClasses: {
-                      $sum: { $cond: ['$students.status', 1, 0] }
-                  },
-                  studentInfo: { $first: '$studentDetails' },
-                  subjectInfo: { $first: '$subjectDetails' }
-              }
-          }
-      ];
-
-      if (reportType === 'cumulative') {
-          pipeline.push({
-              $group: {
-                  _id: '$_id.student',
-                  subjects: {
-                      $push: {
-                          subject: '$_id.subject',
-                          subjectName: { $arrayElemAt: ['$subjectInfo.name', 0] },
-                          totalClasses: '$totalClasses',
-                          attendedClasses: '$attendedClasses',
-                          percentage: {
-                              $multiply: [
-                                  { $divide: ['$attendedClasses', '$totalClasses'] },
-                                  100
-                              ]
-                          }
-                      }
-                  },
-                  studentInfo: { $first: '$studentInfo' }
-              }
-          });
-      }
-
-      const attendanceData = await Attendance.aggregate(pipeline);
-
-      if (reportType === 'monthly') {
-          return attendanceData.map(record => ({
-              rollNo: record.studentInfo[0]?.rollNo,
-              name: record.studentInfo[0]?.name,
-              totalClasses: record.totalClasses,
-              attendedClasses: record.attendedClasses,
-              percentage: (record.attendedClasses / record.totalClasses) * 100
-          }));
-      } else {
-          return attendanceData.map(record => ({
-              rollNo: record.studentInfo[0]?.rollNo,
-              name: record.studentInfo[0]?.name,
-              subjects: record.subjects.reduce((acc, subj) => ({
-                  ...acc,
-                  [subj.subject]: {
-                      subjectName: subj.subjectName,
-                      totalClasses: subj.totalClasses,
-                      attendedClasses: subj.attendedClasses,
-                      percentage: subj.percentage
-                  }
-              }), {}),
-              overallPercentage: 
-                  (record.subjects.reduce((sum, subj) => sum + subj.attendedClasses, 0) /
-                  record.subjects.reduce((sum, subj) => sum + subj.totalClasses, 0)) * 100
-          }));
-      }
-  } catch (error) {
-      console.error('Error calculating attendance:', error);
-      throw error;
-  }
-};
-
-const calculateSubjectAttendance = async (filter) => {
-  try {
-    if (filter.subject && typeof filter.subject === 'string') {
-      filter.subject = new mongoose.Types.ObjectId(filter.subject);
-    }
-    if (filter.student && typeof filter.student === 'string') {
-      filter.student = new mongoose.Types.ObjectId(filter.student);
-    }
-    const pipeline = [
-      { $match: filter },
-      {
-        $lookup: {
-          from: 'subjects',
-          localField: 'subject',
-          foreignField: '_id',
-          as: 'subjectDetails'
-        }
-      },
-      {
-        $lookup: {
-          from: 'students',
-          localField: 'students.student',
-          foreignField: '_id',
-          as: 'studentDetails'
-        }
-      },
-      { $unwind: '$students' },
-      {
-        $group: {
-          _id: {
-            student: '$students.student',
-            subject: '$subject'
-          },
-          subjectName: { $first: { $arrayElemAt: ['$subjectDetails.name', 0] } },
-          studentName: { $first: { $arrayElemAt: ['$studentDetails.name', 0] } },
-          rollNo: { $first: { $arrayElemAt: ['$studentDetails.rollNo', 0] } },
-          totalClasses: { $sum: 1 },
-          attendedClasses: { $sum: { $cond: ['$students.status', 1, 0] } }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id.student',
-          studentName: { $first: '$studentName' },
-          rollNo: { $first: '$rollNo' },
-          subjects: {
-            $push: {
-              subject: '$_id.subject',
-              subjectName: '$subjectName',
-              TC: '$totalClasses',
-              TA: '$attendedClasses'
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          studentName: 1,
-          rollNo: 1,
-          subjects: 1,
-          totalTC: { $sum: '$subjects.TC' },
-          totalTA: { $sum: '$subjects.TA' }
-        }
-      },
-      { $sort: { rollNo: 1 } }
-    ];
-
-    return await Attendance.aggregate(pipeline);
-  } catch (error) {
-    console.error('Error calculating subject attendance:', error);
-    throw error;
-  }
-};
-
+// Helper function to calculate month-wise cumulative attendance
 const calculateMonthlyAttendance = async (filter) => {
   try {
+    console.log("Calculate monthly attendance filter:", JSON.stringify(filter, null, 2));
+
+    // First check if we have any matching records
+    const matchingRecords = await Attendance.find(filter);
+    console.log(`Found ${matchingRecords.length} initial records`);
+    
+    if (matchingRecords.length === 0) {
+      console.log("No matching records found with initial filter");
+      return [];
+    }
+
+    // Log a sample record for debugging
+    console.log("Sample record:", JSON.stringify(matchingRecords[0], null, 2));
+
     const pipeline = [
-      { $match: filter },
+      { 
+        $match: filter
+      },
+      {
+        $unwind: {
+          path: '$students',
+          preserveNullAndEmptyArrays: false
+        }
+      },
       {
         $lookup: {
           from: 'students',
           localField: 'students.student',
           foreignField: '_id',
-          as: 'studentDetails'
+          as: 'studentInfo'
         }
       },
-      { $unwind: '$students' },
+      {
+        $unwind: {
+          path: '$studentInfo',
+          preserveNullAndEmptyArrays: false
+        }
+      },
       {
         $group: {
           _id: {
@@ -783,8 +487,8 @@ const calculateMonthlyAttendance = async (filter) => {
             month: { $month: '$date' },
             year: { $year: '$date' }
           },
-          studentName: { $first: { $arrayElemAt: ['$studentDetails.name', 0] } },
-          rollNo: { $first: { $arrayElemAt: ['$studentDetails.rollNo', 0] } },
+          studentName: { $first: '$studentInfo.name' },
+          rollNo: { $first: '$studentInfo.username' },
           totalClasses: { $sum: 1 },
           attendedClasses: { $sum: { $cond: ['$students.status', 1, 0] } }
         }
@@ -847,12 +551,374 @@ const calculateMonthlyAttendance = async (filter) => {
           totalTA: { $sum: '$months.TA' }
         }
       },
-      { $sort: { rollNo: 1 } }
+      { 
+        $sort: { 
+          rollNo: 1 
+        } 
+      }
     ];
 
-    return await Attendance.aggregate(pipeline);
+    // Execute pipeline with logging after each stage
+    let result = await Attendance.aggregate(pipeline);
+    console.log("Final aggregation result count:", result.length);
+    
+    if (result.length === 0) {
+      console.log("No results from aggregation pipeline");
+    } else {
+      console.log("Sample result:", JSON.stringify(result[0], null, 2));
+    }
+
+    return result;
   } catch (error) {
     console.error('Error calculating monthly attendance:', error);
+    throw error;
+  }
+};
+
+// Route for downloading attendance report
+router.post('/downloadReport', async (req, res) => {
+  try {
+    const {
+      fromDate,
+      toDate,
+      section,
+      reportType,
+      selectedSubject,
+      percentageCriteria,
+      otherCondition,
+      percentageValue,
+      percentageValue2,
+      format
+    } = req.body;
+
+    // Create the filter
+    const startDate = new Date(fromDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    
+    const endDate = new Date(toDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+
+    const filter = {
+      date: {
+        $gte: startDate,
+        $lte: endDate
+      },
+      section: new ObjectId(section)
+    };
+
+    if (selectedSubject && selectedSubject !== 'all') {
+      filter.subject = new ObjectId(selectedSubject);
+    }
+
+    // Get attendance data
+    let attendanceData;
+    if (reportType === 'cumulative-subject') {
+      attendanceData = await calculateSubjectAttendance(filter);
+    } else {
+      attendanceData = await calculateMonthlyAttendance(filter);
+    }
+
+    // Apply percentage filtering if specified
+    if (percentageCriteria && attendanceData.length > 0) {
+      attendanceData = attendanceData.filter(record => {
+        const percentage = (record.totalTA / record.totalTC) * 100;
+        switch (percentageCriteria) {
+          case 'less_65':
+            return percentage < 65;
+          case 'less_75':
+            return percentage < 75;
+          case 'above_90':
+            return percentage > 90;
+          case 'other':
+            if (otherCondition === 'between') {
+              return percentage >= parseFloat(percentageValue) && 
+                     percentage <= parseFloat(percentageValue2);
+            }
+            const value = parseFloat(percentageValue);
+            switch (otherCondition) {
+              case '>': return percentage > value;
+              case '<': return percentage < value;
+              case '>=': return percentage >= value;
+              case '<=': return percentage <= value;
+              default: return true;
+            }
+          default:
+            return true;
+        }
+      });
+    }
+
+    if (format === 'excel') {
+      const workbook = new exceljs.Workbook();
+      const worksheet = workbook.addWorksheet('Attendance Report');
+
+      // Add headers based on report type
+      if (reportType === 'cumulative-subject') {
+        const headers = ['Roll No', 'Name'];
+        if (attendanceData.length > 0) {
+          const firstRecord = attendanceData[0];
+          firstRecord.subjects.forEach(subject => {
+            headers.push(`${subject.subject} TC`, `${subject.subject} TA`);
+          });
+          headers.push('Total TC', 'Total TA', 'Percentage');
+        }
+        worksheet.addRow(headers);
+
+        // Add data
+        attendanceData.forEach(record => {
+          const row = [record.rollNo, record.studentName];
+          record.subjects.forEach(subject => {
+            row.push(subject.TC, subject.TA);
+          });
+          row.push(record.totalTC, record.totalTA, 
+            ((record.totalTA / record.totalTC) * 100).toFixed(2) + '%');
+          worksheet.addRow(row);
+        });
+      } else {
+        const headers = ['Roll No', 'Name'];
+        if (attendanceData.length > 0) {
+          const firstRecord = attendanceData[0];
+          firstRecord.months.forEach(month => {
+            headers.push(`${month.month} TC`, `${month.month} TA`);
+          });
+          headers.push('Total TC', 'Total TA', 'Percentage');
+        }
+        worksheet.addRow(headers);
+
+        // Add data
+        attendanceData.forEach(record => {
+          const row = [record.rollNo, record.studentName];
+          record.months.forEach(month => {
+            row.push(month.TC, month.TA);
+          });
+          row.push(record.totalTC, record.totalTA,
+            ((record.totalTA / record.totalTC) * 100).toFixed(2) + '%');
+          worksheet.addRow(row);
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=attendance_report.xlsx');
+      await workbook.xlsx.write(res);
+      res.end();
+    } else {
+      // PDF Generation
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([600, 800]);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      // Add title
+      page.drawText('Attendance Report', {
+        x: 50,
+        y: 750,
+        size: 16,
+        font: font
+      });
+
+      // Add date range
+      page.drawText(`Period: ${fromDate} to ${toDate}`, {
+        x: 50,
+        y: 720,
+        size: 12,
+        font: font
+      });
+
+      let yPosition = 680;
+      const lineHeight = 20;
+      const columnWidth = 100;
+
+      // Add headers
+      if (reportType === 'cumulative-subject') {
+        page.drawText('Roll No', { x: 50, y: yPosition, size: 10, font: font });
+        page.drawText('Name', { x: 150, y: yPosition, size: 10, font: font });
+        let xPosition = 250;
+        
+        if (attendanceData.length > 0) {
+          attendanceData[0].subjects.forEach(subject => {
+            page.drawText(subject.subject, { x: xPosition, y: yPosition, size: 10, font: font });
+            xPosition += columnWidth;
+          });
+        }
+        
+        yPosition -= lineHeight;
+
+        // Add data rows
+        attendanceData.forEach(record => {
+          if (yPosition < 50) {
+            // Add new page if needed
+            page = pdfDoc.addPage([600, 800]);
+            yPosition = 750;
+          }
+
+          page.drawText(record.rollNo, { x: 50, y: yPosition, size: 10, font: font });
+          page.drawText(record.studentName, { x: 150, y: yPosition, size: 10, font: font });
+          
+          let xPosition = 250;
+          record.subjects.forEach(subject => {
+            page.drawText(`${subject.TA}/${subject.TC}`, { x: xPosition, y: yPosition, size: 10, font: font });
+            xPosition += columnWidth;
+          });
+          
+          yPosition -= lineHeight;
+        });
+      } else {
+        page.drawText('Roll No', { x: 50, y: yPosition, size: 10, font: font });
+        page.drawText('Name', { x: 150, y: yPosition, size: 10, font: font });
+        let xPosition = 250;
+        
+        if (attendanceData.length > 0) {
+          attendanceData[0].months.forEach(month => {
+            page.drawText(month.month, { x: xPosition, y: yPosition, size: 10, font: font });
+            xPosition += columnWidth;
+          });
+        }
+        
+        yPosition -= lineHeight;
+
+        // Add data rows
+        attendanceData.forEach(record => {
+          if (yPosition < 50) {
+            // Add new page if needed
+            page = pdfDoc.addPage([600, 800]);
+            yPosition = 750;
+          }
+
+          page.drawText(record.rollNo, { x: 50, y: yPosition, size: 10, font: font });
+          page.drawText(record.studentName, { x: 150, y: yPosition, size: 10, font: font });
+          
+          let xPosition = 250;
+          record.months.forEach(month => {
+            page.drawText(`${month.TA}/${month.TC}`, { x: xPosition, y: yPosition, size: 10, font: font });
+            xPosition += columnWidth;
+          });
+          
+          yPosition -= lineHeight;
+        });
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=attendance_report.pdf');
+      res.send(Buffer.from(pdfBytes));
+    }
+  } catch (error) {
+    console.error('Error downloading attendance report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function to calculate subject-wise cumulative attendance
+const calculateSubjectAttendance = async (filter) => {
+  try {
+    console.log("Calculate subject attendance filter:", JSON.stringify(filter, null, 2));
+
+    // First check if we have any matching records
+    const matchingRecords = await Attendance.find(filter);
+    console.log(`Found ${matchingRecords.length} initial records`);
+    
+    if (matchingRecords.length === 0) {
+      console.log("No matching records found with initial filter");
+      return [];
+    }
+
+    // Log a sample record for debugging
+    console.log("Sample record:", JSON.stringify(matchingRecords[0], null, 2));
+
+    const pipeline = [
+      { 
+        $match: filter
+      },
+      {
+        $unwind: {
+          path: '$students',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'students.student',
+          foreignField: '_id',
+          as: 'studentInfo'
+        }
+      },
+      {
+        $unwind: {
+          path: '$studentInfo',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $lookup: {
+          from: 'subjects',
+          localField: 'subject',
+          foreignField: '_id',
+          as: 'subjectInfo'
+        }
+      },
+      {
+        $unwind: {
+          path: '$subjectInfo',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $group: {
+          _id: {
+            student: '$students.student',
+            subject: '$subject'
+          },
+          studentName: { $first: '$studentInfo.name' },
+          rollNo: { $first: '$studentInfo.username' },
+          subjectName: { $first: '$subjectInfo.name' },
+          totalClasses: { $sum: 1 },
+          attendedClasses: { $sum: { $cond: ['$students.status', 1, 0] } }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id.student',
+          studentName: { $first: '$studentName' },
+          rollNo: { $first: '$rollNo' },
+          subjects: {
+            $push: {
+              subject: '$subjectName',
+              TC: '$totalClasses',
+              TA: '$attendedClasses'
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          studentName: 1,
+          rollNo: 1,
+          subjects: 1,
+          totalTC: { $sum: '$subjects.TC' },
+          totalTA: { $sum: '$subjects.TA' }
+        }
+      },
+      { 
+        $sort: { 
+          rollNo: 1 
+        } 
+      }
+    ];
+
+    // Execute pipeline with logging after each stage
+    let result = await Attendance.aggregate(pipeline);
+    console.log("Final aggregation result count:", result.length);
+    
+    if (result.length === 0) {
+      console.log("No results from aggregation pipeline");
+    } else {
+      console.log("Sample result:", JSON.stringify(result[0], null, 2));
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error calculating subject attendance:', error);
     throw error;
   }
 };
@@ -865,31 +931,62 @@ router.get('/getAttendanceData', async (req, res) => {
       toDate,
       section,
       reportType,
-      subject,
+      selectedSubject,
       percentageCriteria,
       otherCondition,
       percentageValue,
       percentageValue2
     } = req.query;
+    
+    console.log("Query parameters:", {
+      fromDate,
+      toDate,
+      section,
+      reportType,
+      selectedSubject
+    });
+
+    // Create start and end dates for the filter
+    const startDate = new Date(fromDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    
+    const endDate = new Date(toDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+
+    console.log("Date range:", {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      startTimestamp: startDate.getTime(),
+      endTimestamp: endDate.getTime()
+    });
 
     const filter = {
       date: {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate)
+        $gte: startDate,
+        $lte: endDate
       },
-      section: new mongoose.Types.ObjectId(section)
+      section: new ObjectId(section)
     };
 
-    const attendanceData = await calculateAttendance(filter, reportType, subject);
+    if (selectedSubject && selectedSubject !== 'all') {
+      filter.subject = new ObjectId(selectedSubject);
+    }
 
-    // Apply filters
-    let filteredData = attendanceData;
-    if (percentageCriteria) {
-      const getPercentage = (record) => 
-          reportType === 'monthly' ? record.percentage : record.overallPercentage;
+    console.log("MongoDB filter:", JSON.stringify(filter, null, 2));
 
-      filteredData = attendanceData.filter(record => {
-        const percentage = getPercentage(record);
+    let attendanceData;
+    if (reportType === 'cumulative-subject') {
+      attendanceData = await calculateSubjectAttendance(filter);
+    } else {
+      attendanceData = await calculateMonthlyAttendance(filter);
+    }
+
+    console.log("Found processed attendance records:", attendanceData.length);
+
+    // Apply percentage filtering if specified
+    if (percentageCriteria && attendanceData.length > 0) {
+      const filteredData = attendanceData.filter(record => {
+        const percentage = (record.totalTA / record.totalTC) * 100;
         switch (percentageCriteria) {
           case 'less_65':
             return percentage < 65;
@@ -898,314 +995,121 @@ router.get('/getAttendanceData', async (req, res) => {
           case 'above_90':
             return percentage > 90;
           case 'other':
+            if (otherCondition === 'between') {
+              return percentage >= parseFloat(percentageValue) && 
+                     percentage <= parseFloat(percentageValue2);
+            }
+            const value = parseFloat(percentageValue);
             switch (otherCondition) {
-              case '>':
-                return percentage > Number(percentageValue);
-              case '<':
-                return percentage < Number(percentageValue);
-              case '>=':
-                return percentage >= Number(percentageValue);
-              case '<=':
-                return percentage <= Number(percentageValue);
-              case 'between':
-                return percentage >= Number(percentageValue) && 
-                       percentage <= Number(percentageValue2);
-              default:
-                return true;
+              case '>': return percentage > value;
+              case '<': return percentage < value;
+              case '>=': return percentage >= value;
+              case '<=': return percentage <= value;
+              default: return true;
             }
           default:
             return true;
         }
       });
+      console.log(`Filtered ${attendanceData.length} records to ${filteredData.length} based on percentage criteria`);
+      attendanceData = filteredData;
     }
 
-    res.json(filteredData);
+    if (attendanceData.length === 0) {
+      console.log("No attendance data found after processing");
+    } else {
+      console.log("Sample processed record:", JSON.stringify(attendanceData[0], null, 2));
+    }
+
+    res.json(attendanceData);
   } catch (error) {
     console.error('Error fetching attendance data:', error);
     res.status(500).send('Internal Server Error');
   }
 });
 
-// Route to download attendance report
-router.post('/downloadReport', async (req, res) => {
-  try {
-      const {
-          fromDate,
-          toDate,
-          section,
-          reportType,
-          subject,
-          percentageCriteria,
-          otherCondition,
-          percentageValue,
-          percentageValue2,
-          format
-      } = req.body;
-
-      const filter = {
-          created_at: {
-              $gte: new Date(fromDate),
-              $lte: new Date(toDate)
-          },
-          section: new mongoose.Types.ObjectId(section)
-      };
-
-      const attendanceData = await calculateAttendance(filter, reportType, subject);
-
-      // Apply filters
-      let filteredData = attendanceData;
-      if (percentageCriteria) {
-          const getPercentage = (record) => 
-              reportType === 'monthly' ? record.percentage : record.overallPercentage;
-
-          filteredData = attendanceData.filter(record => {
-              const percentage = getPercentage(record);
-              switch (percentageCriteria) {
-                  case 'less_65':
-                      return percentage < 65;
-                  case 'less_75':
-                      return percentage < 75;
-                  case 'above_90':
-                      return percentage > 90;
-                  case 'other':
-                      switch (otherCondition) {
-                          case '>':
-                              return percentage > Number(percentageValue);
-                          case '<':
-                              return percentage < Number(percentageValue);
-                          case '>=':
-                              return percentage >= Number(percentageValue);
-                          case '<=':
-                              return percentage <= Number(percentageValue);
-                          case 'between':
-                              return percentage >= Number(percentageValue) && 
-                                     percentage <= Number(percentageValue2);
-                          default:
-                              return true;
-                      }
-                  default:
-                      return true;
-              }
-          });
-      }
-
-      if (format === 'excel') {
-          const workbook = new ExcelJS.Workbook();
-          const worksheet = workbook.addWorksheet('Attendance Report');
-
-          // Add headers
-          if (reportType === 'monthly') {
-              worksheet.addRow(['Roll No', 'Name', 'Total Classes', 'Attended Classes', 'Percentage']);
-              filteredData.forEach(record => {
-                  worksheet.addRow([
-                      record.rollNo,
-                      record.name,
-                      record.totalClasses,
-                      record.attendedClasses,
-                      `${record.percentage.toFixed(2)}%`
-                  ]);
-              });
-          } else {
-              const headers = ['Roll No', 'Name'];
-              if (filteredData.length > 0) {
-                  headers.push(...Object.keys(filteredData[0].subjects), 'Overall Percentage');
-              }
-              worksheet.addRow(headers);
-
-              filteredData.forEach(record => {
-                  const row = [record.rollNo, record.name];
-                  Object.values(record.subjects).forEach(subject => {
-                      row.push(`${subject.percentage.toFixed(2)}%`);
-                  });
-                  row.push(`${record.overallPercentage.toFixed(2)}%`);
-                  worksheet.addRow(row);
-              });
-          }
-
-          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-          res.setHeader('Content-Disposition', 'attachment; filename=attendance_report.xlsx');
-          await workbook.xlsx.write(res);
-          res.end();
-
-      } else if (format === 'pdf') {
-          const doc = new PDFDocument();
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', 'attachment; filename=attendance_report.pdf');
-          doc.pipe(res);
-
-          // Add title
-          doc.fontSize(16).text('Attendance Report', { align: 'center' });
-          doc.moveDown();
-
-          // Add data
-          doc.fontSize(12);
-          if (reportType === 'monthly') {
-              doc.table({
-                  headers: ['Roll No', 'Name', 'Total Classes', 'Attended Classes', 'Percentage'],
-                  rows: filteredData.map(record => [
-                      record.rollNo,
-                      record.name,
-                      record.totalClasses.toString(),
-                      record.attendedClasses.toString(),
-                      `${record.percentage.toFixed(2)}%`
-                  ])
-              });
-          } else {
-              const headers = ['Roll No', 'Name'];
-              if (filteredData.length > 0) {
-                  headers.push(...Object.keys(filteredData[0].subjects), 'Overall %');
-              }
-              
-              const rows = filteredData.map(record => {
-                  const row = [record.rollNo, record.name];
-                  Object.values(record.subjects).forEach(subject => {
-                      row.push(`${subject.percentage.toFixed(2)}%`);
-                  });
-                  row.push(`${record.overallPercentage.toFixed(2)}%`);
-                  return row;
-              });
-
-              doc.table({ headers, rows });
-          }
-
-          doc.end();
-      }
-  } catch (error) {
-      console.error('Error downloading attendance report:', error);
-      res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-function calculateAttendancePercentage(attendanceData) {
-    const studentAttendance = {};
-    const unpopulatedStudents = [];
-
-    attendanceData.forEach(record => {
-        record.students.forEach(studentRecord => {
-            const student = studentRecord.student; // The populated student document
-            if (student) { // Ensure the student is not null
-                if (!studentAttendance[student._id]) {
-                    studentAttendance[student._id] = {
-                        username: student.username,
-                        name: student.name,
-                        totalClasses: 0,
-                        attendedClasses: 0
-                    };
-                }
-                studentAttendance[student._id].totalClasses++;
-                if (studentRecord.status) {
-                    studentAttendance[student._id].attendedClasses++;
-                }
-            } else {
-                unpopulatedStudents.push(studentRecord);
-            }
-        });
-    });
-
-    const reportData = Object.keys(studentAttendance).map(studentId => {
-        const data = studentAttendance[studentId];
-        data.percentage = (data.attendedClasses / data.totalClasses) * 100;
-        return data;
-    });
-
-    return reportData;
-}
-     
-
-function generateExcelReport(reportData) {
-    const workbook = new exceljs.Workbook();
-    const worksheet = workbook.addWorksheet('Attendance Report');
-
-    worksheet.columns = [
-        { header: 'Roll NO.', key: 'username', width: 20 },
-        { header: 'Name', key: 'name', width: 25 },
-        { header: 'Total Classes', key: 'totalClasses', width: 15 },
-        { header: 'Attended Classes', key: 'attendedClasses', width: 20 },
-        { header: 'Percentage', key: 'percentage', width: 15 }
-    ];
-
-    reportData.forEach(data => worksheet.addRow(data));
-
-    return workbook;
-}
-
-
-// router.get('/getAttendanceData', async (req, res) => {
-//     const { fromDate, toDate, academicYear, program, branch, semester, section, percentageCriteria, otherCondition, percentageValue, percentageValue2 } = req.query;
-  
-//     try {
-//       const semesterId = semester && typeof semester === 'object' && semester._id ? semester._id : semester;
-//       const filter = {
-//         created_at: { $gte: new Date(fromDate), $lte: new Date(toDate) },
-//         semester: semesterId,
-//         section
-//       };
-  
-//       const attendanceData = await Attendance.find(filter).populate({
-//         path: 'students.student',
-//         select: 'username name'
-//       });
-//       if (!attendanceData.length) {
-//         return res.status(404).send('No attendance data found for the given filters.');
-//       }
-  
-//       const reportData = calculateAttendancePercentage(attendanceData);
-  
-//       let filteredReportData = reportData;
-  
-//       // Apply percentage criteria filter
-//       if (percentageCriteria) {
-//         let percentageFilter;
-//         switch (percentageCriteria) {
-//           case 'less_65':
-//             percentageFilter = (percentage) => percentage < 65;
-//             break;
-//           case 'less_75':
-//             percentageFilter = (percentage) => percentage < 75;
-//             break;
-//           case 'above_90':
-//             percentageFilter = (percentage) => percentage > 90;
-//             break;
-//           case 'other':
-//             if (otherCondition === 'between') {
-//               percentageFilter = (percentage) => percentage >= parseFloat(percentageValue) && percentage <= parseFloat(percentageValue2);
-//             } else {
-//               percentageFilter = (percentage) => {
-//                 switch (otherCondition) {
-//                   case '>':
-//                     return percentage > parseFloat(percentageValue);
-//                   case '<':
-//                     return percentage < parseFloat(percentageValue);
-//                   case '>=':
-//                     return percentage >= parseFloat(percentageValue);
-//                   case '<=':
-//                     return percentage <= parseFloat(percentageValue);
-//                   default:
-//                     return true;
-//                 }
-//               };
-//             }
-//             break;
-//           default:
-//             percentageFilter = () => true;
-//         }
-  
-//         filteredReportData = reportData.filter((record) => percentageFilter(record.percentage));
-//       }
-      
-//       res.json(filteredReportData);
-//     } catch (error) {
-//       console.error('Error fetching attendance data:', error);
-//       res.status(500).send('Internal Server Error');
-//     }
-//   });
-  
-// Faculty view for uploading resources
 
 router.get('/resources', isFacultyLoggedIn, async (req, res) => {
-    const { sectionId } = req.query;
-    const section = await Section.findById(sectionId).populate('year branch class_teacher');
-    res.render('faculty/resource/resources', { section });
+  try {
+      const { sectionId } = req.query;
+      const section = await Section.findById(sectionId).populate('year branch class_teacher');
+      const key = process.env.GOOGLE_DEVELOPER_KEY;
+      
+      // Get resources shared by this faculty for this section
+      const resources = await Resource.find({
+          uploader: req.user._id,
+          'accessControl.years.branches.sections': sectionId
+      }).sort({ createdAt: -1 });
+      res.render('faculty/resource/resources', { section, resources, key });
+  } catch (err) {
+      console.error(err);
+      req.flash('error', 'Failed to load resources');
+      res.redirect('/faculty/dashboard');
+  }
+});
+// Save a new resource
+router.post('/resources/save', isFacultyLoggedIn, async (req, res) => {
+  try {
+      const { title, description, resourceType, fileId, fileLink, section } = req.body;
+      // Create new resource
+      const newResource = new Resource({
+          title,
+          description,
+          resourceType,
+          fileId,
+          fileLink,
+          uploader: req.user._id,
+          uploaderType: 'Faculty'
+      });
+      // Get section details to set access control
+      const sectionDetails = await Section.findById(section).populate('year branch');
+      
+      // Set access control for the specific section
+      const accessControl = {
+          allYears: false,
+          years: [{
+              year: sectionDetails.year._id,
+              allBranches: false,
+              branches: [{
+                  branch: sectionDetails.branch._id,
+                  allSections: false,
+                  sections: [section]
+              }]
+          }]
+      };
+      newResource.accessControl = accessControl;
+      await newResource.save();
+      res.json({ success: true, message: 'Resource saved successfully' });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ 
+          success: false, 
+          message: err.message || 'Failed to save resource' 
+      });
+  }
+});
+// Delete a resource
+router.post('/resources/delete/:resourceId', isFacultyLoggedIn, async (req, res) => {
+  try {
+      const { resourceId } = req.params;
+      const { sectionId } = req.query;
+      // Verify resource belongs to faculty
+      const resource = await Resource.findOne({
+          _id: resourceId,
+          uploader: req.user._id
+      });
+      if (!resource) {
+          req.flash('error', 'Resource not found or unauthorized');
+          return res.redirect(`/faculty/resources?sectionId=${sectionId}`);
+      }
+      await Resource.findByIdAndDelete(resourceId);
+      req.flash('success', 'Resource deleted successfully');
+      res.redirect(`/faculty/resources?sectionId=${sectionId}`);
+  } catch (err) {
+      console.error(err);
+      req.flash('error', 'Failed to delete resource');
+      res.redirect(`/faculty/resources?sectionId=${sectionId}`);
+  }
 });
   
   // Faculty uploads a resource

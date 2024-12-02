@@ -1,5 +1,6 @@
 <%- layout("../layouts/adminBoilerplate") -%>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="styleshe
+et">
 <style>
     :root {
         --bs-primary: #12047a;
@@ -9,18 +10,15 @@
         --bs-warning: #ffc107;
         --bs-danger: #dc3545;
     }
-
     .card {
         border: none;
         border-radius: 15px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
         transition: transform 0.2s;
     }
-
     .table {
         margin-bottom: 0;
     }
-
     .table thead th {
         background-color: #f8f9fa;
         border-bottom: 2px solid #dee2e6;
@@ -30,33 +28,26 @@
         font-size: 0.85rem;
         letter-spacing: 0.5px;
     }
-
     .table tbody tr {
         transition: background-color 0.2s;
     }
-
     .table tbody tr:hover {
         background-color: rgba(108, 103, 156, 0.05);
     }
-
     .badge {
         padding: 0.5em 1em;
         font-weight: 500;
         letter-spacing: 0.5px;
     }
-
     .badge-draft {
         background-color: #6c757d;
     }
-
     .badge-active {
         background-color: #28a745;
     }
-
     .badge-expired {
         background-color: #dc3545;
     }
-
     .btn-create {
         background: linear-gradient(135deg, #3c2c94 0%, #12047a 100%);
         border: none;
@@ -65,12 +56,10 @@
         letter-spacing: 0.5px;
         transition: transform 0.2s;
     }
-
     .btn-create:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
-
     .feedback-type {
         font-size: 0.85rem;
         padding: 0.35em 0.8em;
@@ -80,24 +69,63 @@
         display: inline-block;
         margin: 0.2rem;
     }
-
-    .action-buttons a, .action-buttons button {
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+    .btn-action {
         padding: 0.4rem 0.8rem;
+        border-radius: 5px;
         font-size: 0.9rem;
-        color: #495057;
         text-decoration: none;
-        transition: color 0.2s;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
     }
-
-    .action-buttons a:hover {
-        color: #12047a;
+    .btn-view {
+        color: var(--bs-primary);
+        background-color: rgba(18, 4, 122, 0.1);
     }
-
+    .btn-edit {
+        color: var(--bs-warning);
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    .btn-analytics {
+        color: var(--bs-info);
+        background-color: rgba(140, 140, 180, 0.1);
+    }
+    .btn-delete {
+        color: var(--bs-danger);
+        background-color: rgba(220, 53, 69, 0.1);
+        border: none;
+        cursor: pointer;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .btn-view:hover {
+        background-color: rgba(18, 4, 122, 0.2);
+        color: var(--bs-primary);
+    }
+    .btn-edit:hover {
+        background-color: rgba(255, 193, 7, 0.2);
+        color: var(--bs-warning);
+    }
+    .btn-analytics:hover {
+        background-color: rgba(140, 140, 180, 0.2);
+        color: var(--bs-info);
+    }
+    .btn-delete:hover {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: var(--bs-danger);
+    }
     .empty-state {
         padding: 4rem 2rem;
         text-align: center;
     }
-
     .empty-state i {
         font-size: 3rem;
         color: #6c679c;
@@ -110,8 +138,38 @@
         margin-bottom: 1.5rem;
         border-radius: 10px;
     }
+    .form-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .form-title {
+        font-weight: 600;
+        color: var(--bs-primary);
+        margin-bottom: 0.25rem;
+    }
+    .form-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .form-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+    }
+    .meta-item i {
+        font-size: 1rem;
+        color: var(--bs-secondary);
+    }
 </style>
-
 <div class="container-fluid">
     <!-- Page Title Section -->
     <div class="page-title-wrapper mb-4">
@@ -122,7 +180,6 @@
             </a>
         </div>
     </div>
-
     <!-- Main Content -->
     <div class="card">
         <div class="card-body p-0">
@@ -131,10 +188,10 @@
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
-                                <th class="ps-4">Title</th>
+                                <th class="ps-4">Form Details</th>
                                 <th>Type</th>
                                 <th>Status</th>
-                                <th>Duration</th>
+                                <th>Schedule</th>
                                 <th class="text-end pe-4">Actions</th>
                             </tr>
                         </thead>
@@ -142,8 +199,20 @@
                             <% forms.forEach(form => { %>
                                 <tr>
                                     <td class="ps-4">
-                                        <div class="fw-semibold mb-1"><%= form.title %></div>
-                                        <div class="text-muted small"><%= form.description %></div>
+                                        <div class="form-info">
+                                            <div class="form-title"><%= form.title %></div>
+                                            <div class="form-description"><%= form.description %></div>
+                                            <div class="form-meta">
+                                                <span class="meta-item">
+                                                    <i class="fas fa-user-shield"></i>
+                                                    <%= form.isAnonymous ? 'Anonymous' : 'Named' %> Responses
+                                                </span>
+                                                <span class="meta-item">
+                                                    <i class="fas fa-list-alt"></i>
+                                                    <%= form.questions.length %> Questions
+                                                </span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         <% form.feedbackTypes.forEach(type => { %>
@@ -154,31 +223,37 @@
                                     </td>
                                     <td>
                                         <span class="badge <%= form.status === 'Active' ? 'badge-active' : 
-                                                              form.status === 'Draft' ? 'badge-draft' : 
-                                                              'badge-expired' %>">
+                                                              form.status === 'Draft' ? 'badge-draft' :'badge-expired' %>">
                                             <%= form.status %>
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="small">
-                                            <i class="far fa-calendar-alt me-2"></i>
+                                        <div class="meta-item">
+                                            <i class="far fa-calendar-alt"></i>
                                             <%= new Date(form.startDate).toLocaleDateString() %> - 
                                             <%= new Date(form.endDate).toLocaleDateString() %>
                                         </div>
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="action-buttons">
-                                            <a href="/admin/forms/<%= form._id %>" class="btn btn-link">
-                                                <i class="fas fa-eye me-1"></i>View
+                                            <a href="/admin/forms/<%= form._id %>" class="btn-actionbtn-view" title="View Form">
+                                                <i class="fas fa-eye"></i>
+                                                <span>View</span>
                                             </a>
-                                            <a href="/admin/forms/<%= form._id %>/edit" class="btn btn-link">
-                                                <i class="fas fa-edit me-1"></i>Edit
+                                            <a href="/admin/forms/<%= form._id %>/analytics" class="btn-action btn-analytics" title="View Analytics">
+                                                <i class="fas fa-chart-bar"></i>
+                                                <span>Analytics</span>
+                                            </a>
+                                            <a href="/admin/forms/<%= form._id %>/edit" class="btn-action btn-edit" title="Edit Form">
+                                                <i class="fas fa-edit"></i>
+                                                <span>Edit</span>
                                             </a>
                                             <% if (form.status === 'Draft') { %>
-                                                <form action="/admin/forms/<%= form._id %>/delete" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-link text-danger" 
-                                                            onclick="return confirm('Are you sure you want to delete this form?')">
-                                                        <i class="fas fa-trash-alt me-1"></i>Delete
+                                                <form action="/admin/forms/<%= form._id %>/delete" method="POST" class="d-inline" 
+                                                      onsubmit="return confirm('Are you sure you want to delete this form?')">
+                                                    <button type="submit" class="btn-action btn-delete" title="Delete Form">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                        <span>Delete</span>
                                                     </button>
                                                 </form>
                                             <% } %>

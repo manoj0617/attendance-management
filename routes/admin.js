@@ -39,11 +39,15 @@ const {
   deleteRegulation,
   getRegulation
 } = require('../controllers/adminController');
+const adminController = require('../controllers/adminController');
 const { 
   QuestionTemplate, 
   FeedbackForm, 
   FeedbackResponse,
-  FeedbackTemplate
+  FeedbackTemplate,
+  FeedbackAnalytics,
+  Feedback,
+  FeedbackQuestion,
 } = require('../models/feedback');
 
 
@@ -229,6 +233,409 @@ router.post('/forms', isAdminLoggedIn, async (req, res) => {
   }
 });
 
+//render forms/show.ejs
+// router.get('/forms/:id', isAdminLoggedIn, async (req, res) => {
+//   try {
+//     const form = await FeedbackForm.findById(req.params.id)
+//       .populate({
+//         path: 'questions.template',
+//         // Add error handling to see which templates might be missing
+//         match: { _id: {$exists: true} } 
+//       })
+//       .populate('questions.subject');
+
+//     if (!form) {
+//       req.flash('error', 'Form not found');
+//       return res.redirect('/admin/forms');
+//     }
+
+//     // Add logging to debug template population
+//     const problematicQuestions = form.questions.filter(q => !q.template);
+//     if (problematicQuestions.length > 0) {
+//       console.error('Questions without templates:', problematicQuestions);
+//     }
+
+//     res.render('admin/forms/show', { form });
+//   } catch (error) {
+//     console.error('Error fetching form:', error);
+//     req.flash('error', 'Error fetching form');
+//     res.redirect('/admin/forms');
+//   }
+// });
+
+// Update the analytics route to handle required fields
+router.get('/forms/:id/analytics', isAdminLoggedIn, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { section, subject, faculty } = req.query;
+    // Fetch the form with its questions and populate subject references
+    const form = await FeedbackForm.findById(id)
+      .populate({
+        path: 'questions.template',
+        select: 'text type options scaleOptions'
+      })
+      .populate('questions.subject');
+    if (!form) {
+      req.flash('error', 'Form not found');
+      return res.redirect('/admin/forms');
+    }
+    // Get all possible sections, subjects, and faculties for this form
+    const sections = await Section.find({
+      _id: { $in: form.target.sections }
+    }).select('name').sort('name');
+    const subjects = await Subject.find({
+      _id: { $in: form.questions.filter(q => q.subject).map(q => q.subject) }
+    }).select('name').sort('name');
+    const faculties = await Faculty.find({
+      sections: { $in: form.target.sections }
+    }).select('name').sort('name');
+    // If no specific filters are provided, use the first available values
+    const selectedSection = section || (sections.length > 0 ? sections[0]._id : null);
+    const selectedSubject = subject || (subjects.length > 0 ? subjects[0]._id : null);
+    const selectedFaculty = faculty || (faculties.length > 0 ? faculties[0]._id : null);
+    // Build query for analytics
+    const analyticsQuery = {
+      form: form._id,
+      section: selectedSection,
+      subject: selectedSubject,
+      faculty: selectedFaculty
+    };
+    // Fetch or create analytics
+    let analytics = await FeedbackAnalytics.findOne(analyticsQuery);
+    
+    if (!analytics && selectedSection && selectedSubject && selectedFaculty) {
+      analytics = new FeedbackAnalytics({
+        form: form._id,
+        subject: selectedSubject,
+        faculty: selectedFaculty,
+        section: selectedSection,
+        responseStats: {
+          total: 0,
+          completed: 0,
+          anonymous: 0,
+          averageTimeToComplete: 0,
+          completionRate: 0
+        },
+        questionStats: [],
+        temporalAnalysis: {
+          dailyResponses: [],
+          peakSubmissionTimes: []
+        }
+      });
+      await analytics.save();
+      await analytics.updateStats();
+    }
+    if (!analytics) {
+      analytics = {
+        responseStats: {
+          total: 0,
+          completed: 0,
+          anonymous: 0,
+          averageTimeToComplete: 0,
+          completionRate: 0
+        },
+        questionStats: [],
+        temporalAnalysis: {
+          dailyResponses: [],
+          peakSubmissionTimes: []
+        }
+      };
+    }
+    res.render('admin/forms/analytics', {
+      form,
+      analytics,
+      sections,
+      subjects,
+      faculties,
+      selectedSection,
+      selectedSubject,
+      selectedFaculty
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    req.flash('error', 'Error fetching analytics');
+    res.redirect('/admin/forms');
+  }
+});
+
+// Show form route
+router.get('/forms/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    // First fetch the form with populated fields
+    const form = await FeedbackForm.findById(req.params.id);
+    
+    if (!form) {
+      req.flash('error', 'Form not found');
+      return res.redirect('/admin/forms');
+    }
+
+    // Manually populate questions to ensure all data is present
+    const populatedQuestions = await Promise.all(form.questions.map(async (q) => {
+      const populatedQuestion = q.toObject();
+      
+      if (q.template) {
+        const template = await FeedbackTemplate.findById(q.template)
+          .select('title category questions text type options scaleOptions')
+          .lean();
+        populatedQuestion.template = template;
+      }
+      
+      if (q.subject) {
+        const subject = await Subject.findById(q.subject)
+          .select('name code')
+          .lean();
+        populatedQuestion.subject = subject;
+      }
+      
+      return populatedQuestion;
+    }));
+
+    // Create the populated form object
+    const populatedForm = {
+      ...form.toObject(),
+      questions: populatedQuestions
+    };
+
+    res.render('admin/forms/show', { form: populatedForm });
+  } catch (error) {
+    console.error('Error fetching form:', error);
+    req.flash('error', 'Error fetching form');
+    res.redirect('/admin/forms');
+  }
+});
+
+// Edit form route
+router.get('/forms/:id/edit', isAdminLoggedIn, async (req, res) => {
+  try {
+    // First fetch the form
+    const form = await FeedbackForm.findById(req.params.id);
+    
+    if (!form) {
+      req.flash('error', 'Form not found');
+      return res.redirect('/admin/forms');
+    }
+
+    // Get all the basic data needed for the form
+    const [questionTemplates, academicYears, semesters, branches, sections, templates] = await Promise.all([
+      QuestionTemplate.find(),
+      AcademicYear.find({}),
+      Semester.find({}),
+      Branch.find({}),
+      Section.find({}),
+      FeedbackTemplate.find({})
+    ]);
+
+    // Get all subjects
+    const subjects = await Subject.find({}).select('_id name code');
+
+    // Manually populate questions to ensure all data is present
+    const populatedQuestions = await Promise.all(form.questions.map(async (q) => {
+      const populatedQuestion = q.toObject();
+      
+      if (q.template) {
+        const template = await FeedbackTemplate.findById(q.template)
+          .select('title category questions')
+          .lean();
+        populatedQuestion.template = template;
+      }
+      
+      if (q.subject) {
+        const subject = await Subject.findById(q.subject)
+          .select('name code')
+          .lean();
+        populatedQuestion.subject = subject;
+      }
+      
+      return populatedQuestion;
+    }));
+
+    // Create the populated form object
+    const populatedForm = {
+      ...form.toObject(),
+      questions: populatedQuestions
+    };
+
+    res.render('admin/forms/edit', { 
+      form: populatedForm,
+      questionTemplates, 
+      academicYears, 
+      semesters, 
+      branches, 
+      sections, 
+      subjects,
+      templates
+    });
+
+  } catch (error) {
+    console.error('Error fetching form:', error);
+    req.flash('error', 'Error fetching form');
+    res.redirect('/admin/forms');
+  }
+});
+
+// Update form route
+router.put('/forms/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      feedbackTypes,
+      subjectTemplates,
+      infrastructureTemplate,
+      generalTemplate,
+      startDate,
+      endDate,
+      target,
+      isAnonymous,
+      academicYear
+    } = req.body;
+
+    // Process target selection
+    const processedTarget = {
+      years: [],
+      branches: [],
+      sections: [],
+      isAllYears: target.years === 'all',
+      isAllBranches: target.branches === 'all',
+      isAllSections: target.sections === 'all'
+    };
+
+    // Handle years selection
+    if (processedTarget.isAllYears) {
+      const allYears = await AcademicYear.find({});
+      processedTarget.years = allYears.map(year => year._id);
+    } else if (target.years) {
+      processedTarget.years = Array.isArray(target.years) ? target.years : [target.years];
+    } else if (academicYear) {
+      processedTarget.years = [academicYear];
+      processedTarget.isAllYears = false;
+    }
+
+    // Handle branches selection
+    if (processedTarget.isAllBranches) {
+      const allBranches = await Branch.find({});
+      processedTarget.branches = allBranches.map(branch => branch._id);
+    } else if (target.branches) {
+      processedTarget.branches = Array.isArray(target.branches) ? target.branches : [target.branches];
+    }
+
+    // Handle sections selection
+    if (processedTarget.isAllSections) {
+      const sectionQuery = {};
+      if (processedTarget.years.length > 0) {
+        sectionQuery.year = { $in: processedTarget.years };
+      }
+      if (processedTarget.branches.length > 0) {
+        sectionQuery.branch = { $in: processedTarget.branches };
+      }
+      const allSections = await Section.find(sectionQuery);
+      processedTarget.sections = allSections.map(section => section._id);
+    } else if (target.sections) {
+      processedTarget.sections = Array.isArray(target.sections) ? target.sections : [target.sections];
+    }
+
+    // Process questions array
+    let questions = [];
+    
+    // Add subject templates
+    if (subjectTemplates) {
+      for (const [subjectId, templateId] of Object.entries(subjectTemplates)) {
+        if (templateId) {
+          questions.push({
+            template: templateId,
+            subject: subjectId,
+            required: true,
+            order: questions.length + 1,
+            type: 'subject'
+          });
+        }
+      }
+    }
+
+    // Add infrastructure template
+    if (infrastructureTemplate) {
+      questions.push({
+        template: infrastructureTemplate,
+        required: true,
+        order: questions.length + 1,
+        type: 'infrastructure'
+      });
+    }
+
+    // Add general template
+    if (generalTemplate) {
+      questions.push({
+        template: generalTemplate,
+        required: true,
+        order: questions.length + 1,
+        type: 'general'
+      });
+    }
+
+    // Update form
+    const form = await FeedbackForm.findByIdAndUpdate(
+      req.params.id,
+      {
+        title: title.trim(),
+        description: description ? description.trim() : '',
+        feedbackTypes: Array.isArray(feedbackTypes) ? feedbackTypes : [feedbackTypes],
+        target: processedTarget,
+        questions,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        isAnonymous: Boolean(isAnonymous),
+        academicYear
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!form) {
+      req.flash('error', 'Form not found');
+      return res.redirect('/admin/forms');
+    }
+
+    req.flash('success', 'Form updated successfully');
+    res.redirect(`/admin/forms/${form._id}`);
+  } catch (error) {
+    console.error('Error updating form:', error);
+    req.flash('error', 'Error updating form');
+    res.redirect(`/admin/forms/${req.params.id}/edit`);
+  }
+});
+
+// Delete form route
+router.delete('/forms/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    const form = await FeedbackForm.findById(req.params.id);
+    
+    if (!form) {
+      req.flash('error', 'Form not found');
+      return res.redirect('/admin/forms');
+    }
+
+    if (form.status !== 'Draft') {
+      req.flash('error', 'Only draft forms can be deleted');
+      return res.redirect('/admin/forms');
+    }
+
+    // Delete associated analytics
+    await FeedbackAnalytics.deleteMany({ form: form._id });
+    
+    // Delete associated responses
+    await FeedbackResponse.deleteMany({ form: form._id });
+    
+    // Delete the form
+    await form.deleteOne();
+
+    req.flash('success', 'Form deleted successfully');
+    res.redirect('/admin/forms');
+  } catch (error) {
+    console.error('Error deleting form:', error);
+    req.flash('error', 'Error deleting form');
+    res.redirect('/admin/forms');
+  }
+});
+
 // Helper function to get target sections
 async function getTargetSections(target) {
   try {
@@ -272,50 +679,189 @@ async function getTargetSections(target) {
   }
 }
 
-router.get('/templates', isAdminLoggedIn, async (req, res) => {
-  const templates = await FeedbackTemplate.find().sort('-createdAt');
-  res.render('admin/templates', { templates,moment });
-});
+// router.get('/templates', isAdminLoggedIn, async (req, res) => {
+//   const templates = await FeedbackTemplate.find().sort('-createdAt');
+//   res.render('admin/templates', { templates,moment });
+// });
 
-router.post('/templates', isAdminLoggedIn, async (req, res) => {
+// router.post('/templates', isAdminLoggedIn, async (req, res) => {
+//   try {
+//       const template = new FeedbackTemplate(req.body);
+//       await template.save();
+//       console.log(template);
+//       res.json({ success: true, template });
+//   } catch (error) {
+//       res.json({ success: false, error: error.message });
+//   }
+// });
+
+// router.get('/templates/:id', isAdminLoggedIn, async (req, res) => {
+//   const template = await FeedbackTemplate.findById(req.params.id);
+//   res.json(template);
+// });
+
+// router.delete('/templates/:id', isAdminLoggedIn, async (req, res) => {
+//   await FeedbackTemplate.findByIdAndDelete(req.params.id);
+//   res.json({ success: true });
+// });
+
+// router.post('/templates/:id/duplicate', isAdminLoggedIn, async (req, res) => {
+//   const template = await FeedbackTemplate.findById(req.params.id);
+//   const newTemplate = new FeedbackTemplate({
+//       ...template.toObject(),
+//       _id: undefined,
+//       title: `${template.title} (Copy)`,
+//       createdAt: undefined,
+//       updatedAt: undefined
+//   });
+//   await newTemplate.save();
+//   res.json({ success: true });
+// });
+
+// Regulation routes
+
+router.get('/regulations', adminController.renderRegulations);
+router.get('/regulation/:id', adminController.getRegulation);
+router.post('/regulation', adminController.createRegulation);
+router.put('/regulation/:id', adminController.updateRegulation);
+router.delete('/regulation/:id', adminController.deleteRegulation);
+
+// Get all templates
+router.get('/templates', isAdminLoggedIn, async (req, res) => {
   try {
-      const template = new FeedbackTemplate(req.body);
-      await template.save();
-      console.log(template);
-      res.json({ success: true, template });
+    const templates = await FeedbackTemplate.find().sort('-createdAt');
+    res.render('admin/templates', { templates, moment });
   } catch (error) {
-      res.json({ success: false, error: error.message });
+    req.flash('error', 'Error loading templates');
+    res.redirect('/admin/dashboard');
   }
 });
 
+// Create new template
+router.post('/templates', isAdminLoggedIn, async (req, res) => {
+  try {
+    // Process questions array
+    const questions = req.body.questions.map((q, index) => ({
+      text: q.text,
+      type: q.type,
+      category: q.category,
+      required: q.required === 'true',
+      order: index,
+      options: q.options ? q.options.map(opt => ({ text: opt.text })) : [],
+      scaleOptions: q.type === 'Rating' || q.type === 'Linear_Scale' ? {
+        min: parseInt(q.scaleOptions?.min) || 1,
+        max: parseInt(q.scaleOptions?.max) || 5,
+        labels: q.scaleOptions?.labels || {}
+      } : undefined
+    }));
+
+    const template = new FeedbackTemplate({
+      title: req.body.title,
+      description: req.body.description,
+      category: req.body.category,
+      questions: questions
+    });
+
+    await template.save();
+    res.json({ success: true, template });
+  } catch (error) {
+    console.error('Template save error:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// Get single template
 router.get('/templates/:id', isAdminLoggedIn, async (req, res) => {
-  const template = await FeedbackTemplate.findById(req.params.id);
-  res.json(template);
+  try {
+    const template = await FeedbackTemplate.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+    res.json(template);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
+// Update template
+router.put('/templates/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    // Process questions array
+    const questions = req.body.questions.map((q, index) => ({
+      text: q.text,
+      type: q.type,
+      category: q.category,
+      required: q.required === 'true',
+      order: index,
+      options: q.options ? q.options.map(opt => ({ text: opt.text })) : [],
+      scaleOptions: q.type === 'Rating' || q.type === 'Linear_Scale' ? {
+        min: parseInt(q.scaleOptions?.min) || 1,
+        max: parseInt(q.scaleOptions?.max) || 5,
+        labels: q.scaleOptions?.labels || {}
+      } : undefined
+    }));
+
+    const template = await FeedbackTemplate.findByIdAndUpdate(
+      req.params.id,
+      {
+        title: req.body.title,
+        description: req.body.description,
+        questions: questions
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!template) {
+      return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+
+    res.json({ success: true, template });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete template
 router.delete('/templates/:id', isAdminLoggedIn, async (req, res) => {
-  await FeedbackTemplate.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+  try {
+    const template = await FeedbackTemplate.findByIdAndDelete(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
+// Duplicate template
 router.post('/templates/:id/duplicate', isAdminLoggedIn, async (req, res) => {
-  const template = await FeedbackTemplate.findById(req.params.id);
-  const newTemplate = new FeedbackTemplate({
+  try {
+    const template = await FeedbackTemplate.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+
+    const newTemplate = new FeedbackTemplate({
       ...template.toObject(),
       _id: undefined,
       title: `${template.title} (Copy)`,
       createdAt: undefined,
       updatedAt: undefined
-  });
-  await newTemplate.save();
-  res.json({ success: true });
+    });
+
+    await newTemplate.save();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-router.get('/regulations', isAdminLoggedIn, renderRegulations);
-router.get('/regulations/:id',isAdminLoggedIn, getRegulation);
-router.post('/regulations', isAdminLoggedIn, createRegulation);
-router.put('/regulations/:id', isAdminLoggedIn, updateRegulation);
-router.delete('/regulations/:id', isAdminLoggedIn, deleteRegulation);
+// Academic transition routes
+router.get('/transitions', adminController.showTransitions);
+router.post('/transitions/start-semester', adminController.startNewSemester);
+router.post('/transitions/start-academic-year', adminController.startNewAcademicYear);
+router.post('/transitions/graduate-final-year', adminController.graduateFinalYear);
 router.get('/regulation',isAdminLoggedIn,async(req,res)=>{
   let regulations = await MarkingSchemeConfig.find({});
   res.json({regulations});
@@ -1223,117 +1769,432 @@ oauth2Client.setCredentials({
   access_token: process.env.ACCESS_TOKEN,
   refresh_token: process.env.REFRESH_TOKEN,
 });
-// Admin view for sharing resources
-router.get('/resources/upload', isAdminLoggedIn, async (req, res) => {
-  const academicYears = await AcademicYear.find({});
-  const key=process.env.GOOGLE_DEVELOPER_KEY;
-  res.render('admin/resource/upload', { academicYears,key });
+
+// API Routes for Resource Management
+router.get('/api/academic-years', isAdminLoggedIn, async (req, res) => {
+  try {
+    const academicYears = await AcademicYear.find({})
+      .select('_id name')
+      .sort('-name')
+      .lean();
+    res.json(academicYears);
+  } catch (err) {
+    console.error('Error fetching academic years:', err);
+    res.status(500).json({ error: 'Failed to fetch academic years' });
+  }
 });
 
-// Route to view resources
+router.get('/api/branches', isAdminLoggedIn, async (req, res) => {
+  try {
+    const { yearId } = req.query;
+    let query = {};
+    
+    if (yearId && yearId !== 'all') {
+      const sections = await Section.find({ year: yearId }).distinct('branch');
+      query._id = { $in: sections };
+    }
+
+    const branches = await Branch.find(query)
+      .select('_id name')
+      .sort('name')
+      .lean();
+
+    res.json(branches);
+  } catch (error) {
+    console.error('Error fetching branches:', error);
+    res.status(500).json({ error: 'Failed to fetch branches' });
+  }
+});
+
+router.get('/api/sections', isAdminLoggedIn, async (req, res) => {
+  try {
+    const { yearId, branchId } = req.query;
+    let query = {};
+    
+    if (yearId && yearId !== 'all') {
+      query.year = yearId;
+    }
+    if (branchId && branchId !== 'all') {
+      query.branch = branchId;
+    }
+
+    const sections = await Section.find(query)
+      .select('_id name')
+      .sort('name')
+      .lean();
+
+    res.json(sections);
+  } catch (error) {
+    console.error('Error fetching sections:', error);
+    res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+
+// Resource Upload Routes
+router.get('/resources/upload', isAdminLoggedIn, async (req, res) => {
+  try {
+    const academicYears = await AcademicYear.find({})
+      .sort('-name')
+      .lean();
+    
+    res.render('admin/resource/upload', { 
+      academicYears,
+      key: process.env.GOOGLE_API_KEY,
+      error: req.flash('error'),
+      success: req.flash('success')
+    });
+  } catch (error) {
+    console.error('Error loading upload form:', error);
+    req.flash('error', 'Failed to load upload form');
+    res.redirect('/admin/resources');
+  }
+});
+
+// Resource List Route
 router.get('/resources', isAdminLoggedIn, async (req, res) => {
   try {
-    const { year, semester, branch, section } = req.query;
+    const { year, branch, section, resourceType } = req.query;
+    let query = {};
 
-    // Fetch resources based on filters
-    let filter = {};
-    if (year) filter['sharedWith.year'] = year;
-    if (semester) filter['sharedWith.semester'] = semester;
-    if (branch) filter['sharedWith.branch'] = branch;
-    if (section) filter['sharedWith.section'] = section;
+    // Build query based on filters
+    if (resourceType) {
+      query.resourceType = resourceType;
+    }
 
-    const resources = await Resource.find(filter)
+    if (year || branch || section) {
+      query['accessControl.years'] = {
+        $elemMatch: {}
+      };
+
+      if (year) {
+        query['accessControl.years'].$elemMatch.year = year;
+      }
+
+      if (branch) {
+        query['accessControl.years'].$elemMatch['branches'] = {
+          $elemMatch: { branch }
+        };
+      }
+
+      if (section) {
+        query['accessControl.years'].$elemMatch['branches'] = {
+          $elemMatch: { 
+            sections: section 
+          }
+        };
+      }
+    }
+
+    const resources = await Resource.find(query)
       .populate({
-        path: 'sharedWith',
-        populate: [
-          { path: 'year', model: 'AcademicYear' },
-          { path: 'semester', model: 'Semester' },
-          { path: 'branch', model: 'Branch' },
-          { path: 'section', model: 'Section' }
-        ]
+        path: 'accessControl.years.year',
+        select: 'name'
       })
-      .populate('uploader', 'name'); // Assuming you want to show the uploader's name
+      .populate({
+        path: 'accessControl.years.branches.branch',
+        select: 'name'
+      })
+      .populate({
+        path: 'accessControl.years.branches.sections',
+        select: 'name'
+      })
+      .populate('uploader', 'name')
+      .sort('-createdAt');
 
-    const academicYears = await AcademicYear.find({});
+    const academicYears = await AcademicYear.find({})
+      .select('_id name')
+      .sort('-name')
+      .lean();
 
-    res.render('admin/resource/resources', { resources, academicYears });
+    res.render('admin/resource/resources', { 
+      resources, 
+      academicYears,
+      filters: { year, branch, section, resourceType }
+    });
+
   } catch (error) {
     console.error('Error fetching resources:', error);
-    res.status(500).send('Server error');
+    req.flash('error', 'Failed to fetch resources');
+    res.redirect('/admin/dashboard');
   }
 });
 
-router.post('/resources/upload', upload.single('file'), async (req, res) => {
-  console.log(req.file); // Log file details to ensure it's uploaded
-
-  const { title, description, year, branch, section } = req.body;
-
+// Save Resource Route
+router.post('/resources/save', isAdminLoggedIn, async (req, res) => {
   try {
-    // Ensure a file is uploaded
-    if (!req.file) {
-      throw new Error('File not uploaded');
-    }
-
-    // Set up file metadata for Google Drive
-    const fileMetadata = {
-      name: req.file.originalname,
-      parents: [process.env.GOOGLE_DRIVE_FOLDER_ID]  // Google Drive folder ID
-    };
-
-    const bufferStream = new stream.PassThrough();
-    bufferStream.end(req.file.buffer);  // Convert buffer to stream
-
-    const media = {
-      mimeType: req.file.mimetype,
-      body: bufferStream
-    };
-
-    // Ensure OAuth2 client credentials are set and refresh if necessary
-    if (!oauth2Client.credentials.access_token) {
-      console.log('Attempting to refresh access token...');
-      await oauth2Client.getAccessToken();  // Refresh the token if expired
-    }
-
-    // Upload the file to Google Drive
-    const driveResponse = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: 'id, webViewLink'
-    });
-
-    const fileId = driveResponse.data.id;
-    const fileLink = driveResponse.data.webViewLink;
-
-    // Store the resource in the database
-    const newResource = new Resource({
+    const {
       title,
       description,
+      resourceType,
       fileId,
       fileLink,
-      sharedWith: [
-        {
-          year: year,       // Add the year, branch, and section for sharedWith
-          branch: branch,
-          section: section
-        }
-      ],
-      uploader: req.user._id,  // Reference to uploader (Admin or Faculty)
-      uploaderType: 'Admin'  // Or 'Faculty' depending on the uploader
+      fileName,
+      accessControl,
+      uploader
+    } = req.body;
+
+    // Validate required fields
+    if (!title?.trim() || !fileId || !fileLink || !resourceType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Create new resource
+    const resource = new Resource({
+      title: title.trim(),
+      description: description?.trim(),
+      resourceType,
+      fileId,
+      fileLink,
+      fileName,
+      uploader: req.user._id,
+      uploaderType: 'Admin',
+      accessControl // accessControl is already an object, no need to parse
     });
 
-    await newResource.save();
+    // Save to database
+    await resource.save();
 
-    // Redirect to the resources page after a successful upload
-    res.redirect('/admin/resources');
+    res.status(201).json({
+      success: true,
+      message: 'Resource saved successfully',
+      data: {
+        _id: resource._id,
+        title: resource.title,
+        fileId: resource.fileId
+      }
+    });
 
   } catch (error) {
-    console.error('Error uploading file to Google Drive:', error.message);
+    console.error('Save resource error:', error);
 
-    // Send feedback to the user about the error
-    res.status(500).send('An error occurred while uploading the file. Please try again.');
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: Object.values(error.errors).map(err => err.message).join(', ')
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save resource'
+    });
   }
 });
+
+// Delete Resource Route
+router.post('/resources/delete/:id', isAdminLoggedIn, async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+    if (!resource) {
+      req.flash('error', 'Resource not found');
+      return res.redirect('/admin/resources');
+    }
+
+    await resource.deleteOne();
+    req.flash('success', 'Resource deleted successfully');
+    res.redirect('/admin/resources');
+  } catch (error) {
+    console.error('Error deleting resource:', error);
+    req.flash('error', 'Failed to delete resource');
+    res.redirect('/admin/resources');
+  }
+});
+
+// Resource Upload Routes
+router.get('/resources/upload', isAdminLoggedIn, async (req, res) => {
+  try {
+    const academicYears = await AcademicYear.find({})
+      .sort('-name')
+      .lean();
+    const key = process.env.GOOGLE_DEVELOPER_KEY;
+    res.render('admin/resource/upload', { 
+      academicYears,
+      key,
+      error: req.flash('error'),
+      success: req.flash('success')
+    });
+  } catch (error) {
+    console.error('Error loading upload form:', error);
+    req.flash('error', 'Failed to load upload form');
+    res.redirect('/admin/resources');
+  }
+});
+
+// router.post('/resources/save', isAdminLoggedIn, async (req, res) => {
+//   try {
+//     const {
+//       title,
+//       description,
+//       resourceType,
+//       fileId,
+//       fileLink,
+//       accessControl
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!title?.trim() || !fileId || !fileLink || !resourceType) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Missing required fields'
+//       });
+//     }
+
+//     // Create new resource
+//     const resource = new Resource({
+//       title: title.trim(),
+//       description: description?.trim(),
+//       resourceType,
+//       fileId,
+//       fileLink,
+//       uploader: req.user._id,
+//       uploaderType: 'Admin',
+//       accessControl: JSON.parse(accessControl)
+//     });
+
+//     // Save to database
+//     await resource.save();
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Resource saved successfully',
+//       data: {
+//         _id: resource._id,
+//         title: resource.title,
+//         fileId: resource.fileId
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Save resource error:', error);
+
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({
+//         success: false,
+//         message: Object.values(error.errors).map(err => err.message).join(', ')
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to save resource'
+//     });
+//   }
+// });
+// Admin view for sharing resources
+// router.get('/resources/upload', isAdminLoggedIn, async (req, res) => {
+//   const academicYears = await AcademicYear.find({});
+//   const key=process.env.GOOGLE_DEVELOPER_KEY;
+//   res.render('admin/resource/upload', { academicYears,key });
+// });
+
+// // Route to view resources
+// router.get('/resources', isAdminLoggedIn, async (req, res) => {
+//   try {
+//     const { year, semester, branch, section } = req.query;
+
+//     // Fetch resources based on filters
+//     let filter = {};
+//     if (year) filter['sharedWith.year'] = year;
+//     if (semester) filter['sharedWith.semester'] = semester;
+//     if (branch) filter['sharedWith.branch'] = branch;
+//     if (section) filter['sharedWith.section'] = section;
+
+//     const resources = await Resource.find(filter)
+//       .populate({
+//         path: 'sharedWith',
+//         populate: [
+//           { path: 'year', model: 'AcademicYear' },
+//           { path: 'semester', model: 'Semester' },
+//           { path: 'branch', model: 'Branch' },
+//           { path: 'section', model: 'Section' }
+//         ]
+//       })
+//       .populate('uploader', 'name'); // Assuming you want to show the uploader's name
+
+//     const academicYears = await AcademicYear.find({});
+
+//     res.render('admin/resource/resources', { resources, academicYears });
+//   } catch (error) {
+//     console.error('Error fetching resources:', error);
+//     res.status(500).send('Server error');
+//   }
+// });
+
+// router.post('/resources/upload', upload.single('file'), async (req, res) => {
+//   console.log(req.file); // Log file details to ensure it's uploaded
+
+//   const { title, description, year, branch, section } = req.body;
+
+//   try {
+//     // Ensure a file is uploaded
+//     if (!req.file) {
+//       throw new Error('File not uploaded');
+//     }
+
+//     // Set up file metadata for Google Drive
+//     const fileMetadata = {
+//       name: req.file.originalname,
+//       parents: [process.env.GOOGLE_DRIVE_FOLDER_ID]  // Google Drive folder ID
+//     };
+
+//     const bufferStream = new stream.PassThrough();
+//     bufferStream.end(req.file.buffer);  // Convert buffer to stream
+
+//     const media = {
+//       mimeType: req.file.mimetype,
+//       body: bufferStream
+//     };
+
+//     // Ensure OAuth2 client credentials are set and refresh if necessary
+//     if (!oauth2Client.credentials.access_token) {
+//       console.log('Attempting to refresh access token...');
+//       await oauth2Client.getAccessToken();  // Refresh the token if expired
+//     }
+
+//     // Upload the file to Google Drive
+//     const driveResponse = await drive.files.create({
+//       requestBody: fileMetadata,
+//       media: media,
+//       fields: 'id, webViewLink'
+//     });
+
+//     const fileId = driveResponse.data.id;
+//     const fileLink = driveResponse.data.webViewLink;
+
+//     // Store the resource in the database
+//     const newResource = new Resource({
+//       title,
+//       description,
+//       fileId,
+//       fileLink,
+//       sharedWith: [
+//         {
+//           year: year,       // Add the year, branch, and section for sharedWith
+//           branch: branch,
+//           section: section
+//         }
+//       ],
+//       uploader: req.user._id,  // Reference to uploader (Admin or Faculty)
+//       uploaderType: 'Admin'  // Or 'Faculty' depending on the uploader
+//     });
+
+//     await newResource.save();
+
+//     // Redirect to the resources page after a successful upload
+//     res.redirect('/admin/resources');
+
+//   } catch (error) {
+//     console.error('Error uploading file to Google Drive:', error.message);
+
+//     // Send feedback to the user about the error
+//     res.status(500).send('An error occurred while uploading the file. Please try again.');
+//   }
+// });
 // Validate shared with array
+
 const validateSharedWith = (sharedWith) => {
   if (!Array.isArray(sharedWith) || sharedWith.length === 0) {
     throw new Error('At least one permission set is required');
@@ -1465,16 +2326,16 @@ router.post('/save-resource',isAdminLoggedIn, async (req, res) => {
   }
 });
 // Route to delete a resource
-router.post('/resources/delete/:id', isAdminLoggedIn, async (req, res) => {
-  try {
-    await Resource.findByIdAndDelete(req.params.id);
-    req.flash('success', 'Resource deleted successfully');
-    res.redirect('/admin/resources');
-  } catch (error) {
-    console.error('Error deleting resource:', error);
-    res.status(500).send('Error deleting resource');
-  }
-});
+// router.post('/resources/delete/:id', isAdminLoggedIn, async (req, res) => {
+//   try {
+//     await Resource.findByIdAndDelete(req.params.id);
+//     req.flash('success', 'Resource deleted successfully');
+//     res.redirect('/admin/resources');
+//   } catch (error) {
+//     console.error('Error deleting resource:', error);
+//     res.status(500).send('Error deleting resource');
+//   }
+// });
 
 // Branch Management
 router.get('/branches', isAdminLoggedIn, async (req, res) => {
@@ -1836,338 +2697,384 @@ router.get('/timetable', isAdminLoggedIn, async (req, res) => {
 });
 
 router.post('/timetable/period', isAdminLoggedIn, async (req, res) => {
-    const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject: subjectId, faculty, room } = req.body;
-    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const dayName = dayNames[day - 1];
+  const { hour, day, branch, year, section, semester, startTime, endTime, batchDetails, subject: subjectId, faculty, room } = req.body;
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const dayName = dayNames[day - 1];
 
-    try {
-        const semesterDoc = await Semester.findById(semester);
-        const subject = await Subject.findById(subjectId);
-        if (!semesterDoc) {
-            req.flash('error', 'Invalid semester');
-            return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
-        }
+  try {
+      const semesterDoc = await Semester.findById(semester);
+      const subject = await Subject.findById(subjectId);
+      if (!semesterDoc) {
+          req.flash('error', 'Invalid semester');
+          return res.redirect(`/admin/timetable/new?year=${year}&branch=${branch}&section=${section}`);
+      }
 
-        let periods = [];
+      let periods = [];
 
-        if (subject && subject.type == 'Non-Academic') {
-            const newPeriod = new Period({
-                hour,
-                day: dayName,
-                branch,
-                year,
-                section,
-                subject,
-                room,
-                semester,
-                startTime,
-                endTime,
-                specialPeriod: subject.name,
-                faculty: null,
-            });
+      if (subject && subject.type == 'Non-Academic') {
+          const newPeriod = new Period({
+              hour,
+              day: dayName,
+              branch,
+              year,
+              section,
+              subject,
+              room,
+              semester,
+              startTime,
+              endTime,
+              specialPeriod: subject.name,
+              faculty: null,
+          });
 
-            let period = await newPeriod.save();
-            periods.push(period._id);
-        } else if (batchDetails && batchDetails.length > 0) {
-            for (const { batchId, subject, faculty } of batchDetails) {
-                if (!subject || !faculty) {
-                    req.flash('error', 'Subject and Faculty must be selected for each batch.');
-                    return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
-                }
-                const newPeriod = new Period({
-                    hour,
-                    day: dayName,
-                    branch,
-                    year,
-                    section,
-                    subject,
-                    room,
-                    semester,
-                    startTime,
-                    endTime,
-                    faculty,
-                    batch: batchId
-                });
+          let period = await newPeriod.save();
+          periods.push(period._id);
+      } else if (batchDetails && batchDetails.length > 0) {
+          for (const { batchId, subject, faculty } of batchDetails) {
+              if (!subject || !faculty) {
+                  req.flash('error', 'Subject and Faculty must be selected for each batch.');
+                  return res.json({ success: false, message: 'Subject and Faculty must be selected for each batch.' });
+              }
+              const newPeriod = new Period({
+                  hour,
+                  day: dayName,
+                  branch,
+                  year,
+                  section,
+                  subject,
+                  room,
+                  semester,
+                  startTime,
+                  endTime,
+                  faculty,
+                  batch: batchId
+              });
 
-                let period = await newPeriod.save();
-                period = await period.populate('subject faculty');
-                periods.push(period._id);
+              let period = await newPeriod.save();
+              period = await period.populate('subject faculty');
+              periods.push(period._id);
 
-                // Add section to faculty's sections array without duplicates
-                await Faculty.findByIdAndUpdate(faculty, {
-                    $addToSet: { 
-                        sections: section,
-                        periods: period._id
-                    }
-                });
-            }
-        } else {
-            const newPeriod = new Period({
-                hour,
-                day: dayName,
-                branch,
-                year,
-                section,
-                subject,
-                room,
-                semester,
-                startTime,
-                endTime,
-                faculty
-            });
+              // Add section to faculty's sections array without duplicates
+              await Faculty.findByIdAndUpdate(faculty, {
+                  $addToSet: { 
+                      sections: section,
+                      periods: period._id
+                  }
+              });
 
-            let period = await newPeriod.save();
-            period = await period.populate('subject faculty');
-            periods.push(period._id);
+              // Update Section's facultySubjects array using filtered update
+              await updateSectionFacultySubjects(section, faculty, subject, semester);
+          }
+      } else {
+          const newPeriod = new Period({
+              hour,
+              day: dayName,
+              branch,
+              year,
+              section,
+              subject,
+              room,
+              semester,
+              startTime,
+              endTime,
+              faculty
+          });
 
-            // Add section and period to faculty without duplicates
-            if (faculty) {
-                await Faculty.findByIdAndUpdate(faculty, {
-                    $addToSet: { 
-                        sections: section,
-                        periods: period._id
-                    }
-                });
-            }
-        }
+          let period = await newPeriod.save();
+          period = await period.populate('subject faculty');
+          periods.push(period._id);
 
-        // Find or create timetable and add periods without duplicates
-        let timetable = await Timetable.findOne({ year, branch, section, semester });
-        if (!timetable) {
-            timetable = new Timetable({ year, branch, section, semester, periods: [] });
-        }
+          // Add section and period to faculty without duplicates
+          if (faculty) {
+              await Faculty.findByIdAndUpdate(faculty, {
+                  $addToSet: { 
+                      sections: section,
+                      periods: period._id
+                  }
+              });
 
-        // Add periods to timetable without duplicates
-        await Timetable.findByIdAndUpdate(timetable._id, {
-            $addToSet: { periods: { $each: periods } }
-        });
+              // Update Section's facultySubjects array using filtered update
+              await updateSectionFacultySubjects(section, faculty, subject, semester);
+          }
+      }
 
-        // Update Section's facultySubjects array without duplicates
-        if (faculty && subject) {
-            await Section.findByIdAndUpdate(section, {
-                $addToSet: {
-                    facultySubjects: {
-                        faculty,
-                        subject,
-                        semester
-                    }
-                }
-            });
-        }
+      // Find or create timetable and add periods without duplicates
+      let timetable = await Timetable.findOne({ year, branch, section, semester });
+      if (!timetable) {
+          timetable = new Timetable({ year, branch, section, semester, periods: [] });
+      }
 
-        req.flash('success', 'Period(s) added successfully');
-        res.json({ success: true, periods: periods });
-    } catch (error) {
-        console.error('Error adding period:', error);
-        req.flash('error', 'Error adding period');
-        res.json({ success: false, error: error.message });
-    }
+      // Add periods to timetable without duplicates
+      await Timetable.findByIdAndUpdate(timetable._id, {
+          $addToSet: { periods: { $each: periods } }
+      });
+
+      req.flash('success', 'Period(s) added successfully');
+      res.json({ success: true, periods: periods });
+  } catch (error) {
+      console.error('Error adding period:', error);
+      req.flash('error', 'Error adding period');
+      res.json({ success: false, error: error.message });
+  }
 });
 
+// Helper function to update facultySubjects without duplicates
+async function updateSectionFacultySubjects(sectionId, facultyId, subjectId, semesterId) {
+  try {
+    
+      // First, check if the combination already exists
+      const section = await Section.findOne({
+          _id: sectionId,
+          facultySubjects: {
+              $elemMatch: {
+                  faculty: facultyId,
+                  subject: subjectId,
+                  semester: semesterId
+              }
+          }
+      });
+
+      // If combination doesn't exist, add it
+      if (!section) {
+          await Section.findByIdAndUpdate(sectionId, {
+              $push: {
+                  facultySubjects: {
+                      faculty: facultyId,
+                      subject: subjectId,
+                      semester: semesterId
+                  }
+              }
+          });
+      }
+  } catch (error) {
+      console.error('Error updating faculty subjects:', error);
+      throw error;
+  }
+}
+
 router.put('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
-    let { 
-        hour, 
-        day, 
-        branch, 
-        year, 
-        section, 
-        semester, 
-        startTime, 
-        endTime, 
-        batch, 
-        subject: subjectId, 
-        faculty: newFacultyId, 
-        room,
-        specialPeriod 
-    } = req.body;
+  let { 
+      hour, 
+      day, 
+      branch, 
+      year, 
+      section, 
+      semester, 
+      startTime, 
+      endTime, 
+      batch, 
+      subject: subjectId, 
+      faculty: newFacultyId, 
+      room,
+      specialPeriod 
+  } = req.body;
 
-    try {
-        const oldPeriod = await Period.findById(req.params.id);
-        if (!oldPeriod) {
-            return res.status(404).json({ success: false, message: 'Period not found' });
-        }
+  try {
+      const oldPeriod = await Period.findById(req.params.id);
+      if (!oldPeriod) {
+          return res.status(404).json({ success: false, message: 'Period not found' });
+      }
 
-        const oldFacultyId = oldPeriod.faculty;
-        const oldSubjectId = oldPeriod.subject;
-        const oldSemesterId = oldPeriod.semester;
+      const oldFacultyId = oldPeriod.faculty;
+      const oldSubjectId = oldPeriod.subject;
+      const oldSemesterId = oldPeriod.semester;
 
-        const daysEnum = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        if (day < 1 || day > daysEnum.length) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid day number. Must be between 1 and 7.' 
-            });
-        }
-        const dayString = daysEnum[day-1];
-        hour--;
+      const daysEnum = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      if (day < 1 || day > daysEnum.length) {
+          return res.status(400).json({ 
+              success: false, 
+              message: 'Invalid day number. Must be between 1 and 7.' 
+          });
+      }
+      const dayString = daysEnum[day-1];
+      hour--;
 
-        // Update the period
-        const updatedPeriod = await Period.findByIdAndUpdate(
-            req.params.id,
-            {
-                hour,
-                day: dayString,
-                branch,
-                year,
-                section,
-                semester,
-                startTime,
-                endTime,
-                subject: subjectId,
-                faculty: newFacultyId,
-                room,
-                batch,
-                specialPeriod
-            },
-            { new: true, runValidators: true }
-        );
+      // Update the period
+      const updatedPeriod = await Period.findByIdAndUpdate(
+          req.params.id,
+          {
+              hour,
+              day: dayString,
+              branch,
+              year,
+              section,
+              semester,
+              startTime,
+              endTime,
+              subject: subjectId,
+              faculty: newFacultyId,
+              room,
+              batch,
+              specialPeriod
+          },
+          { new: true, runValidators: true }
+      );
 
-        // Handle faculty sections and periods updates
-        if (oldFacultyId) {
-            // Remove period from old faculty's periods array
-            await Faculty.findByIdAndUpdate(oldFacultyId, {
-                $pull: { periods: req.params.id }
-            });
+      // Handle faculty sections and periods updates
+      if (oldFacultyId) {
+          // Remove period from old faculty's periods array
+          await Faculty.findByIdAndUpdate(oldFacultyId, {
+              $pull: { periods: req.params.id }
+          });
 
-            // Check if faculty still has other periods in this section
-            const oldFacultyPeriodsInSection = await Period.countDocuments({ 
-                faculty: oldFacultyId, 
-                section: section 
-            });
+          // Check if faculty still has other periods in this section
+          const oldFacultyPeriodsInSection = await Period.countDocuments({ 
+              faculty: oldFacultyId, 
+              section: section,
+              _id: { $ne: req.params.id } // Exclude current period
+          });
 
-            if (oldFacultyPeriodsInSection === 0) {
-                await Faculty.findByIdAndUpdate(oldFacultyId, {
-                    $pull: { sections: section }
-                });
-            }
-        }
+          if (oldFacultyPeriodsInSection === 0) {
+              await Faculty.findByIdAndUpdate(oldFacultyId, {
+                  $pull: { sections: section }
+              });
+          }
+      }
 
-        // Add to new faculty
-        if (newFacultyId) {
-            await Faculty.findByIdAndUpdate(newFacultyId, {
-                $addToSet: { 
-                    sections: section,
-                    periods: updatedPeriod._id
-                }
-            });
-        }
+      // Add to new faculty
+      if (newFacultyId) {
+          await Faculty.findByIdAndUpdate(newFacultyId, {
+              $addToSet: { 
+                  sections: section,
+                  periods: updatedPeriod._id
+              }
+          });
+      }
 
-        // Update section's facultySubjects
-        if (section && oldFacultyId && oldSubjectId && oldSemesterId) {
-            const oldFacultySubjectPeriods = await Period.countDocuments({ 
-                faculty: oldFacultyId, 
-                subject: oldSubjectId, 
-                section: section,
-                semester: oldSemesterId 
-            });
+      // Update section's facultySubjects
+      if (section && oldFacultyId && oldSubjectId && oldSemesterId) {
+          // Check if the old faculty-subject combination is still used in other periods
+          const oldFacultySubjectPeriods = await Period.countDocuments({ 
+              faculty: oldFacultyId, 
+              subject: oldSubjectId, 
+              section: section,
+              semester: oldSemesterId,
+              _id: { $ne: req.params.id } // Exclude current period
+          });
 
-            if (oldFacultySubjectPeriods === 0) {
-                await Section.findByIdAndUpdate(section, {
-                    $pull: {
-                        facultySubjects: {
-                            faculty: oldFacultyId,
-                            subject: oldSubjectId,
-                            semester: oldSemesterId
-                        }
-                    }
-                });
-            }
-        }
+          if (oldFacultySubjectPeriods === 0) {
+              // Remove old faculty-subject combination if no other periods use it
+              await Section.findByIdAndUpdate(section, {
+                  $pull: {
+                      facultySubjects: {
+                          faculty: oldFacultyId,
+                          subject: oldSubjectId,
+                          semester: oldSemesterId
+                      }
+                  }
+              });
+          }
+      }
 
-        // Add new faculty-subject combination if doesn't exist
-        if (section && newFacultyId && subjectId && semester) {
-            await Section.findByIdAndUpdate(section, {
-                $addToSet: {
-                    facultySubjects: {
-                        faculty: newFacultyId,
-                        subject: subjectId,
-                        semester: semester
-                    }
-                }
-            });
-        }
+      // Add new faculty-subject combination if it doesn't exist
+      if (section && newFacultyId && subjectId && semester) {
+          // Check if combination already exists
+          const sectionDoc = await Section.findOne({
+              _id: section,
+              facultySubjects: {
+                  $elemMatch: {
+                      faculty: newFacultyId,
+                      subject: subjectId,
+                      semester: semester
+                  }
+              }
+          });
 
-        res.json({ 
-            success: true, 
-            message: 'Period updated successfully',
-            period: updatedPeriod 
-        });
+          if (!sectionDoc) {
+              await Section.findByIdAndUpdate(section, {
+                  $addToSet: {
+                      facultySubjects: {
+                          faculty: newFacultyId,
+                          subject: subjectId,
+                          semester: semester
+                      }
+                  }
+              });
+          }
+      }
 
-    } catch (error) {
-        console.error('Error updating period:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error updating period',
-            error: error.message 
-        });
-    }
+      res.json({ 
+          success: true, 
+          message: 'Period updated successfully',
+          period: updatedPeriod 
+      });
+
+  } catch (error) {
+      console.error('Error updating period:', error);
+      res.status(500).json({ 
+          success: false, 
+          message: 'Error updating period',
+          error: error.message 
+      });
+  }
 });
 
 router.delete('/timetable/period/:id', isAdminLoggedIn, async (req, res) => {
-    try {
-        const period = await Period.findById(req.params.id);
-        if (!period) {
-            return res.json({ success: false, message: 'Period not found' });
-        }
+  try {
+      const period = await Period.findById(req.params.id);
+      if (!period) {
+          return res.json({ success: false, message: 'Period not found' });
+      }
 
-        const { faculty, subject, section, semester } = period;
+      const { faculty, subject, section, semester } = period;
 
-        // Remove period from faculty's periods array
-        if (faculty) {
-            await Faculty.findByIdAndUpdate(faculty, {
-                $pull: { periods: period._id }
-            });
+      // Remove period from faculty's periods array
+      if (faculty) {
+          await Faculty.findByIdAndUpdate(faculty, {
+              $pull: { periods: period._id }
+          });
 
-            // Check if faculty still has other periods in this section
-            const facultyPeriodsInSection = await Period.countDocuments({ 
-                faculty: faculty, 
-                section: section 
-            });
+          // Check if faculty still has other periods in this section
+          const facultyPeriodsInSection = await Period.countDocuments({ 
+              faculty: faculty, 
+              section: section,
+              _id: { $ne: period._id } // Exclude current period
+          });
 
-            if (facultyPeriodsInSection === 1) { // 1 because current period isn't deleted yet
-                await Faculty.findByIdAndUpdate(faculty, {
-                    $pull: { sections: section }
-                });
-            }
-        }
+          if (facultyPeriodsInSection === 0) {
+              await Faculty.findByIdAndUpdate(faculty, {
+                  $pull: { sections: section }
+              });
+          }
+      }
 
-        // Remove from timetable
-        await Timetable.updateMany(
-            { periods: period._id },
-            { $pull: { periods: period._id } }
-        );
+      // Remove from timetable
+      await Timetable.updateMany(
+          { periods: period._id },
+          { $pull: { periods: period._id } }
+      );
 
-        // Check and update facultySubjects in section
-        if (faculty && subject && section && semester) {
-            const facultySubjectPeriods = await Period.countDocuments({ 
-                faculty, 
-                subject, 
-                section,
-                semester,
-                _id: { $ne: period._id } // Exclude current period
-            });
+      // Check and update facultySubjects in section
+      if (faculty && subject && section && semester) {
+          const facultySubjectPeriods = await Period.countDocuments({ 
+              faculty, 
+              subject, 
+              section,
+              semester,
+              _id: { $ne: period._id } // Exclude current period
+          });
 
-            if (facultySubjectPeriods === 0) {
-                await Section.findByIdAndUpdate(section, {
-                    $pull: {
-                        facultySubjects: {
-                            faculty,
-                            subject,
-                            semester
-                        }
-                    }
-                });
-            }
-        }
+          if (facultySubjectPeriods === 0) {
+              await Section.findByIdAndUpdate(section, {
+                  $pull: {
+                      facultySubjects: {
+                          faculty,
+                          subject,
+                          semester
+                      }
+                  }
+              });
+          }
+      }
 
-        // Finally delete the period
-        await Period.findByIdAndDelete(period._id);
+      // Finally delete the period
+      await Period.findByIdAndDelete(period._id);
 
-        res.json({ success: true, message: 'Period deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting period:', error);
-        res.json({ success: false, message: 'Error deleting period' });
-    }
+      res.json({ success: true, message: 'Period deleted successfully' });
+  } catch (error) {
+      console.error('Error deleting period:', error);
+      res.json({ success: false, message: 'Error deleting period' });
+  }
 });
 
 router.get('/timetables', async (req, res) => {
@@ -2585,50 +3492,6 @@ router.get('/section', async (req, res) => {
       res.status(500).send('Server Error');
   }
 });
-
-// router.get('/attendance', async (req, res) => {
-//   // const { student, subject, date, status, period, branch, section, semester, year } = req.query;
-
-//   // let filter = {};
-//   // if (student) filter.student = student;
-//   // if (subject) filter.subject = subject;
-//   // if (date) filter.date = new Date(date);
-//   // if (status !== undefined) filter.status = status.toLowerCase() === 'present';
-//   // if (period) filter.period = period;
-//   // if (branch) filter.branch = branch;
-//   // if (section) filter.section = section;
-//   // if (semester) filter.semester = semester;
-//   // if (year) filter.year = year;
-
-//   try {
-//     // const attendances = await Attendance.find(filter)
-//     //   .populate('student subject branch section semester year');
-//     // res.render('admin/attendance/attendance', { attendances });
-//     res.render('admin/attendance/attendance');
-//   } catch (error) {
-//     console.error('Error fetching attendances:', error);
-//     req.flash('error', 'Error fetching attendances');
-//     res.redirect('/admin');
-//   }
-// });
-
-// // Handle attendance submission
-// router.post('/attendance', isAdminLoggedIn, async (req, res) => {
-//   const { attendance } = req.body; // attendance should be an array of { studentId, status }
-//   try {
-//     for (let entry of attendance) {
-//       await Attendance.create({
-//         student: entry.studentId,
-//         status: entry.status
-//       });
-//     }
-//     req.flash('success', 'Attendance recorded successfully');
-//     res.redirect('/admin/attendance');
-//   } catch (err) {
-//     req.flash('error', 'Error recording attendance');
-//     res.redirect('/admin/attendance');
-//   }
-// });
 
 router.get("/section/new",async(req,res)=>{
   let sections=await Section.find({});
@@ -3150,5 +4013,78 @@ router.get('/attendance/api/load-semesters/:yearId', isAdminLoggedIn, attendance
 router.get('/attendance/api/load-sections/:branchId', isAdminLoggedIn, attendanceController.loadSections);
 router.get('/attendance/api/load-subjects/:sectionId', isAdminLoggedIn, attendanceController.loadSubjects);
 
-module.exports = router;
+router.get('/cleanup-faculty-subjects', isAdminLoggedIn, async (req, res) => {
+  try {
+      const { sectionId } = req.body;
+      if (sectionId) {
+          await removeDuplicateFacultySubjects(sectionId);
+      } else {
+          await cleanupAllSections();
+      }
+      res.json({ success: true, message: 'Cleanup completed successfully' });
+  } catch (error) {
+      console.error('Cleanup failed:', error);
+      res.status(500).json({ success: false, error: error.message });
+  }
+});
+// Add this function to your codebase (e.g., in a utils file or directly in your routes)
+async function removeDuplicateFacultySubjects(sectionId) {
+  try {
+      // First get the section
+      const section = await Section.findById(sectionId);
+      if (!section) {
+          throw new Error('Section not found');
+      }
+
+      // Create a map to track unique combinations
+      const uniqueCombinations = new Map();
+      
+      // Filter out duplicates while keeping the first occurrence
+      const uniqueFacultySubjects = section.facultySubjects.filter(item => {
+          // Create a unique key for each combination
+          const key = `${item.faculty}-${item.subject}-${item.semester}`;
+          
+          // If we haven't seen this combination before, keep it
+          if (!uniqueCombinations.has(key)) {
+              uniqueCombinations.set(key, true);
+              return true;
+          }
+          return false;
+      });
+
+      // Update the section with unique combinations
+      await Section.findByIdAndUpdate(sectionId, {
+          $set: { facultySubjects: uniqueFacultySubjects }
+      });
+
+      console.log(`Successfully removed duplicate faculty subjects for section ${sectionId}`);
+      return uniqueFacultySubjects;
+  } catch (error) {
+      console.error('Error removing duplicate faculty subjects:', error);
+      throw error;
+  }
+}
+
+// You can call it like this:
+async function cleanup() {
+  try {
+      await removeDuplicateFacultySubjects("670107c163f5a385cdd1cba7");
+      console.log('Cleanup completed successfully');
+  } catch (error) {
+      console.error('Cleanup failed:', error);
+  }
+}
+
+// If you want to clean up all sections at once:
+async function cleanupAllSections() {
+  try {
+      const sections = await Section.find({});
+      for (const section of sections) {
+          await removeDuplicateFacultySubjects(section._id);
+      }
+      console.log('All sections cleaned up successfully');
+  } catch (error) {
+      console.error('Cleanup failed:', error);
+  }
+}
 module.exports = router;

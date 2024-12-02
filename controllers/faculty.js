@@ -73,12 +73,20 @@ module.exports.renderDownloadForm = async (req, res) => {
     try {
         // Find the section by ID, populating the required fields
         const section = await Section.findById(sectionId)
-                            .populate('year') // Populate the academic year
-                            .populate('currentSemester') // Populate the current semester
-                            .populate('branch') // Populate the branch details
-                            .populate('students.student') // Populate student details
-                            .populate('facultySubjects.faculty') // Populate faculty details in facultySubjects
-                            .populate('facultySubjects.subject'); // Populate subject details in facultySubjects
+            .populate('branch')
+            .populate('currentSemester')
+            .populate({
+                path: 'students.student',
+                select: 'name rollNo email'
+            })
+            .populate({
+                path: 'facultySubjects.subject',
+                select: 'name code'
+            })
+            .populate({
+                path: 'facultySubjects.faculty',
+                select: 'name'
+            });
 
 
         // If the section is not found, redirect with an error message
@@ -86,9 +94,11 @@ module.exports.renderDownloadForm = async (req, res) => {
             req.flash("error", "Section not found.");
             return res.redirect('/faculty/dashboard');
         }
+        
+        let currentUser=req.user;
 
         // Render the form with the section data
-        res.render("faculty/download.ejs", { section });
+        res.render("faculty/download.ejs", { section,currentUser });
     } catch (err) {
         console.error(err);
         req.flash("error", "Cannot load the download form.");
@@ -209,56 +219,72 @@ module.exports.markAttendance = async (req, res) => {
             return res.status(400).send('Section is required');
         }
 
-        // Fetch the section with populated students and their batches
+        // Fetch the section with populated students
         const sectionData = await Section.findById(section)
-            .populate('students.student') // Populate the student field in students array
-            .populate('students.batch')   // Populate the batch field in students array
+            .populate('students.student')
+            .populate('students.batch')
             .populate('branch');
 
-        if (!sectionData) {
-            return res.status(404).send('Section not found');
-        }
-
         // Map students with their batch and section info
-        let students = sectionData.students.map(s => ({
-            _id: s.student._id,
-            username: s.student.username,
-            name: s.student.name,
-            batch: s.batch ? s.batch.name : null,
-            section: sectionData.name,  // Accessing section name from sectionData
-            batchId: s.batch ? s.batch._id : null
-        }));
+        let students = sectionData.students
+            .filter(s => s.status === 'active' && s.student)
+            .map(s => ({
+                _id: s.student._id,
+                username: s.student.username,
+                name: s.student.name,
+                batch: s.batch ? s.batch.name : null,
+                section: sectionData.name,
+                batchId: s.batch ? s.batch._id : null
+            }));
+            //console.log("Students before batch filtering:", students);
 
-        // Filter students by the selected batch
-        if (batch) {
-            students = students.filter(s => s.batchId && s.batchId.toString() === batch.toString());
+        // Handle batch filtering
+        if (batch && batch !== 'undefined' && batch.trim() !== '') {
+            console.log("Filtering by batch:", batch);
+            
+            // Convert the batch string to ObjectId
+            const batchObjectId = new mongoose.Types.ObjectId(batch.trim());
+            
+            // Filter students
+            students = students.filter(student => {
+                if (!student.batchId) return false;
+                
+                // Convert student's batchId to string for comparison
+                const studentBatchIdStr = student.batchId.toString();
+                const filterBatchIdStr = batchObjectId.toString();
+                
+                return studentBatchIdStr === filterBatchIdStr;
+            });
+            // Add these logs to debug the filtering process
+            console.log("Input batch ID:", batch);
+            console.log("Converted batch ObjectId:", batchObjectId.toString());
+            console.log("All student batch IDs:", students.map(s => s.batchId?.toString()));
+            console.log("Filtered students:", students.length);
+
+            //console.log("Students after batch filtering:", students);
         }
 
-        console.log("Filtered students for batch:", batch, students);
-
-        // Ensure periods are in array form and deduplicated
+        // Ensure periods are in array form
         let uniquePeriods = Array.isArray(periods) ? periods : (periods ? periods.split(',') : []);
         uniquePeriods = [...new Set(uniquePeriods)];
 
-        console.log("Unique periods:", uniquePeriods);
-
-        // Render with sectionData directly to access `name`
         res.render('faculty/markAttendance', {
             date,
-            sectionData, // Passing the full sectionData
+            sectionData,
             acYear,
             program,
             branch,
             sem,
-            selectedBatch: batch,
+            batch,
             periods: uniquePeriods,
             students,
             subject,
             period,
             periodsMatched
         });
+
     } catch (err) {
-        console.error(err);
+        console.error("Error in markAttendance:", err);
         res.status(500).send('Server Error');
     }
 };
@@ -303,10 +329,12 @@ module.exports.renderEnterMarks = async (req, res) => {
             req.flash('error', 'No subjects found for this section and semester.');
             return res.redirect('/faculty/dashboard');
         }
+        let currentUser=req.user;
 
         // Render the 'enterMarks' page with section and faculty's subjects
         res.render('faculty/enterMarks', {
             section,
+            currentUser,
             facultySubjects
         });
     } catch (error) {

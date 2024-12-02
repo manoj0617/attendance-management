@@ -46,6 +46,19 @@
                         </div>
                     </div>
 
+                    <!-- New Subject Dropdown -->
+                    <div id="subjectSelector" class="form-group" style="display: none;">
+                        <label for="selectedSubject">Select Subject</label>
+                        <select id="selectedSubject" name="selectedSubject" class="form-control">
+                            <option value="all">All Subjects</option>
+                            <% section.facultySubjects.forEach(function(subj) { %>
+                                <% if (subj.faculty._id.toString() === currentUser._id.toString()) { %>
+                                    <option value="<%= subj.subject._id %>"><%= subj.subject.name %></option>
+                                <% } %>
+                            <% }); %>
+                        </select>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label for="fromDate">From Date</label>
@@ -106,6 +119,17 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            const subjectSelector = document.getElementById('subjectSelector');
+            const reportTypeInputs = document.querySelectorAll('input[name="reportType"]');
+
+            // Handle report type selection
+            reportTypeInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    subjectSelector.style.display = 
+                        this.value === 'cumulative-subject' ? 'block' : 'none';
+                });
+            });
+
             // Handle percentage criteria selection
             document.getElementById('percentageCriteria').addEventListener('change', function() {
                 document.getElementById('otherCriteria').style.display = 
@@ -143,126 +167,125 @@
                     }
                 });
             });
-            // Complete the EJS template first
-function createTable(data, reportType) {
-    if (!data.length) return '';
 
-    let tableHTML = '<table class="table table-bordered table-striped"><thead><tr>';
-    
-    // Common columns
-    tableHTML += '<th>Roll No</th><th>Name</th>';
-    
-    if (reportType === 'cumulative-subject') {
-        // Get unique subjects
-        const subjects = Object.keys(data[0].subjects || {});
-        
-        // Add subject columns (TC and TA for each)
-        subjects.forEach(subject => {
-            tableHTML += `<th colspan="2">${subject}</th>`;
-        });
-        
-        // Add total columns
-        tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
-        
-        // Add TC/TA subheaders for each subject
-        subjects.forEach(() => {
-            tableHTML += '<th>TC</th><th>TA</th>';
-        });
-        
-        // Add TC/TA subheaders for total
-        tableHTML += '<th>TC</th><th>TA</th>';
-        
-    } else if (reportType === 'cumulative-monthly') {
-        // Get unique months from the data
-        const months = data[0].months.map(m => m.month);
-        
-        // Add month columns (TC and TA for each)
-        months.forEach(month => {
-            tableHTML += `<th colspan="2">${month}</th>`;
-        });
-        
-        // Add total columns
-        tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
-        
-        // Add TC/TA subheaders for each month
-        months.forEach(() => {
-            tableHTML += '<th>TC</th><th>TA</th>';
-        });
-        
-        // Add TC/TA subheaders for total
-        tableHTML += '<th>TC</th><th>TA</th>';
-    }
-    
-    tableHTML += '</tr></thead><tbody>';
-    
-    // Add data rows
-    data.forEach(record => {
-        tableHTML += `<tr><td>${record.rollNo}</td><td>${record.studentName}</td>`;
-        
-        if (reportType === 'cumulative-subject') {
-            Object.values(record.subjects).forEach(subject => {
-                tableHTML += `<td>${subject.TC}</td><td>${subject.TA}</td>`;
+            function createTable(data, reportType) {
+                if (!data.length) return '';
+
+                let tableHTML = '<table class="table table-bordered table-striped"><thead><tr>';
+                
+                // Common columns
+                tableHTML += '<th>Roll No</th><th>Name</th>';
+                
+                if (reportType === 'cumulative-subject') {
+                    // Get unique subjects
+                    const subjects = Object.keys(data[0].subjects || {});
+                    
+                    // Add subject columns (TC and TA for each)
+                    subjects.forEach(subject => {
+                        tableHTML += `<th colspan="2">${subject}</th>`;
+                    });
+                    
+                    // Add total columns
+                    tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
+                    
+                    // Add TC/TA subheaders for each subject
+                    subjects.forEach(() => {
+                        tableHTML += '<th>TC</th><th>TA</th>';
+                    });
+                    
+                    // Add TC/TA subheaders for total
+                    tableHTML += '<th>TC</th><th>TA</th>';
+                    
+                } else if (reportType === 'cumulative-monthly') {
+                    // Get unique months from the data
+                    const months = data[0].months.map(m => m.month);
+                    
+                    // Add month columns (TC and TA for each)
+                    months.forEach(month => {
+                        tableHTML += `<th colspan="2">${month}</th>`;
+                    });
+                    
+                    // Add total columns
+                    tableHTML += '<th colspan="2">Total</th></tr><tr><th colspan="2"></th>';
+                    
+                    // Add TC/TA subheaders for each month
+                    months.forEach(() => {
+                        tableHTML += '<th>TC</th><th>TA</th>';
+                    });
+                    
+                    // Add TC/TA subheaders for total
+                    tableHTML += '<th>TC</th><th>TA</th>';
+                }
+                
+                tableHTML += '</tr></thead><tbody>';
+                
+                // Add data rows
+                data.forEach(record => {
+                    tableHTML += `<tr><td>${record.rollNo}</td><td>${record.studentName}</td>`;
+                    
+                    if (reportType === 'cumulative-subject') {
+                        Object.values(record.subjects).forEach(subject => {
+                            tableHTML += `<td>${subject.TC}</td><td>${subject.TA}</td>`;
+                        });
+                        tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
+                        
+                    } else if (reportType === 'cumulative-monthly') {
+                        record.months.forEach(month => {
+                            tableHTML += `<td>${month.TC}</td><td>${month.TA}</td>`;
+                        });
+                        tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
+                    }
+                    
+                    tableHTML += '</tr>';
+                });
+                
+                tableHTML += '</tbody></table>';
+                return tableHTML;
+            }
+
+            // Add validation for the form
+            document.querySelector('form').addEventListener('submit', function(e) {
+                const fromDate = new Date(document.getElementById('fromDate').value);
+                const toDate = new Date(document.getElementById('toDate').value);
+                
+                if (fromDate > toDate) {
+                    e.preventDefault();
+                    alert('From Date cannot be greater than To Date');
+                    return false;
+                }
+                
+                const percentageCriteria = document.getElementById('percentageCriteria').value;
+                if (percentageCriteria === 'other') {
+                    const value1 = parseFloat(document.getElementById('percentageValue').value);
+                    const value2 = parseFloat(document.getElementById('percentageValue2').value);
+                    const condition = document.getElementById('otherCondition').value;
+                    
+                    if (condition === 'between' && (isNaN(value1) || isNaN(value2) || value1 > value2)) {
+                        e.preventDefault();
+                        alert('Please enter valid percentage values for the between condition');
+                        return false;
+                    }
+                    
+                    if (!condition === 'between' && isNaN(value1)) {
+                        e.preventDefault();
+                        alert('Please enter a valid percentage value');
+                        return false;
+                    }
+                }
             });
-            tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
+
+            // Add date range restrictions based on semester dates
+            const semesterStartDate = new Date('<%= section.currentSemester.startDate %>');
+            const semesterEndDate = new Date('<%= section.currentSemester.endDate %>');
             
-        } else if (reportType === 'cumulative-monthly') {
-            record.months.forEach(month => {
-                tableHTML += `<td>${month.TC}</td><td>${month.TA}</td>`;
-            });
-            tableHTML += `<td>${record.totalTC}</td><td>${record.totalTA}</td>`;
-        }
-        
-        tableHTML += '</tr>';
-    });
-    
-    tableHTML += '</tbody></table>';
-    return tableHTML;
-}
-
-// Add validation for the form
-document.querySelector('form').addEventListener('submit', function(e) {
-    const fromDate = new Date(document.getElementById('fromDate').value);
-    const toDate = new Date(document.getElementById('toDate').value);
-    
-    if (fromDate > toDate) {
-        e.preventDefault();
-        alert('From Date cannot be greater than To Date');
-        return false;
-    }
-    
-    const percentageCriteria = document.getElementById('percentageCriteria').value;
-    if (percentageCriteria === 'other') {
-        const value1 = parseFloat(document.getElementById('percentageValue').value);
-        const value2 = parseFloat(document.getElementById('percentageValue2').value);
-        const condition = document.getElementById('otherCondition').value;
-        
-        if (condition === 'between' && (isNaN(value1) || isNaN(value2) || value1 > value2)) {
-            e.preventDefault();
-            alert('Please enter valid percentage values for the between condition');
-            return false;
-        }
-        
-        if (!condition === 'between' && isNaN(value1)) {
-            e.preventDefault();
-            alert('Please enter a valid percentage value');
-            return false;
-        }
-    }
-});
-
-// Add date range restrictions based on semester dates
-document.addEventListener('DOMContentLoaded', function() {
-    const semesterStartDate = new Date('<%= section.currentSemester.startDate %>');
-    const semesterEndDate = new Date('<%= section.currentSemester.endDate %>');
-    
-    const fromDateInput = document.getElementById('fromDate');
-    const toDateInput = document.getElementById('toDate');
-    
-    fromDateInput.min = semesterStartDate.toISOString().split('T')[0];
-    fromDateInput.max = semesterEndDate.toISOString().split('T')[0];
-    toDateInput.min = semesterStartDate.toISOString().split('T')[0];
-    toDateInput.max = semesterEndDate.toISOString().split('T')[0];
-});
+            const fromDateInput = document.getElementById('fromDate');
+            const toDateInput = document.getElementById('toDate');
+            
+            fromDateInput.min = semesterStartDate.toISOString().split('T')[0];
+            fromDateInput.max = semesterEndDate.toISOString().split('T')[0];
+            toDateInput.min = semesterStartDate.toISOString().split('T')[0];
+            toDateInput.max = semesterEndDate.toISOString().split('T')[0];
         });
-</script>
+    </script>
 </body>
+</html>
